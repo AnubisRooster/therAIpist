@@ -68,12 +68,21 @@ actor ChatService {
         )
 
         let model = session.resolvedModel
+        let provider = session.resolvedProvider
+
+        // Pre-warm the local engine if this session uses it.
+        if provider == "local" {
+            let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            let filePath = docs.appendingPathComponent("models/\(model).gguf")
+            await LocalLLMEngine.shared.loadModel(id: model, url: filePath)
+        }
 
         let assistantResponse: String
         let tokenCount: Int
 
         do {
             assistantResponse = try await llm.sendMessage(
+                provider: provider,
                 model: model,
                 messages: llmMessages
             )

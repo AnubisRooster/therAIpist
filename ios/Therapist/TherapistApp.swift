@@ -24,8 +24,9 @@ struct TherapistApp: App {
 
 /// Root routing: onboarding (first launch) → PIN → main app.
 struct AppRootView: View {
-    @StateObject private var modelService  = ModelService()
-    @StateObject private var speechService = SpeechService.shared
+    @StateObject private var modelService      = ModelService()
+    @StateObject private var speechService     = SpeechService.shared
+    @StateObject private var localModelService = LocalModelService.shared
 
     @AppStorage("openrouter_key")      private var openrouterKey      = ""
     @AppStorage("default_model")       private var defaultModel       = "meta-llama/llama-3.2-1b-instruct:free"
@@ -43,9 +44,11 @@ struct AppRootView: View {
                 ContentView()
                     .environmentObject(modelService)
                     .environmentObject(speechService)
+                    .environmentObject(localModelService)
                     .task {
                         await LLMService.shared.configure(apiKey: openrouterKey, defaultModel: defaultModel)
                         await modelService.refreshIfNeeded(apiKey: openrouterKey)
+                        localModelService.refreshDownloadedStatus()
                     }
                     .onChange(of: openrouterKey) { _, newKey in
                         Task {

@@ -1,7 +1,7 @@
 import Foundation
 
-/// OpenRouter-backed chat completion client. The app is OpenRouter-only; the
-/// `provider` parameter is retained for call-site compatibility but ignored.
+/// Single chokepoint for all LLM inference in the app.
+/// Routes to OpenRouter (cloud) or LocalLLMEngine (on-device) based on `provider`.
 actor LLMService {
     static let shared = LLMService()
 
@@ -15,7 +15,10 @@ actor LLMService {
     }
 
     func sendMessage(provider: String = "openrouter", model: String, messages: [LLMMessage]) async throws -> String {
-        try await callOpenRouter(model: model.isEmpty ? defaultModel : model, messages: messages)
+        if provider == "local" {
+            return try await LocalLLMEngine.shared.generate(modelID: model, messages: messages)
+        }
+        return try await callOpenRouter(model: model.isEmpty ? defaultModel : model, messages: messages)
     }
 
     func sendJSONQuery(provider: String = "openrouter", model: String, systemPrompt: String, userMessage: String) async throws -> String {
@@ -23,7 +26,7 @@ actor LLMService {
             LLMMessage(role: "system", content: "\(systemPrompt)\n\nRespond with valid JSON only, no markdown."),
             LLMMessage(role: "user", content: userMessage),
         ]
-        let raw = try await sendMessage(model: model, messages: messages)
+        let raw = try await sendMessage(provider: provider, model: model, messages: messages)
         return stripCodeFences(raw)
     }
 
@@ -56,7 +59,6 @@ actor LLMService {
     private func stripCodeFences(_ text: String) -> String {
         var t = text.trimmingCharacters(in: .whitespacesAndNewlines)
         if t.hasPrefix("```") {
-            // Drop the opening fence (optionally ```json) and the trailing fence.
             if let firstNewline = t.firstIndex(of: "\n") {
                 t = String(t[t.index(after: firstNewline)...])
             }
@@ -71,11 +73,19 @@ actor LLMService {
 enum LLMError: LocalizedError {
     case noAPIKey
     case apiError(String)
+    case localModelNotDownloaded
+    case localModelLoadFailed
 
     var errorDescription: String? {
         switch self {
-        case .noAPIKey: return "OpenRouter API key not configured. Add it in Settings."
-        case .apiError(let msg): return "API error: \(msg)"
+        case .noAPIKey:
+            return "OpenRouter API key not configured. Add it in Settings."
+        case .apiError(let msg):
+            return "API error: \(msg)"
+        case .localModelNotDownloaded:
+            return "No local model downloaded. Visit Settings → On-Device Models to download one."
+        case .localModelLoadFailed:
+            return "Failed to load the local model. Try deleting and re-downloading it."
         }
     }
 }

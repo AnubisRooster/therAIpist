@@ -3,8 +3,9 @@ import SwiftData
 
 struct ContentView: View {
     @Environment(\.modelContext) private var context
-    @EnvironmentObject private var modelService: ModelService
-    @EnvironmentObject private var speechService: SpeechService
+    @EnvironmentObject private var modelService:      ModelService
+    @EnvironmentObject private var speechService:     SpeechService
+    @EnvironmentObject private var localModelService: LocalModelService
     @Query(sort: \SessionModel.updatedAt, order: .reverse) private var sessions: [SessionModel]
     @State private var showNewSession = false
     @State private var showSettings = false
@@ -29,8 +30,8 @@ struct ContentView: View {
                                 Label(session.modality.capitalized, systemImage: modalityIcon(session.modality))
                                     .font(.caption)
                                     .foregroundColor(.secondary)
-                                Label(session.resolvedModel.components(separatedBy: "/").last ?? session.resolvedModel,
-                                      systemImage: "cpu")
+                                Label(session.modelLabel,
+                                      systemImage: session.resolvedProvider == "local" ? "cpu" : "cloud")
                                     .font(.caption)
                                     .foregroundColor(.secondary)
                                     .lineLimit(1)
@@ -68,6 +69,7 @@ struct ContentView: View {
                 SettingsView()
                     .environmentObject(modelService)
                     .environmentObject(speechService)
+                    .environmentObject(localModelService)
             }
             .sheet(isPresented: $showDashboard) {
                 DashboardView()

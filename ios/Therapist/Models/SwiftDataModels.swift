@@ -37,13 +37,35 @@ final class SessionModel {
 }
 
 extension SessionModel {
-    /// The model actually used for inference: the session's chosen model, then
-    /// the app-wide default, then a sensible free fallback.
+    /// The provider actually used for inference.
+    /// Falls back to the app-wide default, then "openrouter".
+    var resolvedProvider: String {
+        if !provider.isEmpty { return provider }
+        let stored = UserDefaults.standard.string(forKey: "default_provider") ?? ""
+        return stored.isEmpty ? "openrouter" : stored
+    }
+
+    /// The model ID actually used for inference.
+    /// For local provider, returns the session's localModel (or the app default local model).
+    /// For cloud provider, returns the session's chosen cloud model, the app default, or a free fallback.
     var resolvedModel: String {
+        if resolvedProvider == "local" {
+            if !localModel.isEmpty { return localModel }
+            let stored = UserDefaults.standard.string(forKey: "default_local_model") ?? ""
+            return stored.isEmpty ? "llama-3.2-3b" : stored
+        }
         if !model.isEmpty { return model }
         let stored = UserDefaults.standard.string(forKey: "default_model") ?? ""
         if !stored.isEmpty { return stored }
         return "meta-llama/llama-3.2-1b-instruct:free"
+    }
+
+    /// Short display label for session lists and the chat nav bar.
+    var modelLabel: String {
+        if resolvedProvider == "local" {
+            return resolvedModel.replacingOccurrences(of: "-", with: " ").capitalized
+        }
+        return resolvedModel.components(separatedBy: "/").last ?? resolvedModel
     }
 }
 

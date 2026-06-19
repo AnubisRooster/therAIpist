@@ -6,6 +6,11 @@ options:
   xcodeVersion: "16.0"
   createIntermediateGroups: true
 
+packages:
+  LLM:
+    url: https://github.com/eastriverlee/LLM.swift
+    exactVersion: "1.8.0"
+
 settings:
   base:
     SWIFT_VERSION: "5.10"
@@ -36,6 +41,8 @@ targets:
       - path: Therapist
         excludes:
           - "Resources/AppIcon.png"
+    dependencies:
+      - package: LLM
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.therAIpist.app

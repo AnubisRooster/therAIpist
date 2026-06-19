@@ -1,11 +1,14 @@
 import SwiftUI
 
 struct SettingsView: View {
-    @EnvironmentObject private var modelService:  ModelService
-    @EnvironmentObject private var speechService: SpeechService
+    @EnvironmentObject private var modelService:      ModelService
+    @EnvironmentObject private var speechService:     SpeechService
+    @EnvironmentObject private var localModelService: LocalModelService
 
-    @AppStorage("openrouter_key")  private var openrouterKey = ""
-    @AppStorage("default_model")   private var defaultModel  = "meta-llama/llama-3.2-1b-instruct:free"
+    @AppStorage("openrouter_key")      private var openrouterKey    = ""
+    @AppStorage("default_model")       private var defaultModel     = "meta-llama/llama-3.2-1b-instruct:free"
+    @AppStorage("default_provider")    private var defaultProvider  = "openrouter"
+    @AppStorage("default_local_model") private var defaultLocalModel = "llama-3.2-3b"
 
     // TTS
     @AppStorage("tts_enabled")     private var ttsEnabled    = false
@@ -127,6 +130,45 @@ struct SettingsView: View {
                         .foregroundColor(.secondary)
                 }
 
+                Section {
+                    Picker("Default provider", selection: $defaultProvider) {
+                        Text("OpenRouter (cloud)").tag("openrouter")
+                        Text("On-Device").tag("local")
+                    }
+                    .pickerStyle(.segmented)
+
+                    if defaultProvider == "local" {
+                        Picker("Default local model", selection: $defaultLocalModel) {
+                            ForEach(localModelService.catalog.filter { localModelService.isDownloaded($0.id) }) { m in
+                                Text(m.name).tag(m.id)
+                            }
+                        }
+                        if localModelService.catalog.filter({ localModelService.isDownloaded($0.id) }).isEmpty {
+                            Text("No local models downloaded yet.")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                } header: {
+                    Text("Default Provider")
+                } footer: {
+                    Text(defaultProvider == "local"
+                         ? "New sessions will use the selected on-device model by default."
+                         : "New sessions will use OpenRouter by default.")
+                        .font(.caption)
+                }
+
+                Section {
+                    ForEach(localModelService.catalog) { model in
+                        localModelCard(model)
+                    }
+                } header: {
+                    Text("On-Device Models")
+                } footer: {
+                    Text("Models are stored in the app's Documents folder. Requires Wi-Fi for download. Inference runs fully on-device via Metal.")
+                        .font(.caption)
+                }
+
                 Section("Data & Privacy") {
                     Text("Conversations are stored locally on this device.")
                         .font(.caption)
@@ -141,5 +183,78 @@ struct SettingsView: View {
         .sheet(isPresented: $showChangePIN) {
             PINView(onSuccess: { showChangePIN = false }, forceSetup: true)
         }
+    }
+
+    // MARK: - On-Device Model Card
+
+    @ViewBuilder
+    private func localModelCard(_ model: LocalModel) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 6) {
+                        Text(model.name).font(.headline)
+                        if model.isRecommended {
+                            Text("Recommended")
+                                .font(.caption2.bold())
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(.blue.opacity(0.12))
+                                .foregroundStyle(.blue)
+                                .clipShape(Capsule())
+                        }
+                    }
+                    Text(localModelService.sizeLabel(model))
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                Spacer()
+
+                // Download / Cancel / Delete button
+                if localModelService.isDownloading(model.id) {
+                    Button(role: .destructive) {
+                        localModelService.cancelDownload(model.id)
+                    } label: {
+                        Label("Cancel", systemImage: "xmark.circle")
+                            .font(.caption)
+                    }
+                    .buttonStyle(.bordered)
+                } else if localModelService.isDownloaded(model.id) {
+                    Button(role: .destructive) {
+                        localModelService.deleteModel(model.id)
+                    } label: {
+                        Image(systemName: "trash")
+                    }
+                    .tint(.red)
+                } else {
+                    Button {
+                        localModelService.startDownload(model)
+                    } label: {
+                        Label("Download", systemImage: "arrow.down.circle")
+                            .font(.caption)
+                    }
+                    .buttonStyle(.bordered)
+                }
+            }
+
+            // Description
+            Text(model.description)
+                .font(.caption)
+                .foregroundColor(.secondary)
+
+            // Progress bar while downloading
+            if let progress = localModelService.downloadProgress[model.id] {
+                ProgressView(value: progress)
+                    .tint(.blue)
+                Text(String(format: "%.0f%%", progress * 100))
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+            } else if localModelService.isDownloaded(model.id) {
+                Label("Downloaded", systemImage: "checkmark.circle.fill")
+                    .font(.caption)
+                    .foregroundColor(.green)
+            }
+        }
+        .padding(.vertical, 4)
     }
 }

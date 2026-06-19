@@ -3,8 +3,9 @@ import SwiftData
 
 struct ChatView: View {
     @Environment(\.modelContext) private var context
-    @EnvironmentObject private var modelService: ModelService
-    @EnvironmentObject private var speech: SpeechService
+    @EnvironmentObject private var modelService:      ModelService
+    @EnvironmentObject private var speech:            SpeechService
+    @EnvironmentObject private var localModelService: LocalModelService
     let session: SessionModel
     @State private var showInsights    = false
     @State private var showNotes       = false
@@ -21,10 +22,7 @@ struct ChatView: View {
     @State private var isLoading    = false
     @State private var errorMessage: String?
 
-    private var modelLabel: String {
-        let id = session.resolvedModel
-        return id.components(separatedBy: "/").last ?? id
-    }
+    private var modelLabel: String { session.modelLabel }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -96,7 +94,7 @@ struct ChatView: View {
                         showModelPicker = true
                     } label: {
                         HStack(spacing: 4) {
-                            Image(systemName: "cpu")
+                            Image(systemName: session.resolvedProvider == "local" ? "cpu" : "cloud")
                                 .font(.caption2)
                             Text(modelLabel)
                                 .font(.caption.weight(.semibold))
@@ -135,7 +133,9 @@ struct ChatView: View {
             }
         }
         .sheet(isPresented: $showModelPicker) {
-            ModelPickerView(session: session).environmentObject(modelService)
+            ModelPickerView(session: session)
+                .environmentObject(modelService)
+                .environmentObject(localModelService)
         }
         .sheet(isPresented: $showInsights) { InsightsView(session: session) }
         .sheet(isPresented: $showNotes) { NotesView(session: session) }

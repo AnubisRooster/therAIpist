@@ -21,6 +21,7 @@
 		60751590572BDFB97B89E8EC /* GlobalMemoryService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32EFFACA0671B2DB902C7DA9 /* GlobalMemoryService.swift */; };
 		62C67B9F41C9822B1FD5F9A1 /* InsightsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF40E7F165FFD8EC37D6EC13 /* InsightsView.swift */; };
 		6CAFEC1AFBB5013E59635D31 /* PINView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F868C10EB7C5EB2A7B00489 /* PINView.swift */; };
+		6D76DDD2A6C266B4F7629756 /* LLM in Frameworks */ = {isa = PBXBuildFile; productRef = C21A0FFD4358DAFD86CCFFDF /* LLM */; };
 		7A17C9CAF5858F88081B5D61 /* DashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4F11D0EDFFD12098624E8C7 /* DashboardView.swift */; };
 		866FF2077F990F1222B47397 /* SafetyService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6EE6DE3CA5C6934F88E1DAA0 /* SafetyService.swift */; };
 		9B7F15BE23099C999028E58A /* LLMService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9CFA9D1088AE93C9537A8E18 /* LLMService.swift */; };
@@ -30,6 +31,8 @@
 		B143034AB089E1172832DF33 /* TransferModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7147B4C4ABC315737222823 /* TransferModels.swift */; };
 		B4A8CE777B1D60372DBE20DE /* MemoryService.swift in Sources */ = {isa = PBXBuildFile; fileRef = D108D2FB690D2B875B45F2AA /* MemoryService.swift */; };
 		B79E72CB8BFC50701FF24766 /* InsightService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 333E9AD680E34FD91F20E3F2 /* InsightService.swift */; };
+		B9EBB746E36FA295A10E4DA1 /* LocalModelService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 46312DB4CB2BDC8F00EF4D5E /* LocalModelService.swift */; };
+		BC69E1F596CF6A15F4704DC9 /* LocalLLMEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77E5C71511EAC047F0992745 /* LocalLLMEngine.swift */; };
 		BDE709FD95C3BB5817D82CBD /* ChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F96D8E321E56CF9301833CE5 /* ChatView.swift */; };
 		C760C757D0C06DA0EDE1019E /* SpeechService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50509B03F33B1863EC8F3377 /* SpeechService.swift */; };
 		CC39E622F47F9FD0B026F98C /* ChatService.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC490536A296899A16D06A8D /* ChatService.swift */; };
@@ -49,11 +52,13 @@
 		333E9AD680E34FD91F20E3F2 /* InsightService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsightService.swift; sourceTree = "<group>"; };
 		354679F376952EA2F614469A /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		4290A23EA6EF05CF895B9B33 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		46312DB4CB2BDC8F00EF4D5E /* LocalModelService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalModelService.swift; sourceTree = "<group>"; };
 		50509B03F33B1863EC8F3377 /* SpeechService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechService.swift; sourceTree = "<group>"; };
 		575F01212E36AE1D15CB6E16 /* TherapyService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TherapyService.swift; sourceTree = "<group>"; };
 		650881394B747E23BC11BF32 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		6AAC81CE3481650BEC6360E1 /* TherapistApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TherapistApp.swift; sourceTree = "<group>"; };
 		6EE6DE3CA5C6934F88E1DAA0 /* SafetyService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SafetyService.swift; sourceTree = "<group>"; };
+		77E5C71511EAC047F0992745 /* LocalLLMEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalLLMEngine.swift; sourceTree = "<group>"; };
 		7B66D9B0C478D8ADE380D64C /* NewSessionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewSessionView.swift; sourceTree = "<group>"; };
 		7C573E0E8397509037BC2ABE /* DreamService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DreamService.swift; sourceTree = "<group>"; };
 		8247533172B2362899FFBB29 /* AgentSystem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentSystem.swift; sourceTree = "<group>"; };
@@ -78,6 +83,17 @@
 		FC490536A296899A16D06A8D /* ChatService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatService.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
+/* Begin PBXFrameworksBuildPhase section */
+		0F43A45CDD9536CC5FFE0CFF /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				6D76DDD2A6C266B4F7629756 /* LLM in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
 /* Begin PBXGroup section */
 		1784C5EF11CFA935A2988598 /* Services */ = {
 			isa = PBXGroup;
@@ -90,6 +106,8 @@
 				9EA4DA407B6AE1E32CF90DF3 /* GraphService.swift */,
 				333E9AD680E34FD91F20E3F2 /* InsightService.swift */,
 				9CFA9D1088AE93C9537A8E18 /* LLMService.swift */,
+				77E5C71511EAC047F0992745 /* LocalLLMEngine.swift */,
+				46312DB4CB2BDC8F00EF4D5E /* LocalModelService.swift */,
 				D108D2FB690D2B875B45F2AA /* MemoryService.swift */,
 				CF4BE5016360D07B4A1B03F2 /* ModelService.swift */,
 				944F52374F3D256D87070F74 /* NoteService.swift */,
@@ -184,6 +202,7 @@
 			buildPhases = (
 				725F98957CB62CB9400D10D6 /* Sources */,
 				A01A2C815785667237D59528 /* Resources */,
+				0F43A45CDD9536CC5FFE0CFF /* Frameworks */,
 			);
 			buildRules = (
 			);
@@ -191,6 +210,7 @@
 			);
 			name = Therapist;
 			packageProductDependencies = (
+				C21A0FFD4358DAFD86CCFFDF /* LLM */,
 			);
 			productName = Therapist;
 			productReference = 82F24F0752AA76B48E8788A6 /* Therapist.app */;
@@ -220,6 +240,9 @@
 			);
 			mainGroup = BCE7D8DA0AF02EA5DF8D9AD7;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				64B0224D0B94F9350F0890CE /* XCRemoteSwiftPackageReference "LLM.swift" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 86EE4942D7C8B39A4FDDB403 /* Products */;
 			projectDirPath = "";
@@ -259,6 +282,8 @@
 				B79E72CB8BFC50701FF24766 /* InsightService.swift in Sources */,
 				62C67B9F41C9822B1FD5F9A1 /* InsightsView.swift in Sources */,
 				9B7F15BE23099C999028E58A /* LLMService.swift in Sources */,
+				BC69E1F596CF6A15F4704DC9 /* LocalLLMEngine.swift in Sources */,
+				B9EBB746E36FA295A10E4DA1 /* LocalModelService.swift in Sources */,
 				B4A8CE777B1D60372DBE20DE /* MemoryService.swift in Sources */,
 				20E58309415D700134796E90 /* ModelPickerView.swift in Sources */,
 				4D3E9591534F521D7C217B91 /* ModelService.swift in Sources */,
@@ -468,6 +493,25 @@
 			defaultConfigurationName = Debug;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		64B0224D0B94F9350F0890CE /* XCRemoteSwiftPackageReference "LLM.swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/eastriverlee/LLM.swift";
+			requirement = {
+				kind = exactVersion;
+				version = 1.8.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		C21A0FFD4358DAFD86CCFFDF /* LLM */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 64B0224D0B94F9350F0890CE /* XCRemoteSwiftPackageReference "LLM.swift" */;
+			productName = LLM;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = E2E7B2E1C706679CD0601B8B /* Project object */;
 }
