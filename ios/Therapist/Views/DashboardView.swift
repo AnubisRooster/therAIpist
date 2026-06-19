@@ -43,10 +43,10 @@ struct DashboardView: View {
 
                 if !recentNotes.isEmpty {
                     Section("Recent Notes") {
-                        ForEach(recentNotes, id: \.0 + \.1) { (sessionTitle, noteTitle, _) in
+                        ForEach(Array(recentNotes.enumerated()), id: \.offset) { _, note in
                             VStack(alignment: .leading) {
-                                Text(noteTitle).font(.headline)
-                                Text(sessionTitle).font(.caption).foregroundColor(.secondary)
+                                Text(note.1).font(.headline)
+                                Text(note.0).font(.caption).foregroundColor(.secondary)
                             }
                         }
                     }

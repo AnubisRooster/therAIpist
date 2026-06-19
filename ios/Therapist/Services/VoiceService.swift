@@ -1,5 +1,6 @@
 import Foundation
 import AVFoundation
+import SwiftData
 
 class VoiceService: NSObject {
     static let shared = VoiceService()

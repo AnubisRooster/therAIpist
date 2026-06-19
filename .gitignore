@@ -8,8 +8,10 @@ __pycache__/
 voice_uploads/
 local_data/
 .DS_Store
-*.xcodeproj/
-*.xcworkspace/
+# Xcode user-specific data (not the project itself)
+*.xcodeproj/xcuserdata/
+*.xcworkspace/xcuserdata/
+*.xcodeproj/project.xcworkspace/xcuserdata/
 *.pbxuser
 *.mode1v3
 *.mode2v3

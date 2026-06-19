@@ -13,10 +13,6 @@ struct ChatView: View {
 
     @State private var messageText = ""
     @State private var isLoading = false
-    @State private var showInsights = false
-    @State private var showNotes = false
-    @State private var showDreams = false
-    @State private var showGraph = false
     @State private var errorMessage: String?
 
     private var modelLabel: String {
