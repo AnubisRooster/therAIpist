@@ -38,8 +38,12 @@ final class LocalLLMEngine: ObservableObject {
         let stopSeq = Self.stopSequence(for: id)
 
         // llama_model_load_from_file is synchronous and CPU-bound — run off main.
+        // maxTokenCount sets BOTH the context window AND the generation cap in
+        // LLM.swift. 2048 keeps memory low and bounds a runaway generation to a
+        // few minutes worst case (the 90 s timeout in generate() catches it first),
+        // while leaving ample room for our capped prompt (~800 tokens).
         let loaded: LLM? = await Task.detached(priority: .userInitiated) {
-            LLM(from: url, stopSequence: stopSeq, maxTokenCount: 4096)
+            LLM(from: url, stopSequence: stopSeq, maxTokenCount: 2048)
         }.value
 
         if let loaded {
@@ -127,7 +131,7 @@ final class LocalLLMEngine: ObservableObject {
 
         let prompt = llm.preprocess(lastUserMessage, history)
 
-        // Race inference against a 120-second hard timeout.
+        // Race inference against a 90-second hard timeout.
         // If the prompt overflows the model's context window, llama.cpp may
         // silently stall; this ensures the engine always recovers.
         let response = try await withThrowingTaskGroup(of: String.self) { group in
@@ -135,7 +139,7 @@ final class LocalLLMEngine: ObservableObject {
                 await llm.getCompletion(from: prompt)
             }
             group.addTask {
-                try await Task.sleep(nanoseconds: 120_000_000_000)  // 120 s
+                try await Task.sleep(nanoseconds: 90_000_000_000)  // 90 s
                 return "__TIMEOUT__"
             }
             // First result wins.
@@ -148,7 +152,16 @@ final class LocalLLMEngine: ObservableObject {
             return first
         }
 
-        return response.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmed = response.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        // LLM.swift returns "" when prepareContext fails (e.g. the prompt exceeds
+        // the context window) — surface that as a clear, recoverable error rather
+        // than an empty chat bubble. "LLM is being used" is its busy sentinel.
+        if trimmed.isEmpty || trimmed == "LLM is being used" {
+            throw LocalLLMError.timeout
+        }
+
+        return trimmed
     }
 
     // MARK: - Template helpers
@@ -156,18 +169,22 @@ final class LocalLLMEngine: ObservableObject {
     static func template(for modelID: String, systemPrompt: String) -> Template {
         let sysOrNil: String? = systemPrompt.isEmpty ? nil : systemPrompt
         if modelID.hasPrefix("llama") {
+            // NOTE: do NOT include "<|begin_of_text|>" here — LLM.swift's encode()
+            // already prepends the BOS token. Adding it again produces a double-BOS
+            // that breaks Llama 3's generation (the model fails to emit <|eot_id|>
+            // and runs to the token cap, which looks like a freeze).
             return Template(
                 system: (
-                    "<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n\n",
-                    "<|eot_id|>\n"
+                    "<|start_header_id|>system<|end_header_id|>\n\n",
+                    "<|eot_id|>"
                 ),
                 user: (
                     "<|start_header_id|>user<|end_header_id|>\n\n",
-                    "<|eot_id|>\n"
+                    "<|eot_id|>"
                 ),
                 bot: (
                     "<|start_header_id|>assistant<|end_header_id|>\n\n",
-                    "<|eot_id|>\n"
+                    "<|eot_id|>"
                 ),
                 stopSequence: "<|eot_id|>",
                 systemPrompt: sysOrNil
