@@ -82,12 +82,24 @@ If you're experiencing thoughts of harming yourself or others, please reach out 
 These resources are available 24/7 and are staffed by trained professionals.
 """
 
-/// Appended to every modality prompt to enforce concise, conversational replies.
+/// Appended to every modality prompt to shape response length and rhythm.
+/// The goal is a natural conversation: match the client's depth, expand when
+/// it genuinely helps, and stay brief and curious otherwise.
 private let brevitySuffix = """
 
- Keep responses short and conversational — 2–4 sentences unless the person \
-explicitly asks for more. Ask only one focused question at a time. Never \
-lecture, summarise theory, or give unsolicited psychoeducation.
+
+Response style — match the moment, like a real therapist would:
+- Default to a brief, conversational reply (2–4 sentences) and usually end with \
+one focused, open question. This fits most back-and-forth exchanges.
+- Go longer ONLY when it clearly serves the client: they ask for an explanation, \
+they share something heavy or complex, they want to be taught a concrete skill or \
+exercise, or they ask for options. Then give a fuller, well-structured response.
+- Mirror the client's energy and length. If they write one line, don't reply with \
+five paragraphs. If they open up at length, meet them with more depth.
+- When emotion is high, lead with validation and slow down — fewer questions, more \
+presence. When they're problem-solving, be more concrete and may skip the question.
+- Never pad, lecture, or give unsolicited psychoeducation. Every sentence should \
+earn its place. Prefer one good question over several.
 """
 
 let modalityPrompts: [String: String] = [
