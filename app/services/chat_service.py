@@ -13,7 +13,11 @@ from app.services.providers import get_provider
 from app.services.memory_service import MemoryService
 from app.services.graph_service import GraphService
 from app.services.therapy_service import TherapyService
-from app.services.safety_service import SafetyService, RESOURCE_MESSAGE
+from app.services.safety_service import (
+    SafetyService,
+    RESOURCE_MESSAGE,
+    FILTERED_RESPONSE_MESSAGE,
+)
 from app.services.mode_service import ModeService
 
 
@@ -79,7 +83,7 @@ class ChatService:
         )
         return list(result.scalars().all())
 
-    async def chat(self, session_id: str, user_message: str) -> tuple[str, str, dict]:
+    async def chat(self, session_id: str, user_message: str) -> tuple[str, str, dict, str, str]:
         session = await self.get_session(session_id)
         if not session:
             raise ValueError(f"Session {session_id} not found")
@@ -93,17 +97,16 @@ class ChatService:
         resolved_provider = mode_service.resolve_provider(session)
         provider = get_provider(resolved_provider, settings)
 
-        memory_service = MemoryService(
-            db=self.db,
-            provider_name=resolved_provider,
-        )
+        # MemoryService uses its own dedicated embedding provider (see settings)
+        # so vector spaces stay consistent regardless of the chat provider.
+        memory_service = MemoryService(db=self.db)
 
         memory_context = await memory_service.build_context_prompt(
             user_message,
             max_memories=settings.memory_recall_limit,
         )
 
-        therapy_service = TherapyService(db=self.db, provider_name=session.provider)
+        therapy_service = TherapyService(db=self.db, provider_name=resolved_provider)
         modality_prompt = therapy_service.get_modality_prompt(session.modality)
 
         messages = []
@@ -125,7 +128,7 @@ class ChatService:
             response_content = RESOURCE_MESSAGE
             await safety_service.log_referral(session_id)
             result_model = None
-            result_provider = session.provider
+            result_provider = resolved_provider
             token_count_prompt = 0
             token_count_completion = 0
         else:
@@ -137,7 +140,12 @@ class ChatService:
             if boundary_events:
                 await self.db.commit()
 
-            response_content = result.content
+            # Enforce the boundary: replace a diagnostic/prescriptive response
+            # rather than only logging it.
+            if safety_service.should_filter_response(boundary_events):
+                response_content = FILTERED_RESPONSE_MESSAGE
+            else:
+                response_content = result.content
             result_model = result.model
             result_provider = result.provider
             token_count_prompt = result.token_count_prompt
@@ -170,7 +178,7 @@ class ChatService:
                 assistant_response=response_content,
             )
 
-            graph_service = GraphService(db=self.db, provider_name=session.provider)
+            graph_service = GraphService(db=self.db, provider_name=resolved_provider)
             await graph_service.extract_and_store(
                 session_id=session_id,
                 user_message=user_message,
@@ -186,4 +194,10 @@ class ChatService:
             "completion": token_count_completion,
         }
 
-        return response_content, assistant_msg.id, token_count
+        return (
+            response_content,
+            assistant_msg.id,
+            token_count,
+            result_provider,
+            result_model or "",
+        )

@@ -12,6 +12,7 @@ dependencies = [
     "httpx>=0.28.0",
     "sse-starlette>=2.1.0",
     "python-multipart>=0.0.12",
+    "alembic>=1.13.0",
 ]
 
 [project.optional-dependencies]

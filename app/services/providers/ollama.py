@@ -13,12 +13,12 @@ class OllamaProvider(LLMProvider):
     def provider_name(self) -> str:
         return "ollama"
 
-    @property
-    def available_models(self) -> list[str]:
+    async def list_models(self) -> list[str]:
         try:
-            resp = httpx.get(f"{self.base_url}/api/tags", timeout=5)
-            resp.raise_for_status()
-            data = resp.json()
+            async with httpx.AsyncClient() as client:
+                resp = await client.get(f"{self.base_url}/api/tags", timeout=5)
+                resp.raise_for_status()
+                data = resp.json()
             return [m["name"] for m in data.get("models", [])]
         except Exception:
             return []
@@ -57,11 +57,11 @@ class OllamaProvider(LLMProvider):
             token_count_completion=data.get("eval_count", 0),
         )
 
-    async def embed(self, text: str) -> list[float]:
+    async def embed(self, text: str, model: str | None = None) -> list[float]:
         async with httpx.AsyncClient() as client:
             resp = await client.post(
                 f"{self.base_url}/api/embeddings",
-                json={"model": self.default_model, "prompt": text},
+                json={"model": model or self.default_model, "prompt": text},
                 timeout=30,
             )
             resp.raise_for_status()

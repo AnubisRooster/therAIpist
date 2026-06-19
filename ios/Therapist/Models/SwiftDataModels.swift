@@ -36,6 +36,17 @@ final class SessionModel {
     }
 }
 
+extension SessionModel {
+    /// The model actually used for inference: the session's chosen model, then
+    /// the app-wide default, then a sensible free fallback.
+    var resolvedModel: String {
+        if !model.isEmpty { return model }
+        let stored = UserDefaults.standard.string(forKey: "default_model") ?? ""
+        if !stored.isEmpty { return stored }
+        return "meta-llama/llama-3.2-1b-instruct:free"
+    }
+}
+
 @Model
 final class MessageModel {
     var id: String

@@ -4,8 +4,27 @@ import SwiftData
 class MemoryService {
     static let shared = MemoryService()
 
+    private let embedder = EmbeddingService.shared
+
     func createMemory(session: SessionModel, type: String, content: String, keywords: String = "", context: ModelContext) {
         let memory = MemoryModel(session: session, type: type, content: content, keywords: keywords)
+        memory.embeddingData = embedder.embed(content)
+        context.insert(memory)
+    }
+
+    /// Persist a single chat exchange as an embedded episodic memory so the
+    /// conversation is stored and searchable locally.
+    func recordExchange(session: SessionModel, userMessage: String, assistantResponse: String, context: ModelContext) {
+        let combined = "User: \(userMessage)\nTherapist: \(assistantResponse)"
+        let content = String(combined.prefix(800))
+        let memory = MemoryModel(
+            session: session,
+            type: "episodic",
+            content: content,
+            keywords: extractKeywords(from: userMessage),
+            importance: 0.5
+        )
+        memory.embeddingData = embedder.embed(userMessage)
         context.insert(memory)
     }
 
@@ -16,17 +35,32 @@ class MemoryService {
         let combined = recentMessages.map(\.content).joined(separator: "\n")
         let summary = String(combined.prefix(500))
 
-        if let existing = session.memories.first(where: { $0.type == "episodic" && $0.content.contains(summary.prefix(50)) }) {
+        if let existing = session.memories.first(where: { $0.type == "semantic" && $0.content.contains(summary.prefix(50)) }) {
             existing.importance = min(existing.importance + 0.1, 1.0)
         } else {
             let keywords = extractKeywords(from: summary)
-            let memory = MemoryModel(session: session, type: "episodic", content: summary, keywords: keywords, importance: 0.5)
+            let memory = MemoryModel(session: session, type: "semantic", content: summary, keywords: keywords, importance: 0.6)
+            memory.embeddingData = embedder.embed(summary)
             context.insert(memory)
         }
     }
 
     func recallRelevant(session: SessionModel, query: String) -> [MemoryModel] {
         let memories = session.memories.filter { $0.type == "episodic" || $0.type == "semantic" }
+        guard !memories.isEmpty else { return [] }
+
+        // Prefer on-device semantic similarity when embeddings are available.
+        if let queryVec = embedder.embed(query) {
+            let scored = memories.compactMap { mem -> (MemoryModel, Float)? in
+                guard let data = mem.embeddingData else { return nil }
+                return (mem, embedder.similarity(between: queryVec, and: data))
+            }
+            if !scored.isEmpty {
+                return scored.sorted { $0.1 > $1.1 }.prefix(5).map(\.0)
+            }
+        }
+
+        // Fallback: keyword overlap + importance + recency.
         let lowerQuery = query.lowercased()
         let queryWords = Set(lowerQuery.split(separator: " "))
 

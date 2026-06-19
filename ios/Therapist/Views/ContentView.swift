@@ -3,6 +3,7 @@ import SwiftData
 
 struct ContentView: View {
     @Environment(\.modelContext) private var context
+    @EnvironmentObject private var modelService: ModelService
     @Query(sort: \SessionModel.updatedAt, order: .reverse) private var sessions: [SessionModel]
     @State private var showNewSession = false
     @State private var showSettings = false
@@ -27,17 +28,11 @@ struct ContentView: View {
                                 Label(session.modality.capitalized, systemImage: modalityIcon(session.modality))
                                     .font(.caption)
                                     .foregroundColor(.secondary)
-                                Label(session.provider, systemImage: "network")
+                                Label(session.resolvedModel.components(separatedBy: "/").last ?? session.resolvedModel,
+                                      systemImage: "cpu")
                                     .font(.caption)
                                     .foregroundColor(.secondary)
-                                if !session.mode.isEmpty && session.mode != "auto" {
-                                    Text(session.mode.uppercased())
-                                        .font(.caption2)
-                                        .padding(.horizontal, 4)
-                                        .padding(.vertical, 2)
-                                        .background(Color.gray.opacity(0.2))
-                                        .cornerRadius(4)
-                                }
+                                    .lineLimit(1)
                             }
                             Text("\(session.messages.count) messages")
                                 .font(.caption2)
@@ -69,7 +64,7 @@ struct ContentView: View {
                 NewSessionView()
             }
             .sheet(isPresented: $showSettings) {
-                SettingsView()
+                SettingsView().environmentObject(modelService)
             }
             .sheet(isPresented: $showDashboard) {
                 DashboardView()

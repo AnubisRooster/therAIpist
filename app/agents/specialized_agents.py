@@ -29,7 +29,7 @@ class JungianAgent(TherapyAgent):
     def can_handle(self, ctx: AgentContext) -> float:
         if ctx.modality == "jungian":
             return 0.9
-        if any("dream" in ctx.user_message.lower() for _ in [1]):
+        if "dream" in ctx.user_message.lower():
             return 0.7
         return 0.2
 

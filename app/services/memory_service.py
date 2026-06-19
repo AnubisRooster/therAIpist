@@ -22,12 +22,22 @@ class MemoryService:
         self,
         db: AsyncSession,
         vector_store: VectorStore | None = None,
-        provider_name: str = "ollama",
+        provider_name: str | None = None,
+        embedding_model: str | None = None,
     ):
         self.db = db
         self.vector_store = vector_store or get_vector_store(settings)
         self._provider = None
-        self._provider_name = provider_name
+        # Embeddings always use a dedicated provider/model so vectors stay in a
+        # single, consistent space (mixing providers corrupts similarity search).
+        self._provider_name = provider_name or settings.embedding_provider
+        self._embedding_model = embedding_model or settings.embedding_model
+        self.embedding_size = settings.embedding_size
+        # Namespace the collection by provider + size so switching embedding
+        # backends can't silently compare incompatible vectors.
+        self.collection_name = (
+            f"{EPISODIC_COLLECTION}_{self._provider_name}_{self.embedding_size}"
+        )
 
     async def _get_provider(self):
         if self._provider is None:
@@ -36,10 +46,10 @@ class MemoryService:
 
     async def _embed(self, text: str) -> list[float]:
         provider = await self._get_provider()
-        return await provider.embed(text)
+        return await provider.embed(text, model=self._embedding_model)
 
     async def ensure_collection(self):
-        await self.vector_store.ensure_collection(EPISODIC_COLLECTION, EMBEDDING_SIZE)
+        await self.vector_store.ensure_collection(self.collection_name, self.embedding_size)
 
     # --- Episodic Memory ---
 
@@ -66,7 +76,7 @@ class MemoryService:
         self.db.add(memory)
 
         await self.vector_store.store(
-            EPISODIC_COLLECTION,
+            self.collection_name,
             point_id,
             embedding,
             payload={
@@ -91,7 +101,7 @@ class MemoryService:
         await self.ensure_collection()
         query_embedding = await self._embed(query)
         results = await self.vector_store.search(
-            EPISODIC_COLLECTION,
+            self.collection_name,
             query_embedding,
             limit=limit,
         )

@@ -13,7 +13,7 @@ async def health_check():
     for name in ["ollama", "openrouter"]:
         try:
             provider = get_provider(name, settings)
-            models = provider.available_models
+            models = await provider.list_models()
             providers[name] = {"available": True, "models": models[:5]}
         except Exception as e:
             providers[name] = {"available": False, "error": str(e)}

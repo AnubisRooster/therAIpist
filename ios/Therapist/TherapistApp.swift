@@ -3,27 +3,9 @@ import SwiftData
 
 @main
 struct TherapistApp: App {
-    @AppStorage("openrouter_key") private var openrouterKey = ""
-    @AppStorage("ollama_host") private var ollamaHost = "http://localhost:11434"
-    @AppStorage("default_model") private var defaultModel = "openai/gpt-4o-mini"
-
     var body: some Scene {
         WindowGroup {
-            ContentView()
-                .onAppear {
-                    LLMService.shared.configure(
-                        openRouterKey: openrouterKey,
-                        ollamaHost: ollamaHost,
-                        defaultModel: defaultModel
-                    )
-                }
-                .onChange(of: openrouterKey) { _, newKey in
-                    LLMService.shared.configure(
-                        openRouterKey: newKey,
-                        ollamaHost: ollamaHost,
-                        defaultModel: defaultModel
-                    )
-                }
+            AppRootView()
         }
         .modelContainer(for: [
             SessionModel.self,
@@ -36,5 +18,37 @@ struct TherapistApp: App {
             VoiceRecordingModel.self,
             SafetyEventModel.self,
         ])
+    }
+}
+
+/// Gates the app behind a PIN and wires up shared services (LLM config, model
+/// list) once the user is authenticated.
+struct AppRootView: View {
+    @StateObject private var modelService = ModelService()
+
+    @AppStorage("openrouter_key") private var openrouterKey = ""
+    @AppStorage("default_model") private var defaultModel = "meta-llama/llama-3.2-1b-instruct:free"
+
+    @State private var isUnlocked = false
+
+    var body: some View {
+        Group {
+            if isUnlocked {
+                ContentView()
+                    .environmentObject(modelService)
+                    .task {
+                        await LLMService.shared.configure(apiKey: openrouterKey, defaultModel: defaultModel)
+                        await modelService.refreshIfNeeded(apiKey: openrouterKey)
+                    }
+                    .onChange(of: openrouterKey) { _, newKey in
+                        Task {
+                            await LLMService.shared.configure(apiKey: newKey, defaultModel: defaultModel)
+                            await modelService.refresh(apiKey: newKey)
+                        }
+                    }
+            } else {
+                PINView(onSuccess: { isUnlocked = true })
+            }
+        }
     }
 }

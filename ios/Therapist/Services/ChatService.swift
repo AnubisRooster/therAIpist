@@ -54,15 +54,13 @@ actor ChatService {
             memoryContext: memoryContext
         )
 
-        let provider = session.provider.isEmpty ? "openrouter" : session.provider
-        let model = session.model
+        let model = session.resolvedModel
 
         let assistantResponse: String
         let tokenCount: Int
 
         do {
             assistantResponse = try await llm.sendMessage(
-                provider: provider,
                 model: model,
                 messages: llmMessages
             )
@@ -90,6 +88,13 @@ actor ChatService {
         let assistantMsg = MessageModel(session: session, role: "assistant", content: finalResponse, tokenCount: tokenCount)
         context.insert(assistantMsg)
 
+        // Embed and store this exchange locally for semantic recall.
+        memoryService.recordExchange(
+            session: session,
+            userMessage: userMessage,
+            assistantResponse: finalResponse,
+            context: context
+        )
         memoryService.consolidateRecentMessages(session: session, context: context)
         graphService.extractEntitiesFromMessage(session: session, message: userMessage)
 

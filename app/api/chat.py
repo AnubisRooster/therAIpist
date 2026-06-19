@@ -12,7 +12,7 @@ router = APIRouter(tags=["chat"])
 async def chat(request: ChatRequest, db: AsyncSession = Depends(get_db)):
     service = ChatService(db)
     try:
-        response_text, message_id, token_count = await service.chat(
+        response_text, message_id, token_count, provider_used, model_used = await service.chat(
             request.session_id, request.message
         )
     except ValueError as e:
@@ -24,8 +24,8 @@ async def chat(request: ChatRequest, db: AsyncSession = Depends(get_db)):
         response=response_text,
         message_id=message_id,
         session_id=request.session_id,
-        provider_used="",
-        model_used="",
+        provider_used=provider_used,
+        model_used=model_used,
         token_count=token_count,
     )
 

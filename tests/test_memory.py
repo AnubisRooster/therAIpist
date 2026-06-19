@@ -21,6 +21,7 @@ async def db_session():
         await conn.run_sync(Base.metadata.create_all)
     async with session_maker() as session:
         yield session
+    await engine.dispose()
 
 
 @pytest_asyncio.fixture

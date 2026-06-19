@@ -11,7 +11,11 @@ class Settings(BaseSettings):
     openrouter_base_url: str = "https://openrouter.ai/api/v1"
     openrouter_default_model: str = "openai/gpt-4o"
 
+    # API authentication. When empty, auth is disabled (local development).
+    api_key: str = ""
+
     cors_origins: list[str] = ["*"]
+    cors_allow_credentials: bool = False
 
     vector_store_type: str = "in_memory"
     qdrant_url: str = "http://localhost:6333"
@@ -20,6 +24,11 @@ class Settings(BaseSettings):
     embedding_size: int = 768
     memory_recall_limit: int = 3
     memory_recall_min_score: float = 0.3
+
+    # Embeddings use a dedicated provider/model so the vector space stays
+    # consistent regardless of which provider serves chat completions.
+    embedding_provider: str = "ollama"
+    embedding_model: str = "llama3.2"
 
     voice_upload_dir: str = "./voice_uploads"
     voice_stt_provider: str = "mock"

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -33,7 +35,7 @@ class ModeService:
         elif mode == "cloud":
             session.provider = "openrouter"
 
-        session.updated_at = __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat()
+        session.updated_at = datetime.now(timezone.utc).isoformat()
         await self.db.commit()
         await self.db.refresh(session)
         return session

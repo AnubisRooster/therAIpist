@@ -14,9 +14,22 @@ class OpenRouterProvider(LLMProvider):
     def provider_name(self) -> str:
         return "openrouter"
 
-    @property
-    def available_models(self) -> list[str]:
-        return ["openai/gpt-4o", "anthropic/claude-3.5-sonnet", "meta-llama/llama-3.2-90b"]
+    async def list_models(self) -> list[str]:
+        headers = {}
+        if self.api_key:
+            headers["Authorization"] = f"Bearer {self.api_key}"
+        try:
+            async with httpx.AsyncClient() as client:
+                resp = await client.get(
+                    f"{self.base_url}/models",
+                    headers=headers,
+                    timeout=10,
+                )
+                resp.raise_for_status()
+                data = resp.json()
+            return [m["id"] for m in data.get("data", [])]
+        except Exception:
+            return ["openai/gpt-4o", "anthropic/claude-3.5-sonnet", "meta-llama/llama-3.2-90b"]
 
     async def chat(
         self,
@@ -56,21 +69,11 @@ class OpenRouterProvider(LLMProvider):
             token_count_completion=usage.get("completion_tokens", 0),
         )
 
-    async def embed(self, text: str) -> list[float]:
-        headers = {
-            "Authorization": f"Bearer {self.api_key}",
-            "Content-Type": "application/json",
-        }
-        payload = {
-            "model": "text-embedding-ada-002",
-            "input": text,
-        }
-        async with httpx.AsyncClient() as client:
-            resp = await client.post(
-                f"{self.base_url}/embeddings",
-                json=payload,
-                headers=headers,
-                timeout=30,
-            )
-            resp.raise_for_status()
-            return resp.json()["data"][0]["embedding"]
+    async def embed(self, text: str, model: str | None = None) -> list[float]:
+        # OpenRouter does not reliably proxy an embeddings endpoint across
+        # models. Use a dedicated embedding provider (settings.embedding_provider)
+        # rather than this one for vector recall.
+        raise NotImplementedError(
+            "OpenRouter does not provide embeddings. Configure a dedicated "
+            "embedding_provider (e.g. 'ollama') in settings."
+        )

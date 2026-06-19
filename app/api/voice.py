@@ -79,7 +79,7 @@ async def voice_chat(
 
     chat = ChatService(db)
     try:
-        response_text, message_id, token_count = await chat.chat(
+        response_text, message_id, token_count, provider_used, model_used = await chat.chat(
             session_id=session_id,
             user_message=recording.transcript,
         )
@@ -92,7 +92,7 @@ async def voice_chat(
         message_id=message_id,
         session_id=session_id,
         recording_id=recording.id,
-        provider_used=token_count.get("provider", ""),
-        model_used=token_count.get("model", ""),
+        provider_used=provider_used,
+        model_used=model_used,
         token_count=token_count,
     )

@@ -3,6 +3,7 @@ import SwiftData
 
 struct ChatView: View {
     @Environment(\.modelContext) private var context
+    @EnvironmentObject private var modelService: ModelService
     let session: SessionModel
 
     @State private var messageText = ""
@@ -11,7 +12,13 @@ struct ChatView: View {
     @State private var showNotes = false
     @State private var showDreams = false
     @State private var showGraph = false
+    @State private var showModelPicker = false
     @State private var errorMessage: String?
+
+    private var modelLabel: String {
+        let id = session.resolvedModel
+        return id.components(separatedBy: "/").last ?? id
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -71,6 +78,24 @@ struct ChatView: View {
         .navigationTitle(session.title)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
+            ToolbarItem(placement: .principal) {
+                Button {
+                    showModelPicker = true
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "cpu")
+                            .font(.caption2)
+                        Text(modelLabel)
+                            .font(.caption.weight(.semibold))
+                            .lineLimit(1)
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 4)
+                    .background(Color.secondary.opacity(0.15))
+                    .clipShape(Capsule())
+                }
+                .buttonStyle(.plain)
+            }
             ToolbarItemGroup(placement: .bottomBar) {
                 Button("Insights", systemImage: "lightbulb") { showInsights = true }
                 Spacer()
@@ -80,6 +105,9 @@ struct ChatView: View {
                 Spacer()
                 Button("Graph", systemImage: "circle.hexagongrid") { showGraph = true }
             }
+        }
+        .sheet(isPresented: $showModelPicker) {
+            ModelPickerView(session: session).environmentObject(modelService)
         }
         .sheet(isPresented: $showInsights) { InsightsView(session: session) }
         .sheet(isPresented: $showNotes) { NotesView(session: session) }

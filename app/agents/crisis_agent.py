@@ -1,4 +1,5 @@
 from app.agents.base import TherapyAgent, AgentContext, AgentResult
+from app.services.safety_service import RESOURCE_MESSAGE
 
 
 class CrisisAgent(TherapyAgent):
@@ -15,12 +16,7 @@ class CrisisAgent(TherapyAgent):
 
     async def process(self, ctx: AgentContext) -> AgentResult:
         return AgentResult(
-            content="If you're experiencing thoughts of harming yourself or others, "
-                    "please reach out for support immediately:\n"
-                    "- National Crisis Hotline: 988\n"
-                    "- Crisis Text Line: Text HOME to 741741\n"
-                    "- Emergency Services: 911\n\n"
-                    "These resources are available 24/7.",
+            content=RESOURCE_MESSAGE,
             agent_name=self.name,
             confidence=1.0,
             interventions=["crisis_referral"],

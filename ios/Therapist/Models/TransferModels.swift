@@ -31,18 +31,6 @@ struct OpenRouterUsage: Codable {
     }
 }
 
-struct OllamaChatRequest: Codable {
-    let model: String
-    let messages: [LLMMessage]
-    let stream: Bool
-}
-
-struct OllamaChatResponse: Codable {
-    let model: String
-    let message: OpenRouterMessage
-    let done: Bool
-}
-
 struct LLMMessage: Codable {
     let role: String
     let content: String
@@ -71,9 +59,18 @@ let crisisPatterns: [CrisisPattern] = [
     CrisisPattern(patterns: ["don't want to be here", "can't go on", "no reason to live", "worthless", "hopeless"], level: "warning"),
 ]
 
+// Phrases that indicate the assistant is diagnosing or prescribing, which it
+// must not do. Kept precise so ordinary empathetic language ("you have been
+// feeling…") doesn't trip the filter.
 let boundaryPatterns: [String] = [
-    "I diagnose you with", "You have", "prescribe", "your diagnosis is",
-    "you need medication", "I recommend you take",
+    "i diagnose you",
+    "you are diagnosed",
+    "your diagnosis is",
+    "i prescribe",
+    "you need medication",
+    "i recommend you take",
+    "start taking",
+    "stop taking your",
 ]
 
 let resourceMessage = """
@@ -82,7 +79,7 @@ If you're experiencing thoughts of harming yourself or others, please reach out 
 - Crisis Text Line: Text HOME to 741741
 - Emergency Services: 911
 
-These resources are available 24/7.
+These resources are available 24/7 and are staffed by trained professionals.
 """
 
 let modalityPrompts: [String: String] = [

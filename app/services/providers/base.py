@@ -28,12 +28,11 @@ class LLMProvider(ABC):
         ...
 
     @abstractmethod
-    async def embed(self, text: str) -> list[float]:
+    async def embed(self, text: str, model: str | None = None) -> list[float]:
         ...
 
-    @property
     @abstractmethod
-    def available_models(self) -> list[str]:
+    async def list_models(self) -> list[str]:
         ...
 
     @property
