@@ -9,11 +9,29 @@ class InsightService {
         let topEmotions = getTopEmotions(session: session)
         let themes = getThemes(session: session)
 
+        let modality = session.modality
+        let modalityAnalysis: String = {
+            switch modality {
+            case "free_form": return ""
+            case "cbt": return generateCBTInsight(session: session, topEmotions: topEmotions)
+            case "humanistic": return generateHumanisticInsight(session: session)
+            case "existential": return generateExistentialInsight(session: session, themes: themes)
+            case "gestalt": return generateGestaltInsight(session: session)
+            case "somatic": return generateSomaticInsight(session: session)
+            case "narrative": return generateNarrativeInsight(session: session)
+            case "act": return generateACTInsight(session: session, topEmotions: topEmotions)
+            case "psychodynamic": return generatePsychodynamicInsight(session: session, cycles: cycles)
+            case "ifs": return generateIFSInsight(session: session)
+            default: return ""
+            }
+        }()
+
         return InsightResult(
             adlerianInsight: generateAdlerianInsight(session: session, themes: themes),
             dbtRecommendation: generateDBTRecommendation(session: session, topEmotions: topEmotions),
             shadowObservation: generateShadowObservation(session: session, cycles: cycles),
-            repeatingLoops: cycles.map { formatCycle($0, session: session) }
+            repeatingLoops: cycles.map { formatCycle($0, session: session) },
+            modalityAnalysis: modalityAnalysis
         )
     }
 
@@ -63,6 +81,64 @@ class InsightService {
         return "Jungian Shadow Observation:\nDetected \(cycles.count) recurring pattern(s) in the client's narrative. These may represent shadow content seeking integration. Consider exploring what parts of self are being disowned and how they might be acknowledged compassionately."
     }
 
+    private func generateCBTInsight(session: SessionModel, topEmotions: [(String, Float)]) -> String {
+        let beliefs = session.graphNodes.filter { $0.type == "belief" }.map(\.label)
+        if beliefs.isEmpty {
+            return "Continue tracking automatic thoughts and cognitive patterns."
+        }
+        return "CBT Analysis:\nIdentified beliefs: \(beliefs.joined(separator: ", ")).\nThese may represent core beliefs driving automatic thoughts. Consider examining the evidence for and against each belief, and developing more balanced alternatives."
+    }
+
+    private func generateHumanisticInsight(session: SessionModel) -> String {
+        let conditions = session.graphNodes.filter { $0.type == "belief" && ($0.label.lowercased().contains("should") || $0.label.lowercased().contains("must")) }
+        if conditions.isEmpty {
+            return "Explore the client's organismic valuing process and conditions of worth."
+        }
+        return "Humanistic Reflection:\nDetected should/must statements that may represent introjected conditions of worth. Support the client in reconnecting with their own organismic valuing process."
+    }
+
+    private func generateExistentialInsight(session: SessionModel, themes: [String]) -> String {
+        if themes.isEmpty {
+            return "Continue exploring existential themes as they naturally arise."
+        }
+        return "Existential Analysis:\nEmerging themes: \(themes.joined(separator: ", ")).\nExplore how the client confronts these givens of existence and what they reveal about their authentic or inauthentic modes of living."
+    }
+
+    private func generateGestaltInsight(session: SessionModel) -> String {
+        return "Gestalt Awareness:\nNotice patterns of contact boundary disturbance — introjection, projection, retroflection, deflection, confluence. Help the client bring awareness to what they are avoiding in the present moment."
+    }
+
+    private func generateSomaticInsight(session: SessionModel) -> String {
+        return "Somatic Observation:\nTrack nervous system state patterns — are they primarily in sympathetic (hyperarousal) or dorsal vagal (hypoarousal) activation? Support resourcing, grounding, and pendulation between activation and settling."
+    }
+
+    private func generateNarrativeInsight(session: SessionModel) -> String {
+        return "Narrative Analysis:\nListen for the dominant problem story. What names might the client give to the problem? Search for unique outcomes — moments when the problem could have dominated but didn't. These are entry points for re-authoring."
+    }
+
+    private func generateACTInsight(session: SessionModel, topEmotions: [(String, Float)]) -> String {
+        if topEmotions.isEmpty {
+            return "Explore the client's values and areas of experiential avoidance."
+        }
+        let primary = topEmotions.first?.0.lowercased() ?? ""
+        return "ACT Analysis:\nDominant emotion: \(primary). This may indicate areas of experiential avoidance. Explore how the client relates to this emotion — fusion, avoidance, or willingness. Clarify values that can guide committed action."
+    }
+
+    private func generatePsychodynamicInsight(session: SessionModel, cycles: [[String]]) -> String {
+        if cycles.isEmpty {
+            return "Listen for unconscious themes and emerging transference patterns."
+        }
+        return "Psychodynamic Observation:\nDetected \(cycles.count) recurring relational pattern(s). These may represent repetition compulsion — the client unconsciously recreates early attachment patterns. Explore how these patterns manifest in the therapeutic relationship."
+    }
+
+    private func generateIFSInsight(session: SessionModel) -> String {
+        let protectorCount = session.graphNodes.filter { $0.type == "belief" }.count
+        if protectorCount == 0 {
+            return "Begin mapping the client's internal system — identify protectors that manage daily life and firefighters that react when exiles are activated."
+        }
+        return "IFS Analysis:\n\(protectorCount) identified protector part(s). Work with protectors first — understand their role, appreciate their good intentions, and negotiate access to exiles they protect. Track Self-energy: curiosity, compassion, calm, clarity."
+    }
+
     private func formatCycle(_ cycle: [String], session: SessionModel) -> String {
         let labels = cycle.compactMap { id in session.graphNodes.first(where: { $0.id == id })?.label }
         return labels.joined(separator: " → ")
@@ -74,4 +150,5 @@ struct InsightResult {
     let dbtRecommendation: String
     let shadowObservation: String
     let repeatingLoops: [String]
+    let modalityAnalysis: String
 }

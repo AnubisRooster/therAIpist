@@ -7,6 +7,7 @@ from app.models.note import Note
 from app.models.dream import Dream
 from app.models.voice import VoiceRecording
 from app.models.safety import SafetyEvent
+from app.models.global_memory import GlobalMemory
 
 __all__ = [
     "Base",
@@ -21,4 +22,5 @@ __all__ = [
     "Dream",
     "VoiceRecording",
     "SafetyEvent",
+    "GlobalMemory",
 ]

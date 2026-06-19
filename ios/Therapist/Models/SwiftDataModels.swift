@@ -196,6 +196,27 @@ final class VoiceRecordingModel {
 }
 
 @Model
+final class GlobalMemoryModel {
+    var id: String
+    var sessionID: String?
+    var type: String  // "episodic", "semantic", "insight", "theme"
+    var content: String
+    var keywords: String
+    var importance: Float
+    var createdAt: Date
+
+    init(sessionID: String? = nil, type: String = "semantic", content: String, keywords: String = "", importance: Float = 0.5) {
+        self.id = UUID().uuidString
+        self.sessionID = sessionID
+        self.type = type
+        self.content = content
+        self.keywords = keywords
+        self.importance = importance
+        self.createdAt = Date()
+    }
+}
+
+@Model
 final class SafetyEventModel {
     var id: String
     var session: SessionModel?

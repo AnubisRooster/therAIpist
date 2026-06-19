@@ -7,7 +7,8 @@ from httpx import AsyncClient
 from app.models.base import Base
 from app.services.insight_service import (
     InsightService,
-    INSIGHT_SYSTEM_PROMPT,
+    MODALITY_INSIGHT_PROMPTS,
+    BASE_INSIGHT_OUTPUT,
 )
 from app.services.graph_service import GraphService
 
@@ -41,48 +42,31 @@ class TestParseInsights:
             "repeating_loops": [
                 {"pattern": "anxiety leads to avoidance", "description": "When anxious, avoids social situations", "frequency": "frequent", "entities_involved": ["anxiety", "avoidance"]}
             ],
-            "adlerian_insights": [
-                {"type": "inferiority_feeling", "observation": "Client feels inadequate at work", "evidence": ["mentions being 'not good enough'"]}
-            ],
-            "dbt_recommendations": [
-                {"skill_category": "emotion_regulation", "recommendation": "Use opposite action", "rationale": "To counter avoidance pattern"}
-            ],
-            "shadow_observations": [
-                {"observation": "Anger may be covering vulnerability", "evidence": ["dismisses own emotions"], "defense_type": "suppression"}
+            "modality_insights": [
+                {"observation": "Client feels inadequate at work", "evidence": ["mentions being 'not good enough'"]}
             ]
         }"""
         result = insight_service._parse_insights(text)
         assert len(result["repeating_loops"]) == 1
-        assert result["adlerian_insights"][0]["type"] == "inferiority_feeling"
-        assert result["dbt_recommendations"][0]["skill_category"] == "emotion_regulation"
-        assert result["shadow_observations"][0]["defense_type"] == "suppression"
+        assert len(result["modality_insights"]) == 1
+        assert result["modality_insights"][0]["observation"] == "Client feels inadequate at work"
 
     @pytest.mark.asyncio
     async def test_parse_codeblock(self, insight_service):
-        text = '```json\n{"repeating_loops": [], "adlerian_insights": [], "dbt_recommendations": [], "shadow_observations": []}\n```'
+        text = '```json\n{"repeating_loops": [], "modality_insights": []}\n```'
         result = insight_service._parse_insights(text)
-        assert result == {
-            "repeating_loops": [],
-            "adlerian_insights": [],
-            "dbt_recommendations": [],
-            "shadow_observations": [],
-        }
+        assert result == {"repeating_loops": [], "modality_insights": []}
 
     @pytest.mark.asyncio
     async def test_parse_embedded_json(self, insight_service):
-        text = 'Here are insights: {"repeating_loops": [{"pattern": "test", "description": "test", "frequency": "occasional", "entities_involved": []}], "adlerian_insights": [], "dbt_recommendations": [], "shadow_observations": []}'
+        text = 'Here are insights: {"repeating_loops": [{"pattern": "test", "description": "test", "frequency": "occasional", "entities_involved": []}], "modality_insights": []}'
         result = insight_service._parse_insights(text)
         assert len(result["repeating_loops"]) == 1
 
     @pytest.mark.asyncio
     async def test_parse_invalid(self, insight_service):
         result = insight_service._parse_insights("not json")
-        assert result == {
-            "repeating_loops": [],
-            "adlerian_insights": [],
-            "dbt_recommendations": [],
-            "shadow_observations": [],
-        }
+        assert result == {"repeating_loops": [], "modality_insights": []}
 
 
 class TestBuildContext:
@@ -154,12 +138,7 @@ class TestGenerateInsights:
     async def test_generate_insights_empty_session(self, insight_service):
         with patch("app.services.insight_service.InsightService._get_provider") as mock_get:
             insights = await insight_service.generate_insights("empty")
-            assert insights == {
-                "repeating_loops": [],
-                "adlerian_insights": [],
-                "dbt_recommendations": [],
-                "shadow_observations": [],
-            }
+            assert insights == {"repeating_loops": [], "modality_insights": []}
             mock_get.assert_not_called()
 
     @pytest.mark.asyncio
@@ -171,9 +150,7 @@ class TestGenerateInsights:
         mock_result = MagicMock()
         mock_result.content = """{
             "repeating_loops": [{"pattern": "anxiety loop", "description": "Work pressure causes anxiety", "frequency": "frequent", "entities_involved": ["work_pressure", "anxiety"]}],
-            "adlerian_insights": [{"type": "inferiority_feeling", "observation": "Client feels inadequate at work", "evidence": ["work_pressure node present"]}],
-            "dbt_recommendations": [{"skill_category": "emotion_regulation", "recommendation": "Check the facts", "rationale": "To assess actual vs perceived pressure"}],
-            "shadow_observations": [{"observation": "Anger at work may mask fear", "evidence": ["no anger nodes found though expected"], "defense_type": "suppression"}]
+            "modality_insights": [{"observation": "Anxiety about work performance", "evidence": ["work_pressure node present"]}]
         }"""
         mock_provider.chat = AsyncMock(return_value=mock_result)
         insight_service._provider = mock_provider
@@ -181,9 +158,7 @@ class TestGenerateInsights:
         insights = await insight_service.generate_insights("s1")
         assert len(insights["repeating_loops"]) == 1
         assert insights["repeating_loops"][0]["pattern"] == "anxiety loop"
-        assert len(insights["adlerian_insights"]) == 1
-        assert len(insights["dbt_recommendations"]) == 1
-        assert len(insights["shadow_observations"]) == 1
+        assert len(insights["modality_insights"]) == 1
 
     @pytest.mark.asyncio
     async def test_generate_insights_provider_error(self, insight_service, graph_service):
@@ -194,12 +169,7 @@ class TestGenerateInsights:
         insight_service._provider = mock_provider
 
         insights = await insight_service.generate_insights("s1")
-        assert insights == {
-            "repeating_loops": [],
-            "adlerian_insights": [],
-            "dbt_recommendations": [],
-            "shadow_observations": [],
-        }
+        assert insights == {"repeating_loops": [], "modality_insights": []}
 
 
 class TestInsightsAPI:
@@ -210,35 +180,11 @@ class TestInsightsAPI:
         data = resp.json()
         assert data["session_id"] == "nonexistent"
         assert data["repeating_loops"] == []
-        assert data["adlerian_insights"] == []
-        assert data["dbt_recommendations"] == []
-        assert data["shadow_observations"] == []
-        assert data["cycles"] == []
+        assert data["modality_insights"] == []
 
     @pytest.mark.asyncio
     async def test_get_cycles_empty(self, client):
         resp = await client.get("/insights/nonexistent/cycles")
-        assert resp.status_code == 200
-        assert resp.json() == []
-
-    @pytest.mark.asyncio
-    async def test_get_adlerian_empty(self, client):
-        with patch("app.services.insight_service.InsightService._get_provider") as mock_get:
-            resp = await client.get("/insights/nonexistent/adlerian")
-        assert resp.status_code == 200
-        assert resp.json() == []
-
-    @pytest.mark.asyncio
-    async def test_get_dbt_empty(self, client):
-        with patch("app.services.insight_service.InsightService._get_provider") as mock_get:
-            resp = await client.get("/insights/nonexistent/dbt")
-        assert resp.status_code == 200
-        assert resp.json() == []
-
-    @pytest.mark.asyncio
-    async def test_get_shadow_empty(self, client):
-        with patch("app.services.insight_service.InsightService._get_provider") as mock_get:
-            resp = await client.get("/insights/nonexistent/shadow")
         assert resp.status_code == 200
         assert resp.json() == []
 
@@ -255,7 +201,6 @@ class TestInsightsAPI:
         create_resp = await client.post("/sessions", json={"title": "Insight Test", "provider": "ollama"})
         session_id = create_resp.json()["id"]
 
-        # Add graph data via the API so _build_context returns non-empty content
         await client.post("/graph/nodes", json={"type": "emotion", "label": "anxiety", "session_id": session_id})
         await client.post("/graph/nodes", json={"type": "event", "label": "work_pressure", "session_id": session_id})
 
@@ -265,9 +210,7 @@ class TestInsightsAPI:
             mock_result = MagicMock()
             mock_result.content = """{
                 "repeating_loops": [{"pattern": "procrastination cycle", "description": "Puts off work then feels guilty", "frequency": "frequent", "entities_involved": ["work", "guilt"]}],
-                "adlerian_insights": [{"type": "lifestyle", "observation": "Perfectionistic lifestyle", "evidence": ["procrastination pattern suggests fear of imperfection"]}],
-                "dbt_recommendations": [{"skill_category": "mindfulness", "recommendation": "Observe and describe", "rationale": "To notice procrastination without judgment"}],
-                "shadow_observations": [{"observation": "Perfectionism may hide feelings of inadequacy", "evidence": ["procrastination as avoidance", "guilt after delay"], "defense_type": "compensation"}]
+                "modality_insights": [{"observation": "Perfectionistic patterns driving procrastination", "evidence": ["procrastination pattern suggests fear of imperfection"]}]
             }"""
             mock_provider = MagicMock()
             mock_provider.chat = AsyncMock(return_value=mock_result)
@@ -279,9 +222,4 @@ class TestInsightsAPI:
         assert data["session_id"] == session_id
         assert len(data["repeating_loops"]) == 1
         assert data["repeating_loops"][0]["pattern"] == "procrastination cycle"
-        assert len(data["adlerian_insights"]) == 1
-        assert data["adlerian_insights"][0]["type"] == "lifestyle"
-        assert len(data["dbt_recommendations"]) == 1
-        assert data["dbt_recommendations"][0]["skill_category"] == "mindfulness"
-        assert len(data["shadow_observations"]) == 1
-        assert data["shadow_observations"][0]["defense_type"] == "compensation"
+        assert len(data["modality_insights"]) == 1

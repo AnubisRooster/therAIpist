@@ -234,9 +234,15 @@ class ShadowObservationResponse(BaseModel):
     defense_type: str
 
 
+class ModalityInsightResponse(BaseModel):
+    observation: str
+    evidence: list[str] = []
+
+
 class InsightSummaryResponse(BaseModel):
     session_id: str
     repeating_loops: list[RepeatingLoopResponse] = []
+    modality_insights: list[ModalityInsightResponse] = []
     adlerian_insights: list[AdlerianInsightResponse] = []
     dbt_recommendations: list[DBTRecommendationResponse] = []
     shadow_observations: list[ShadowObservationResponse] = []

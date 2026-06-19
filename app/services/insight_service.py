@@ -9,13 +9,30 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.models.graph import GraphNode, GraphEdge
 from app.models.conversation import Message
+from app.models.session import Session
 from app.services.graph_service import GraphService
 from app.services.providers import get_provider
 from app.services.providers.base import ChatMessage
 
 
-INSIGHT_SYSTEM_PROMPT = """You are a psychological insight engine. Analyze the therapy session data below and generate clinical insights incorporating Adlerian, Jungian, and DBT perspectives.
+MODALITY_INSIGHT_PROMPTS = {
+    "adlerian": "Focus on lifestyle convictions, inferiority/superiority dynamics, social interest, early recollections, and birth order patterns.",
+    "jungian": "Focus on shadow content, archetypal patterns, anima/animus dynamics, persona identification, and individuation progress.",
+    "dbt": "Focus on skill deficits, emotional dysregulation patterns, behavioral chains, dialectical tensions, and skill generalization.",
+    "integrated": "Incorporate Adlerian (lifestyle), Jungian (symbolic/shadow), and DBT (skill-based) perspectives as appropriate.",
+    "free_form": "Focus on emergent themes, natural patterns, and the client's own framing of their experience without imposing a specific theoretical lens.",
+    "cbt": "Focus on maladaptive automatic thoughts, cognitive distortions, core beliefs, and behavioral patterns that maintain difficulties.",
+    "humanistic": "Focus on conditions of worth, incongruence between self-concept and experience, the client's organismic valuing process, and barriers to self-actualization.",
+    "existential": "Focus on how the client confronts death, freedom, isolation, and meaninglessness. Examine authentic vs. inauthentic living and existential anxiety.",
+    "gestalt": "Focus on contact boundary disturbances, unfinished business, present-moment awareness gaps, and resistance patterns in the field.",
+    "somatic": "Focus on nervous system states, body-based holding patterns, incomplete defensive responses, and the relationship between sensation and meaning.",
+    "narrative": "Focus on dominant problem stories, unique outcomes, externalized problem dynamics, and the re-authoring process.",
+    "act": "Focus on experiential avoidance, cognitive fusion, values-behavior gap, defusion opportunities, and committed action steps.",
+    "psychodynamic": "Focus on unconscious themes, defense mechanisms, transference patterns, early attachment templates, and relational repetitions.",
+    "ifs": "Focus on parts mapping, protector-exile dynamics, Self-energy access, burdens, and the unburdening process.",
+}
 
+BASE_INSIGHT_OUTPUT = """
 Output ONLY valid JSON with this structure:
 {
   "repeating_loops": [
@@ -26,25 +43,10 @@ Output ONLY valid JSON with this structure:
       "entities_involved": ["entity_label_1", "entity_label_2"]
     }
   ],
-  "adlerian_insights": [
+  "modality_insights": [
     {
-      "type": "inferiority_feeling|superiority_striving|lifestyle|social_interest|birth_order",
-      "observation": "string describing the insight",
+      "observation": "string describing the insight from the modality framework",
       "evidence": ["specific evidence from session data"]
-    }
-  ],
-  "dbt_recommendations": [
-    {
-      "skill_category": "emotion_regulation|distress_tolerance|interpersonal_effectiveness|mindfulness",
-      "recommendation": "specific DBT skill or technique",
-      "rationale": "why this skill would be helpful based on session data"
-    }
-  ],
-  "shadow_observations": [
-    {
-      "observation": "string describing potential shadow/defense content",
-      "evidence": ["specific evidence from session data"],
-      "defense_type": "projection|denial|suppression|compensation|reaction_formation|intellectualization"
     }
   ]
 }
@@ -112,27 +114,30 @@ class InsightService:
     async def generate_insights(self, session_id: str) -> dict:
         context = await self._build_context(session_id)
         if not context.strip():
-            return {
-                "repeating_loops": [],
-                "adlerian_insights": [],
-                "dbt_recommendations": [],
-                "shadow_observations": [],
-            }
+            return {"repeating_loops": [], "modality_insights": []}
+
+        session_result = await self.db.execute(
+            select(Session).where(Session.id == session_id)
+        )
+        session = session_result.scalar_one_or_none()
+        modality = session.modality if session else "integrated"
+        modality_focus = MODALITY_INSIGHT_PROMPTS.get(modality, MODALITY_INSIGHT_PROMPTS["integrated"])
+
+        system_prompt = f"""You are a psychological insight engine. Analyze the therapy session data below and generate clinical insights.
+
+Modality focus: {modality_focus}
+
+{BASE_INSIGHT_OUTPUT}"""
 
         provider = await self._get_provider()
         messages = [
-            ChatMessage(role="system", content=INSIGHT_SYSTEM_PROMPT),
+            ChatMessage(role="system", content=system_prompt),
             ChatMessage(role="user", content=f"Therapy Session Data:\n{context}"),
         ]
         try:
             result = await provider.chat(messages=messages, model=None, temperature=0.3, max_tokens=3000)
         except Exception:
-            return {
-                "repeating_loops": [],
-                "adlerian_insights": [],
-                "dbt_recommendations": [],
-                "shadow_observations": [],
-            }
+            return {"repeating_loops": [], "modality_insights": []}
         return self._parse_insights(result.content)
 
     def _parse_insights(self, text: str) -> dict:
@@ -148,17 +153,10 @@ class InsightService:
                 end = text.rindex("}") + 1
                 data = json.loads(text[start:end])
             except (ValueError, json.JSONDecodeError):
-                return {
-                    "repeating_loops": [],
-                    "adlerian_insights": [],
-                    "dbt_recommendations": [],
-                    "shadow_observations": [],
-                }
+                return {"repeating_loops": [], "modality_insights": []}
         return {
             "repeating_loops": data.get("repeating_loops", []),
-            "adlerian_insights": data.get("adlerian_insights", []),
-            "dbt_recommendations": data.get("dbt_recommendations", []),
-            "shadow_observations": data.get("shadow_observations", []),
+            "modality_insights": data.get("modality_insights", []),
         }
 
     async def detect_cycles(self, session_id: str, max_depth: int = 5) -> list[dict]:

@@ -45,9 +45,8 @@ class MemoryService {
         }
     }
 
-    func recallRelevant(session: SessionModel, query: String) -> [MemoryModel] {
+    func recallRelevant(session: SessionModel, query: String, context: ModelContext? = nil) -> [MemoryModel] {
         let memories = session.memories.filter { $0.type == "episodic" || $0.type == "semantic" }
-        guard !memories.isEmpty else { return [] }
 
         // Prefer on-device semantic similarity when embeddings are available.
         if let queryVec = embedder.embed(query) {
@@ -64,11 +63,27 @@ class MemoryService {
         let lowerQuery = query.lowercased()
         let queryWords = Set(lowerQuery.split(separator: " "))
 
-        let scored = memories.map { mem -> (MemoryModel, Float) in
+        var scored = memories.map { mem -> (MemoryModel, Float) in
             let wordCount = queryWords.filter { mem.content.lowercased().contains($0) || mem.keywords.lowercased().contains($0) }.count
             let recencyBoost = Float(mem.createdAt.timeIntervalSinceNow * -1 / 86400).clamped(to: 0...1) * 0.2
             let score = Float(wordCount) / Float(max(queryWords.count, 1)) + mem.importance * 0.5 + recencyBoost
             return (mem, score)
+        }
+
+        // Cross-session recall: search all other sessions' memories too
+        if let ctx = context {
+            let fetch = FetchDescriptor<SessionModel>()
+            if let allSessions = try? ctx.fetch(fetch) {
+                for otherSession in allSessions where otherSession.id != session.id {
+                    for mem in otherSession.memories where mem.type == "episodic" || mem.type == "semantic" {
+                        let wordCount = queryWords.filter { mem.content.lowercased().contains($0) || mem.keywords.lowercased().contains($0) }.count
+                        if wordCount > 0 {
+                            let score = Float(wordCount) / Float(max(queryWords.count, 1)) + mem.importance * 0.3
+                            scored.append((mem, score + 0.1))  // slight bonus for cross-session
+                        }
+                    }
+                }
+            }
         }
 
         return scored.sorted { $0.1 > $1.1 }.prefix(5).map(\.0)

@@ -5,6 +5,11 @@ struct ChatView: View {
     @Environment(\.modelContext) private var context
     @EnvironmentObject private var modelService: ModelService
     let session: SessionModel
+    @State private var showInsights = false
+    @State private var showNotes = false
+    @State private var showDreams = false
+    @State private var showGraph = false
+    @State private var showModelPicker = false
 
     @State private var messageText = ""
     @State private var isLoading = false
@@ -12,7 +17,6 @@ struct ChatView: View {
     @State private var showNotes = false
     @State private var showDreams = false
     @State private var showGraph = false
-    @State private var showModelPicker = false
     @State private var errorMessage: String?
 
     private var modelLabel: String {
@@ -79,22 +83,30 @@ struct ChatView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .principal) {
-                Button {
-                    showModelPicker = true
-                } label: {
-                    HStack(spacing: 4) {
-                        Image(systemName: "cpu")
-                            .font(.caption2)
-                        Text(modelLabel)
-                            .font(.caption.weight(.semibold))
-                            .lineLimit(1)
+                HStack(spacing: 6) {
+                    Image(systemName: modalityIcons[session.modality] ?? "sparkles")
+                        .font(.caption2)
+                        .foregroundColor(modalityColor(session.modality))
+                    Text(session.modality.replacingOccurrences(of: "_", with: " ").capitalized)
+                        .font(.caption2.weight(.semibold))
+                        .foregroundColor(.secondary)
+                    Button {
+                        showModelPicker = true
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "cpu")
+                                .font(.caption2)
+                            Text(modelLabel)
+                                .font(.caption.weight(.semibold))
+                                .lineLimit(1)
+                        }
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 4)
+                        .background(Color.secondary.opacity(0.15))
+                        .clipShape(Capsule())
                     }
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 4)
-                    .background(Color.secondary.opacity(0.15))
-                    .clipShape(Capsule())
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
             }
             ToolbarItemGroup(placement: .bottomBar) {
                 Button("Insights", systemImage: "lightbulb") { showInsights = true }
@@ -113,6 +125,26 @@ struct ChatView: View {
         .sheet(isPresented: $showNotes) { NotesView(session: session) }
         .sheet(isPresented: $showDreams) { DreamsView(session: session) }
         .sheet(isPresented: $showGraph) { GraphView(session: session) }
+    }
+
+    private func modalityColor(_ modality: String) -> Color {
+        switch modality {
+        case "adlerian": return .blue
+        case "jungian": return .purple
+        case "dbt": return .green
+        case "integrated": return .orange
+        case "free_form": return .teal
+        case "cbt": return .indigo
+        case "humanistic": return .pink
+        case "existential": return .gray
+        case "gestalt": return .yellow
+        case "somatic": return .mint
+        case "narrative": return .brown
+        case "act": return .cyan
+        case "psychodynamic": return .red
+        case "ifs": return .primary
+        default: return .secondary
+        }
     }
 
     private func sendMessage() {

@@ -9,6 +9,7 @@ actor ChatService {
     private let therapy = TherapyService.shared
     private let memoryService = MemoryService.shared
     private let graphService = GraphService.shared
+    private let globalMemoryService = GlobalMemoryService.shared
     private let orchestrator = AgentOrchestrator()
 
     struct ChatResult {
@@ -19,6 +20,12 @@ actor ChatService {
     }
 
     func processMessage(session: SessionModel, userMessage: String, context: ModelContext) async -> ChatResult {
+        let globalMemories = globalMemoryService.recall(query: userMessage, context: context)
+        var crossSessionContext = ""
+        if !globalMemories.isEmpty {
+            let lines = globalMemories.map { "- \($0.content)" }
+            crossSessionContext = "Relevant cross-session memories:\n" + lines.joined(separator: "\n")
+        }
         let crisisCheck = safety.checkCrisis(userMessage)
 
         if crisisCheck.isCrisis {
@@ -41,8 +48,14 @@ actor ChatService {
         let userMsg = MessageModel(session: session, role: "user", content: userMessage)
         context.insert(userMsg)
 
-        let memories = memoryService.recallRelevant(session: session, query: userMessage)
-        let memoryContext = memories.map { "- \($0.content)" }.joined(separator: "\n")
+        let memories = memoryService.recallRelevant(session: session, query: userMessage, context: context)
+        var memoryContext = memories.map { "- \($0.content)" }.joined(separator: "\n")
+        if !crossSessionContext.isEmpty {
+            if !memoryContext.isEmpty {
+                memoryContext += "\n\n"
+            }
+            memoryContext += crossSessionContext
+        }
 
         let recentMessages = session.messages.suffix(10).map { ($0.role, $0.content) }
 
@@ -97,6 +110,13 @@ actor ChatService {
         )
         memoryService.consolidateRecentMessages(session: session, context: context)
         graphService.extractEntitiesFromMessage(session: session, message: userMessage)
+
+        let _ = globalMemoryService.promoteIfValuable(
+            userMessage: userMessage,
+            assistantResponse: finalResponse,
+            sessionID: session.id,
+            context: context
+        )
 
         let agentCtx = AgentContext(
             sessionId: session.id,

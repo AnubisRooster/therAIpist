@@ -79,11 +79,6 @@ struct ContentView: View {
     }
 
     private func modalityIcon(_ modality: String) -> String {
-        switch modality {
-        case "adlerian": return "figure.walk"
-        case "jungian": return "moon.stars"
-        case "dbt": return "brain"
-        default: return "sparkles"
-        }
+        modalityIcons[modality] ?? "sparkles"
     }
 }

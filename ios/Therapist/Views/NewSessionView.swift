@@ -6,9 +6,7 @@ struct NewSessionView: View {
     @Environment(\.dismiss) var dismiss
 
     @State private var title = ""
-    @State private var modality = "integrated"
-
-    let modalities = ["integrated", "adlerian", "jungian", "dbt"]
+    @State private var modality = "free_form"
 
     var body: some View {
         NavigationStack {
@@ -19,21 +17,22 @@ struct NewSessionView: View {
 
                 Section("Therapy Modality") {
                     Picker("Modality", selection: $modality) {
-                        ForEach(modalities, id: \.self) { m in
+                        ForEach(allModalities, id: \.self) { m in
                             HStack {
-                                Image(systemName: modalityIcon(m))
-                                Text(m.capitalized)
+                                Image(systemName: modalityIcons[m] ?? "sparkles")
+                                    .foregroundColor(modalityColor(m))
+                                Text(m.replacingOccurrences(of: "_", with: " ").capitalized)
                             }.tag(m)
                         }
                     }
                     .pickerStyle(.menu)
 
-                    Text(modalityDescription(modality))
+                    Text(modalityDescriptions[modality] ?? "")
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
 
-                Section {
+                Section("Model") {
                     Text("Choose your model from the chat screen after starting.")
                         .font(.caption)
                         .foregroundColor(.secondary)
@@ -64,21 +63,23 @@ struct NewSessionView: View {
         try? context.save()
     }
 
-    private func modalityIcon(_ modality: String) -> String {
+    private func modalityColor(_ modality: String) -> Color {
         switch modality {
-        case "adlerian": return "figure.walk"
-        case "jungian": return "moon.stars"
-        case "dbt": return "brain"
-        default: return "sparkles"
-        }
-    }
-
-    private func modalityDescription(_ modality: String) -> String {
-        switch modality {
-        case "adlerian": return "Focus on lifestyle, goals, and social interest"
-        case "jungian": return "Explore symbols, archetypes, and individuation"
-        case "dbt": return "Skills-based: mindfulness, distress tolerance, emotion regulation"
-        default: return "Integrates Jungian, Adlerian, and DBT approaches"
+        case "adlerian": return .blue
+        case "jungian": return .purple
+        case "dbt": return .green
+        case "integrated": return .orange
+        case "free_form": return .teal
+        case "cbt": return .indigo
+        case "humanistic": return .pink
+        case "existential": return .gray
+        case "gestalt": return .yellow
+        case "somatic": return .mint
+        case "narrative": return .brown
+        case "act": return .cyan
+        case "psychodynamic": return .red
+        case "ifs": return .primary
+        default: return .secondary
         }
     }
 }

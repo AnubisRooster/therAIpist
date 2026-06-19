@@ -5,6 +5,7 @@ from app.core.database import get_db
 from app.models.schemas import (
     InsightSummaryResponse,
     RepeatingLoopResponse,
+    ModalityInsightResponse,
     AdlerianInsightResponse,
     DBTRecommendationResponse,
     ShadowObservationResponse,
@@ -19,17 +20,14 @@ async def get_insight_service(db: AsyncSession = Depends(get_db)) -> InsightServ
     return InsightService(db=db)
 
 
-@router.get("/{session_id}", response_model=InsightSummaryResponse)
-async def get_all_insights(
-    session_id: str,
-    service: InsightService = Depends(get_insight_service),
-):
-    insights = await service.generate_insights(session_id)
-    cycles = await service.detect_cycles(session_id)
+def _build_summary(session_id: str, insights: dict, cycles: list) -> InsightSummaryResponse:
     return InsightSummaryResponse(
         session_id=session_id,
         repeating_loops=[
             RepeatingLoopResponse(**loop) for loop in insights.get("repeating_loops", [])
+        ],
+        modality_insights=[
+            ModalityInsightResponse(**i) for i in insights.get("modality_insights", [])
         ],
         adlerian_insights=[
             AdlerianInsightResponse(**insight) for insight in insights.get("adlerian_insights", [])
@@ -42,6 +40,16 @@ async def get_all_insights(
         ],
         cycles=[CycleResponse(**c) for c in cycles],
     )
+
+
+@router.get("/{session_id}", response_model=InsightSummaryResponse)
+async def get_all_insights(
+    session_id: str,
+    service: InsightService = Depends(get_insight_service),
+):
+    insights = await service.generate_insights(session_id)
+    cycles = await service.detect_cycles(session_id)
+    return _build_summary(session_id, insights, cycles)
 
 
 @router.get("/{session_id}/cycles", response_model=list[CycleResponse])
@@ -87,19 +95,4 @@ async def refresh_insights(
 ):
     insights = await service.generate_insights(session_id)
     cycles = await service.detect_cycles(session_id)
-    return InsightSummaryResponse(
-        session_id=session_id,
-        repeating_loops=[
-            RepeatingLoopResponse(**loop) for loop in insights.get("repeating_loops", [])
-        ],
-        adlerian_insights=[
-            AdlerianInsightResponse(**insight) for insight in insights.get("adlerian_insights", [])
-        ],
-        dbt_recommendations=[
-            DBTRecommendationResponse(**rec) for rec in insights.get("dbt_recommendations", [])
-        ],
-        shadow_observations=[
-            ShadowObservationResponse(**obs) for obs in insights.get("shadow_observations", [])
-        ],
-        cycles=[CycleResponse(**c) for c in cycles],
-    )
+    return _build_summary(session_id, insights, cycles)

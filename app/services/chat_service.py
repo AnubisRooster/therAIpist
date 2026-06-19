@@ -19,6 +19,7 @@ from app.services.safety_service import (
     FILTERED_RESPONSE_MESSAGE,
 )
 from app.services.mode_service import ModeService
+from app.services.global_memory_service import GlobalMemoryService
 
 
 class ChatService:
@@ -100,11 +101,22 @@ class ChatService:
         # MemoryService uses its own dedicated embedding provider (see settings)
         # so vector spaces stay consistent regardless of the chat provider.
         memory_service = MemoryService(db=self.db)
+        global_memory_service = GlobalMemoryService(db=self.db)
 
         memory_context = await memory_service.build_context_prompt(
             user_message,
             max_memories=settings.memory_recall_limit,
         )
+
+        global_memories = await global_memory_service.recall(user_message, top_k=3)
+        if global_memories:
+            global_lines = ["\nRelevant cross-session memories:"]
+            for gm in global_memories:
+                global_lines.append(f"- {gm.content[:200]}")
+            if memory_context:
+                memory_context += "\n" + "\n".join(global_lines)
+            else:
+                memory_context = "\n".join(global_lines)
 
         therapy_service = TherapyService(db=self.db, provider_name=resolved_provider)
         modality_prompt = therapy_service.get_modality_prompt(session.modality)
@@ -183,6 +195,12 @@ class ChatService:
                 session_id=session_id,
                 user_message=user_message,
                 assistant_response=response_content,
+            )
+
+            await global_memory_service.promote_if_valuable(
+                user_message=user_message,
+                assistant_response=response_content,
+                session_id=session_id,
             )
 
         session.updated_at = datetime.now(timezone.utc).isoformat()

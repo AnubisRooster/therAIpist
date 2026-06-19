@@ -37,6 +37,8 @@ struct DashboardView: View {
                     StatRow(label: "Notes", value: "\(sessions.reduce(0) { $0 + $1.notes.count })")
                     StatRow(label: "Dreams", value: "\(sessions.reduce(0) { $0 + $1.dreams.count })")
                     StatRow(label: "Memories", value: "\(sessions.reduce(0) { $0 + $1.memories.count })")
+                    let globalCount = (try? context.fetch(FetchDescriptor<GlobalMemoryModel>()).count) ?? 0
+                    StatRow(label: "Global Memories", value: "\(globalCount)")
                 }
 
                 if !recentNotes.isEmpty {
@@ -70,7 +72,18 @@ struct DashboardView: View {
         case "adlerian": return .blue
         case "jungian": return .purple
         case "dbt": return .green
-        default: return .orange
+        case "integrated": return .orange
+        case "free_form": return .teal
+        case "cbt": return .indigo
+        case "humanistic": return .pink
+        case "existential": return .gray
+        case "gestalt": return .yellow
+        case "somatic": return .mint
+        case "narrative": return .brown
+        case "act": return .cyan
+        case "psychodynamic": return .red
+        case "ifs": return .primary
+        default: return .secondary
         }
     }
 }
