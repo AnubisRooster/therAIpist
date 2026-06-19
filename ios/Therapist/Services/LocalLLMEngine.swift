@@ -63,6 +63,13 @@ final class LocalLLMEngine: ObservableObject {
         llm = nil
         loadedModelID = nil
         loadError = nil
+        isGenerating = false
+    }
+
+    /// Cancels in-progress generation. Safe to call from the Stop button.
+    func stopGeneration() {
+        llm?.stop()
+        isGenerating = false
     }
 
     // MARK: - Inference
@@ -119,7 +126,28 @@ final class LocalLLMEngine: ObservableObject {
         llm.preprocess = template.preprocess
 
         let prompt = llm.preprocess(lastUserMessage, history)
-        let response = await llm.getCompletion(from: prompt)
+
+        // Race inference against a 120-second hard timeout.
+        // If the prompt overflows the model's context window, llama.cpp may
+        // silently stall; this ensures the engine always recovers.
+        let response = try await withThrowingTaskGroup(of: String.self) { group in
+            group.addTask {
+                await llm.getCompletion(from: prompt)
+            }
+            group.addTask {
+                try await Task.sleep(nanoseconds: 120_000_000_000)  // 120 s
+                return "__TIMEOUT__"
+            }
+            // First result wins.
+            let first = try await group.next() ?? ""
+            group.cancelAll()
+            if first == "__TIMEOUT__" {
+                llm.stop()
+                throw LocalLLMError.timeout
+            }
+            return first
+        }
+
         return response.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
@@ -169,6 +197,7 @@ enum LocalLLMError: LocalizedError {
     case notLoaded
     case loadFailed(String)
     case busy
+    case timeout
 
     var errorDescription: String? {
         switch self {
@@ -178,6 +207,8 @@ enum LocalLLMError: LocalizedError {
             return "Failed to load \(name). Try deleting and re-downloading it."
         case .busy:
             return "The model is still generating a response. Please wait."
+        case .timeout:
+            return "Response timed out. The prompt may be too long for this model's context window. Try the 1B model for faster responses."
         }
     }
 }

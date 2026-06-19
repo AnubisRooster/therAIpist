@@ -57,7 +57,11 @@ actor ChatService {
             memoryContext += crossSessionContext
         }
 
-        let recentMessages = session.messages.suffix(10).map { ($0.role, $0.content) }
+        let provider = session.resolvedProvider
+        // Local models have limited context (4096 tokens shared with the long system
+        // prompt). Cap history at 3 exchanges (6 messages) to avoid overflow.
+        let historyLimit = provider == "local" ? 6 : 10
+        let recentMessages = session.messages.suffix(historyLimit).map { ($0.role, $0.content) }
 
         let llmMessages = therapy.buildMessages(
             modality: session.modality,
@@ -68,7 +72,6 @@ actor ChatService {
         )
 
         let model = session.resolvedModel
-        let provider = session.resolvedProvider
 
         // Pre-warm the local engine if this session uses it.
         if provider == "local" {
@@ -88,9 +91,15 @@ actor ChatService {
             )
             tokenCount = assistantResponse.count / 4
         } catch LocalLLMError.busy {
-            // Another local-inference is already running; skip this message.
             return ChatResult(
-                response: "I'm still thinking about your last message — please wait a moment.",
+                response: "I'm still thinking about your last message — please wait a moment before sending another.",
+                isCrisis: false,
+                tokenCount: 0,
+                agentResponse: nil
+            )
+        } catch LocalLLMError.timeout {
+            return ChatResult(
+                response: "That response timed out — the prompt may have been too long for this model. Try the 1B model for faster replies, or switch to OpenRouter for this session.",
                 isCrisis: false,
                 tokenCount: 0,
                 agentResponse: nil

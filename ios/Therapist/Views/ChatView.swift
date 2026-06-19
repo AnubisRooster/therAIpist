@@ -19,9 +19,12 @@ struct ChatView: View {
     @AppStorage("tts_pitch")    private var ttsPitch: Double = 1.0
     @AppStorage("tts_voice_id") private var ttsVoiceID      = ""
 
-    @State private var messageText  = ""
-    @State private var isLoading    = false
+    @State private var messageText    = ""
+    @State private var isLoading      = false
     @State private var errorMessage: String?
+    @State private var generationStart: Date?
+    @State private var elapsedSeconds = 0
+    @State private var elapsedTimer: Timer?
 
     /// True while input should be blocked: cloud request in flight OR local model is generating.
     private var isBusy: Bool {
@@ -62,11 +65,32 @@ struct ChatView: View {
                 }
             }
 
+            // Status bar: model loading / generation timer / errors
             if localEngine.isLoading {
                 Label("Loading model…", systemImage: "cpu")
                     .font(.caption)
                     .foregroundColor(.secondary)
                     .padding(.horizontal)
+            } else if localEngine.isGenerating && session.resolvedProvider == "local" {
+                HStack(spacing: 10) {
+                    ProgressView()
+                        .scaleEffect(0.7)
+                    Text(elapsedSeconds < 5
+                         ? "Thinking…"
+                         : "Thinking… \(elapsedSeconds)s")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    Spacer()
+                    Button("Stop") {
+                        LocalLLMEngine.shared.stopGeneration()
+                        isLoading = false
+                        stopElapsedTimer()
+                    }
+                    .font(.caption)
+                    .foregroundColor(.red)
+                }
+                .padding(.horizontal)
+                .padding(.vertical, 4)
             } else if let loadError = localEngine.loadError {
                 Text(loadError)
                     .font(.caption)
@@ -186,6 +210,10 @@ struct ChatView: View {
         isLoading = true
         errorMessage = nil
 
+        if session.resolvedProvider == "local" {
+            startElapsedTimer()
+        }
+
         Task {
             let result = await ChatService.shared.processMessage(
                 session: session,
@@ -198,6 +226,7 @@ struct ChatView: View {
             session.updatedAt = Date()
             try? context.save()
             isLoading = false
+            stopElapsedTimer()
             if ttsEnabled && !result.response.isEmpty {
                 speech.speak(result.response,
                              rate: Float(ttsRate),
@@ -205,6 +234,20 @@ struct ChatView: View {
                              voiceID: ttsVoiceID)
             }
         }
+    }
+
+    private func startElapsedTimer() {
+        elapsedSeconds = 0
+        elapsedTimer?.invalidate()
+        elapsedTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
+            elapsedSeconds += 1
+        }
+    }
+
+    private func stopElapsedTimer() {
+        elapsedTimer?.invalidate()
+        elapsedTimer = nil
+        elapsedSeconds = 0
     }
 }
 
