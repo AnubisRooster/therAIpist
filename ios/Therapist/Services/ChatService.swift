@@ -87,6 +87,14 @@ actor ChatService {
                 messages: llmMessages
             )
             tokenCount = assistantResponse.count / 4
+        } catch LocalLLMError.busy {
+            // Another local-inference is already running; skip this message.
+            return ChatResult(
+                response: "I'm still thinking about your last message — please wait a moment.",
+                isCrisis: false,
+                tokenCount: 0,
+                agentResponse: nil
+            )
         } catch {
             assistantResponse = "I'm here to listen. Could you tell me more about that?"
             tokenCount = 0

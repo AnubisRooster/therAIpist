@@ -15,6 +15,7 @@ final class LocalLLMEngine: ObservableObject {
 
     @Published private(set) var loadedModelID: String?
     @Published private(set) var isLoading = false
+    @Published private(set) var isGenerating = false
     @Published private(set) var loadError: String?
 
     private var llm: LLM?
@@ -30,17 +31,27 @@ final class LocalLLMEngine: ObservableObject {
         loadError = nil
         unload()
 
-        let template = Self.template(for: id, systemPrompt: "")
+        // Use the model-specific stop sequence but NO template at init time.
+        // LLM.swift registers the stop sequence via an async Task inside init,
+        // and we need it to complete before the first getCompletion() call.
+        // We handle the stop sequence registration explicitly below.
+        let stopSeq = Self.stopSequence(for: id)
 
         // llama_model_load_from_file is synchronous and CPU-bound — run off main.
         let loaded: LLM? = await Task.detached(priority: .userInitiated) {
-            LLM(from: url, template: template, maxTokenCount: 4096)
+            LLM(from: url, stopSequence: stopSeq, maxTokenCount: 4096)
         }.value
 
         if let loaded {
-            loaded.postprocess = { _ in }  // suppress default print to stdout
+            loaded.postprocess = { _ in }  // suppress default stdout print
             llm = loaded
             loadedModelID = id
+
+            // LLM.swift registers the stop sequence via an unstructured `Task` inside
+            // its init.  Wait long enough for that task to complete before the first
+            // inference call; without this delay the model runs to maxTokenCount
+            // (4096 tokens) because no stop sequence is installed yet.
+            try? await Task.sleep(nanoseconds: 300_000_000)  // 300 ms
         } else {
             loadError = "Failed to load \(id). The file may be corrupt or unsupported."
         }
@@ -58,18 +69,22 @@ final class LocalLLMEngine: ObservableObject {
 
     /// Generates a response for the given message list.
     ///
-    /// The system message (role == "system") is extracted and injected into the
-    /// model template; the remaining messages are formatted as the conversation
-    /// history with the last user turn as the prompt.
+    /// Throws `LocalLLMError.busy` if a generation is already in progress — the
+    /// caller should show a "still thinking…" message rather than queuing another
+    /// inference request.
     func generate(modelID: String, messages: [LLMMessage]) async throws -> String {
         guard let llm else { throw LocalLLMError.notLoaded }
+        guard !isGenerating else { throw LocalLLMError.busy }
+
+        isGenerating = true
+        defer { isGenerating = false }
+
         guard !messages.isEmpty else { return "" }
 
         let systemContent = messages.first(where: { $0.role == "system" })?.content ?? ""
         let nonSystem = messages.filter { $0.role != "system" }
 
         // Build prior chat history and extract the final (unanswered) user message.
-        // `Chat` = (role: Role, content: String) where Role is a top-level enum in LLM module.
         var history: [Chat] = []
         var lastUserMessage = ""
 
@@ -79,12 +94,10 @@ final class LocalLLMEngine: ObservableObject {
             if msg.role == "user" {
                 let nextIndex = i + 1
                 if nextIndex < nonSystem.count && nonSystem[nextIndex].role == "assistant" {
-                    // Completed exchange → history.
                     history.append((role: .user, content: msg.content))
                     history.append((role: .bot, content: nonSystem[nextIndex].content))
                     i += 2
                 } else {
-                    // Trailing, unanswered user message.
                     lastUserMessage = msg.content
                     i += 1
                 }
@@ -97,11 +110,14 @@ final class LocalLLMEngine: ObservableObject {
             lastUserMessage = nonSystem.last?.content ?? ""
         }
 
-        // Update template with the real system prompt for this call.
-        let updatedTemplate = Self.template(for: modelID, systemPrompt: systemContent)
-        llm.template = updatedTemplate
+        // Update ONLY the preprocess closure — do NOT set `llm.template = ...`.
+        // The template property's didSet fires an async Task to register the stop
+        // sequence on LLMCore.  If getCompletion() starts before that Task runs,
+        // the model has no stop sequence and generates all 4096 tokens (looks like
+        // a lockup).  Updating only `preprocess` is synchronous and safe.
+        let template = Self.template(for: modelID, systemPrompt: systemContent)
+        llm.preprocess = template.preprocess
 
-        // Build the full formatted prompt from history + current user turn.
         let prompt = llm.preprocess(lastUserMessage, history)
         let response = await llm.getCompletion(from: prompt)
         return response.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -109,11 +125,9 @@ final class LocalLLMEngine: ObservableObject {
 
     // MARK: - Template helpers
 
-    /// Returns an LLM.swift `Template` appropriate for the given model ID.
     static func template(for modelID: String, systemPrompt: String) -> Template {
         let sysOrNil: String? = systemPrompt.isEmpty ? nil : systemPrompt
         if modelID.hasPrefix("llama") {
-            // Llama 3.x instruct format.
             return Template(
                 system: (
                     "<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n\n",
@@ -131,7 +145,6 @@ final class LocalLLMEngine: ObservableObject {
                 systemPrompt: sysOrNil
             )
         } else if modelID.hasPrefix("phi") {
-            // Phi-3.5-mini instruct format.
             return Template(
                 system: ("<|system|>\n", "<|end|>\n"),
                 user: ("<|user|>\n", "<|end|>\n"),
@@ -140,8 +153,13 @@ final class LocalLLMEngine: ObservableObject {
                 systemPrompt: sysOrNil
             )
         }
-        // Fallback: chatML.
         return .chatML(sysOrNil)
+    }
+
+    static func stopSequence(for modelID: String) -> String {
+        if modelID.hasPrefix("llama") { return "<|eot_id|>" }
+        if modelID.hasPrefix("phi")   { return "<|end|>" }
+        return "<|im_end|>"  // chatML fallback
     }
 }
 
@@ -150,6 +168,7 @@ final class LocalLLMEngine: ObservableObject {
 enum LocalLLMError: LocalizedError {
     case notLoaded
     case loadFailed(String)
+    case busy
 
     var errorDescription: String? {
         switch self {
@@ -157,6 +176,8 @@ enum LocalLLMError: LocalizedError {
             return "No local model is loaded. Download and select a model in Settings."
         case .loadFailed(let name):
             return "Failed to load \(name). Try deleting and re-downloading it."
+        case .busy:
+            return "The model is still generating a response. Please wait."
         }
     }
 }

@@ -6,6 +6,7 @@ struct ChatView: View {
     @EnvironmentObject private var modelService:      ModelService
     @EnvironmentObject private var speech:            SpeechService
     @EnvironmentObject private var localModelService: LocalModelService
+    @ObservedObject private var localEngine = LocalLLMEngine.shared
     let session: SessionModel
     @State private var showInsights    = false
     @State private var showNotes       = false
@@ -21,6 +22,11 @@ struct ChatView: View {
     @State private var messageText  = ""
     @State private var isLoading    = false
     @State private var errorMessage: String?
+
+    /// True while input should be blocked: cloud request in flight OR local model is generating.
+    private var isBusy: Bool {
+        isLoading || (session.resolvedProvider == "local" && localEngine.isGenerating)
+    }
 
     private var modelLabel: String { session.modelLabel }
 
@@ -56,7 +62,17 @@ struct ChatView: View {
                 }
             }
 
-            if let error = errorMessage {
+            if localEngine.isLoading {
+                Label("Loading model…", systemImage: "cpu")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .padding(.horizontal)
+            } else if let loadError = localEngine.loadError {
+                Text(loadError)
+                    .font(.caption)
+                    .foregroundColor(.red)
+                    .padding(.horizontal)
+            } else if let error = errorMessage {
                 Text(error)
                     .font(.caption)
                     .foregroundColor(.red)
@@ -74,7 +90,7 @@ struct ChatView: View {
                     Image(systemName: "arrow.up.circle.fill")
                         .font(.title2)
                 }
-                .disabled(messageText.trimmingCharacters(in: .whitespaces).isEmpty || isLoading)
+                .disabled(messageText.trimmingCharacters(in: .whitespaces).isEmpty || isBusy)
             }
             .padding()
             .background(.bar)
