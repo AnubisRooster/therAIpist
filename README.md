@@ -1,5 +1,9 @@
 # therAIpist
 
+<p align="center">
+  <img src="docs/icon.png" alt="therAIpist app icon" width="160" />
+</p>
+
 An AI-assisted psychotherapeutic companion: a **FastAPI** backend paired with a native **SwiftUI** iPhone client. It blends multiple therapeutic traditions (Jungian, Adlerian, DBT, and an integrated mode), remembers context across conversations, and is built with safety boundaries and privacy in mind.
 
 > **Disclaimer**
