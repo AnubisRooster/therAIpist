@@ -16,7 +16,12 @@ final class SpeechService: NSObject, ObservableObject {
         configureAudioSession()
     }
 
-    func speak(_ text: String, rate: Float = 0.5, pitch: Float = 1.0) {
+    /// Speak `text` with the given rate, pitch, and optional voice identifier.
+    /// If `voiceID` is empty the device's default en-US voice is used.
+    func speak(_ text: String,
+               rate: Float = 0.5,
+               pitch: Float = 1.0,
+               voiceID: String = "") {
         guard !text.isEmpty else { return }
         synthesizer.stopSpeaking(at: .immediate)
 
@@ -25,13 +30,25 @@ final class SpeechService: NSObject, ObservableObject {
 
         let cleaned = stripMarkdown(text)
         let utterance = AVSpeechUtterance(string: cleaned)
-        utterance.rate        = rate
+        utterance.rate            = rate
         utterance.pitchMultiplier = pitch
-        utterance.voice       = AVSpeechSynthesisVoice(language: "en-US")
         utterance.preUtteranceDelay = 0.05
+
+        if voiceID.isEmpty {
+            utterance.voice = AVSpeechSynthesisVoice(language: "en-US")
+        } else {
+            utterance.voice = AVSpeechSynthesisVoice(identifier: voiceID)
+                           ?? AVSpeechSynthesisVoice(language: "en-US")
+        }
 
         isSpeaking = true
         synthesizer.speak(utterance)
+    }
+
+    /// The display name of the currently stored voice (or "Default" if none).
+    static func voiceName(for identifier: String) -> String {
+        guard !identifier.isEmpty else { return "Default" }
+        return AVSpeechSynthesisVoice(identifier: identifier)?.name ?? "Default"
     }
 
     func stop() {

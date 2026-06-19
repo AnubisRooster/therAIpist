@@ -9,8 +9,9 @@ struct SettingsView: View {
 
     // TTS
     @AppStorage("tts_enabled")     private var ttsEnabled    = false
-    @AppStorage("tts_rate")        private var ttsRate: Double = 0.5
+    @AppStorage("tts_rate")        private var ttsRate: Double  = 0.5
     @AppStorage("tts_pitch")       private var ttsPitch: Double = 1.0
+    @AppStorage("tts_voice_id")    private var ttsVoiceID     = ""
 
     // Intake profile (editable after onboarding)
     @AppStorage("user_name")       private var userName       = ""
@@ -74,26 +75,36 @@ struct SettingsView: View {
 
                 Section {
                     Toggle("Speak responses aloud", isOn: $ttsEnabled)
+
                     if ttsEnabled {
+                        NavigationLink {
+                            VoicePickerView().environmentObject(speechService)
+                        } label: {
+                            LabeledContent("Voice", value: SpeechService.voiceName(for: ttsVoiceID))
+                        }
+
                         VStack(alignment: .leading, spacing: 4) {
                             Text("Speed: \(String(format: "%.2f", ttsRate))")
                                 .font(.caption).foregroundColor(.secondary)
-                            Slider(value: $ttsRate, in: 0.2...0.6, step: 0.05)
+                            Slider(value: $ttsRate, in: 0.2...0.7, step: 0.025)
                         }
+
                         VStack(alignment: .leading, spacing: 4) {
                             Text("Pitch: \(String(format: "%.1f", ttsPitch))")
                                 .font(.caption).foregroundColor(.secondary)
-                            Slider(value: $ttsPitch, in: 0.8...1.2, step: 0.05)
+                            Slider(value: $ttsPitch, in: 0.75...1.25, step: 0.05)
                         }
-                        Button("Preview voice") {
+
+                        Button("Preview") {
                             speechService.speak("Hello. How are you feeling today?",
-                                                rate: Float(ttsRate), pitch: Float(ttsPitch))
+                                                rate: Float(ttsRate), pitch: Float(ttsPitch),
+                                                voiceID: ttsVoiceID)
                         }
                     }
                 } header: {
                     Text("Voice")
                 } footer: {
-                    Text("Uses on-device text-to-speech. No data leaves the device.")
+                    Text("Uses on-device text-to-speech. No audio leaves the device. Download more voices in iOS Settings → Accessibility → Spoken Content → Voices.")
                         .font(.caption)
                 }
 

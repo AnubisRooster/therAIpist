@@ -12,9 +12,10 @@ struct ChatView: View {
     @State private var showGraph       = false
     @State private var showModelPicker = false
 
-    @AppStorage("tts_enabled") private var ttsEnabled = false
-    @AppStorage("tts_rate")    private var ttsRate: Double = 0.5
-    @AppStorage("tts_pitch")   private var ttsPitch: Double = 1.0
+    @AppStorage("tts_enabled")  private var ttsEnabled = false
+    @AppStorage("tts_rate")     private var ttsRate: Double  = 0.5
+    @AppStorage("tts_pitch")    private var ttsPitch: Double = 1.0
+    @AppStorage("tts_voice_id") private var ttsVoiceID      = ""
 
     @State private var messageText  = ""
     @State private var isLoading    = false
@@ -182,7 +183,10 @@ struct ChatView: View {
             try? context.save()
             isLoading = false
             if ttsEnabled && !result.response.isEmpty {
-                speech.speak(result.response, rate: Float(ttsRate), pitch: Float(ttsPitch))
+                speech.speak(result.response,
+                             rate: Float(ttsRate),
+                             pitch: Float(ttsPitch),
+                             voiceID: ttsVoiceID)
             }
         }
     }

@@ -23,6 +23,7 @@
 		7A17C9CAF5858F88081B5D61 /* DashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4F11D0EDFFD12098624E8C7 /* DashboardView.swift */; };
 		866FF2077F990F1222B47397 /* SafetyService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6EE6DE3CA5C6934F88E1DAA0 /* SafetyService.swift */; };
 		9B7F15BE23099C999028E58A /* LLMService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9CFA9D1088AE93C9537A8E18 /* LLMService.swift */; };
+		A48118D83FC4EFF6787004D0 /* VoicePickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E057F3968E5E274D49B43123 /* VoicePickerView.swift */; };
 		A7DA57BF863B7FC77D4AB7A1 /* EmbeddingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B733E490095AF7D47DA8D2A1 /* EmbeddingService.swift */; };
 		B00ED840CF076657284EEA14 /* VoiceService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8CDAE0376C33CA89B735BD81 /* VoiceService.swift */; };
 		B143034AB089E1172832DF33 /* TransferModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7147B4C4ABC315737222823 /* TransferModels.swift */; };
@@ -67,6 +68,7 @@
 		CF40E7F165FFD8EC37D6EC13 /* InsightsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsightsView.swift; sourceTree = "<group>"; };
 		CF4BE5016360D07B4A1B03F2 /* ModelService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelService.swift; sourceTree = "<group>"; };
 		D108D2FB690D2B875B45F2AA /* MemoryService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoryService.swift; sourceTree = "<group>"; };
+		E057F3968E5E274D49B43123 /* VoicePickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoicePickerView.swift; sourceTree = "<group>"; };
 		E3FC97A6C9CF980CC8A22E32 /* VectorStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VectorStore.swift; sourceTree = "<group>"; };
 		E7147B4C4ABC315737222823 /* TransferModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransferModels.swift; sourceTree = "<group>"; };
 		F4F11D0EDFFD12098624E8C7 /* DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardView.swift; sourceTree = "<group>"; };
@@ -112,6 +114,7 @@
 				BD46995D96416AD999A05710 /* OnboardingView.swift */,
 				8F868C10EB7C5EB2A7B00489 /* PINView.swift */,
 				354679F376952EA2F614469A /* SettingsView.swift */,
+				E057F3968E5E274D49B43123 /* VoicePickerView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -257,6 +260,7 @@
 				0788C946D14F7244468134C0 /* TherapyService.swift in Sources */,
 				B143034AB089E1172832DF33 /* TransferModels.swift in Sources */,
 				E734BCBDEC143DC1623BBA82 /* VectorStore.swift in Sources */,
+				A48118D83FC4EFF6787004D0 /* VoicePickerView.swift in Sources */,
 				B00ED840CF076657284EEA14 /* VoiceService.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
