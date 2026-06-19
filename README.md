@@ -27,7 +27,7 @@ An AI-assisted psychotherapeutic companion: a **FastAPI** backend paired with a 
 - **Conversational memory** — episodic/semantic/procedural memory with vector recall, so the assistant remembers relevant context across turns.
 - **Knowledge graph** — extracts people, events, emotions, beliefs, and themes into a graph for richer insight.
 - **Safety first** — negation-aware crisis detection with crisis-resource referrals, plus a redact-and-replace filter that blocks diagnostic or prescriptive assistant responses.
-- **Pluggable LLM providers** — server supports Ollama (local) and OpenRouter (cloud); the iOS client is OpenRouter-only.
+- **OpenRouter-first** — the iOS client and the intended backend configuration both use OpenRouter. The server provider abstraction also accepts Ollama sessions, but this is optional.
 - **On-device privacy (iOS)** — conversations and their embeddings are stored locally with Apple's `NLEmbedding`; a Keychain-backed PIN gates the app.
 - **Extras** — insights, notes, dream analysis, voice transcription, and a dashboard.
 
@@ -77,7 +77,8 @@ See [`ARCHITECTURE_PLAN.md`](ARCHITECTURE_PLAN.md) for the full design and phase
 ### Requirements
 
 - Python **3.12+**
-- (Optional) [Ollama](https://ollama.com) for local models, and/or an [OpenRouter](https://openrouter.ai) API key for cloud models
+- An [OpenRouter](https://openrouter.ai) API key
+- (Optional) [Ollama](https://ollama.com) — only needed if you want local-model embeddings on the server (see note below)
 - (Optional) Docker, to run Qdrant as the vector store
 
 ### Setup
@@ -88,20 +89,14 @@ source .venv/bin/activate
 pip install -e ".[dev]"
 ```
 
-Create a `.env` (all values are optional and have sensible defaults):
+Create a `.env`:
 
 ```dotenv
 DATABASE_URL=sqlite+aiosqlite:///./therapist.db
 
-# Providers
-OLLAMA_BASE_URL=http://localhost:11434
-OLLAMA_DEFAULT_MODEL=llama3.2
-OPENROUTER_API_KEY=
+# OpenRouter — required for chat completions
+OPENROUTER_API_KEY=sk-or-...
 OPENROUTER_DEFAULT_MODEL=openai/gpt-4o
-
-# Embeddings use a dedicated provider so vector spaces stay consistent
-EMBEDDING_PROVIDER=ollama
-EMBEDDING_MODEL=llama3.2
 
 # Security — leave empty to disable auth for local dev
 API_KEY=
@@ -110,6 +105,16 @@ API_KEY=
 CORS_ORIGINS=["*"]
 CORS_ALLOW_CREDENTIALS=false
 ```
+
+> **A note on embeddings**
+> The server's memory/recall system needs an embedding provider, and OpenRouter does not expose a reliable embeddings endpoint. By default it falls back to [Ollama](https://ollama.com) (`EMBEDDING_PROVIDER=ollama`). If you don't want to run Ollama, set `VECTOR_STORE_TYPE=in_memory` and the server will skip persistent vector recall (conversations are still stored in SQLite). A future update will support sentence-transformers as a fully local alternative.
+>
+> ```dotenv
+> # Optional — only add if you want Ollama-backed memory recall
+> EMBEDDING_PROVIDER=ollama
+> EMBEDDING_MODEL=llama3.2
+> OLLAMA_BASE_URL=http://localhost:11434
+> ```
 
 ### Database migrations
 
