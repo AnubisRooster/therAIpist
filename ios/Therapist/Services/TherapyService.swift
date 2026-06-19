@@ -5,10 +5,42 @@ class TherapyService {
 
     func getSystemPrompt(modality: String, customPrompt: String = "") -> String {
         let basePrompt = modalityPrompts[modality] ?? modalityPrompts["integrated"]!
-        if !customPrompt.isEmpty {
-            return "\(basePrompt)\n\nAdditional instructions: \(customPrompt)"
+        var prompt = basePrompt
+        let profileContext = userProfileContext()
+        if !profileContext.isEmpty {
+            prompt += "\n\n\(profileContext)"
         }
-        return basePrompt
+        if !customPrompt.isEmpty {
+            prompt += "\n\nAdditional instructions: \(customPrompt)"
+        }
+        return prompt
+    }
+
+    /// Builds a brief client-context paragraph from onboarding data stored in AppStorage.
+    private func userProfileContext() -> String {
+        let d = UserDefaults.standard
+        var lines: [String] = []
+        if let name = d.string(forKey: "user_name"), !name.isEmpty {
+            var line = "The client's name is \(name)."
+            if let pronouns = d.string(forKey: "user_pronouns"), !pronouns.isEmpty {
+                line += " Pronouns: \(pronouns)."
+            }
+            if let age = d.string(forKey: "user_age"), !age.isEmpty {
+                line += " Age: \(age)."
+            }
+            lines.append(line)
+        }
+        if let concerns = d.string(forKey: "intake_concerns"), !concerns.isEmpty {
+            lines.append("Presenting concerns: \(concerns)")
+        }
+        if let history = d.string(forKey: "intake_history"), !history.isEmpty {
+            lines.append("Therapy background: \(history)")
+        }
+        if let goals = d.string(forKey: "intake_goals"), !goals.isEmpty {
+            lines.append("Goals: \(goals)")
+        }
+        guard !lines.isEmpty else { return "" }
+        return "Client context (from intake):\n" + lines.joined(separator: "\n")
     }
 
     func buildMessages(modality: String, customPrompt: String, messageHistory: [(String, String)], userMessage: String, memoryContext: String) -> [LLMMessage] {

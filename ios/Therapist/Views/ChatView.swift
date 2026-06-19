@@ -4,15 +4,20 @@ import SwiftData
 struct ChatView: View {
     @Environment(\.modelContext) private var context
     @EnvironmentObject private var modelService: ModelService
+    @EnvironmentObject private var speech: SpeechService
     let session: SessionModel
-    @State private var showInsights = false
-    @State private var showNotes = false
-    @State private var showDreams = false
-    @State private var showGraph = false
+    @State private var showInsights    = false
+    @State private var showNotes       = false
+    @State private var showDreams      = false
+    @State private var showGraph       = false
     @State private var showModelPicker = false
 
-    @State private var messageText = ""
-    @State private var isLoading = false
+    @AppStorage("tts_enabled") private var ttsEnabled = false
+    @AppStorage("tts_rate")    private var ttsRate: Double = 0.5
+    @AppStorage("tts_pitch")   private var ttsPitch: Double = 1.0
+
+    @State private var messageText  = ""
+    @State private var isLoading    = false
     @State private var errorMessage: String?
 
     private var modelLabel: String {
@@ -104,6 +109,20 @@ struct ChatView: View {
                     .buttonStyle(.plain)
                 }
             }
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    if speech.isSpeaking {
+                        speech.stop()
+                    } else {
+                        ttsEnabled.toggle()
+                    }
+                } label: {
+                    Image(systemName: ttsEnabled
+                          ? (speech.isSpeaking ? "speaker.wave.3.fill" : "speaker.wave.2.fill")
+                          : "speaker.slash")
+                    .foregroundColor(ttsEnabled ? .teal : .secondary)
+                }
+            }
             ToolbarItemGroup(placement: .bottomBar) {
                 Button("Insights", systemImage: "lightbulb") { showInsights = true }
                 Spacer()
@@ -151,19 +170,20 @@ struct ChatView: View {
         errorMessage = nil
 
         Task {
-            do {
-                let result = await ChatService.shared.processMessage(
-                    session: session,
-                    userMessage: text,
-                    context: context
-                )
-                if result.isCrisis {
-                    errorMessage = "Crisis resources have been shared above."
-                }
-                session.updatedAt = Date()
-                try? context.save()
+            let result = await ChatService.shared.processMessage(
+                session: session,
+                userMessage: text,
+                context: context
+            )
+            if result.isCrisis {
+                errorMessage = "Crisis resources have been shared above."
             }
+            session.updatedAt = Date()
+            try? context.save()
             isLoading = false
+            if ttsEnabled && !result.response.isEmpty {
+                speech.speak(result.response, rate: Float(ttsRate), pitch: Float(ttsPitch))
+            }
         }
     }
 }

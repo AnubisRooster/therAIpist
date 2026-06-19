@@ -4,6 +4,7 @@ import SwiftData
 struct ContentView: View {
     @Environment(\.modelContext) private var context
     @EnvironmentObject private var modelService: ModelService
+    @EnvironmentObject private var speechService: SpeechService
     @Query(sort: \SessionModel.updatedAt, order: .reverse) private var sessions: [SessionModel]
     @State private var showNewSession = false
     @State private var showSettings = false
@@ -64,7 +65,9 @@ struct ContentView: View {
                 NewSessionView()
             }
             .sheet(isPresented: $showSettings) {
-                SettingsView().environmentObject(modelService)
+                SettingsView()
+                    .environmentObject(modelService)
+                    .environmentObject(speechService)
             }
             .sheet(isPresented: $showDashboard) {
                 DashboardView()

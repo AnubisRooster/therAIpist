@@ -22,21 +22,27 @@ struct TherapistApp: App {
     }
 }
 
-/// Gates the app behind a PIN and wires up shared services (LLM config, model
-/// list) once the user is authenticated.
+/// Root routing: onboarding (first launch) → PIN → main app.
 struct AppRootView: View {
-    @StateObject private var modelService = ModelService()
+    @StateObject private var modelService  = ModelService()
+    @StateObject private var speechService = SpeechService.shared
 
-    @AppStorage("openrouter_key") private var openrouterKey = ""
-    @AppStorage("default_model") private var defaultModel = "meta-llama/llama-3.2-1b-instruct:free"
+    @AppStorage("openrouter_key")      private var openrouterKey      = ""
+    @AppStorage("default_model")       private var defaultModel       = "meta-llama/llama-3.2-1b-instruct:free"
+    @AppStorage("onboarding_complete") private var onboardingComplete = false
 
     @State private var isUnlocked = false
 
     var body: some View {
         Group {
-            if isUnlocked {
+            if !onboardingComplete {
+                OnboardingView()
+            } else if !isUnlocked {
+                PINView(onSuccess: { isUnlocked = true })
+            } else {
                 ContentView()
                     .environmentObject(modelService)
+                    .environmentObject(speechService)
                     .task {
                         await LLMService.shared.configure(apiKey: openrouterKey, defaultModel: defaultModel)
                         await modelService.refreshIfNeeded(apiKey: openrouterKey)
@@ -47,8 +53,6 @@ struct AppRootView: View {
                             await modelService.refresh(apiKey: newKey)
                         }
                     }
-            } else {
-                PINView(onSuccess: { isUnlocked = true })
             }
         }
     }
