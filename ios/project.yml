@@ -36,9 +36,6 @@ targets:
       - path: Therapist
         excludes:
           - "Resources/AppIcon.png"
-          - "Assets.xcassets"
-    resources:
-      - path: Therapist/Assets.xcassets
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.therAIpist.app

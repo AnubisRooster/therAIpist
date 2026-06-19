@@ -28,6 +28,25 @@ struct VoicePickerView: View {
 
     var body: some View {
         List {
+            if SpeechService.hasOnlyCompactVoices() {
+                Section {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Label("Voices sound robotic?", systemImage: "exclamationmark.bubble")
+                            .font(.subheadline.bold())
+                            .foregroundColor(.orange)
+                        Text("Your device only has the basic built-in voices. For natural, human-like speech, download a Premium or Enhanced voice:")
+                            .font(.caption)
+                        Text("Settings → Accessibility → Spoken Content → Voices → English → tap a voice marked “Premium” to download it.")
+                            .font(.caption.weight(.medium))
+                            .foregroundColor(.secondary)
+                        Text("Good picks: Ava, Evan, Zoe, Nathan (US) · Serena, Stephanie (UK).")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                    }
+                    .padding(.vertical, 4)
+                }
+            }
+
             if !premiumVoices.isEmpty {
                 Section {
                     ForEach(premiumVoices, id: \.identifier) { voice in

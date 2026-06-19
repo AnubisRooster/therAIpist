@@ -35,20 +35,41 @@ final class SpeechService: NSObject, ObservableObject {
         utterance.preUtteranceDelay = 0.05
 
         if voiceID.isEmpty {
-            utterance.voice = AVSpeechSynthesisVoice(language: "en-US")
+            // No explicit choice: use the best-quality English voice installed.
+            utterance.voice = Self.bestAvailableVoice()
         } else {
             utterance.voice = AVSpeechSynthesisVoice(identifier: voiceID)
-                           ?? AVSpeechSynthesisVoice(language: "en-US")
+                           ?? Self.bestAvailableVoice()
         }
 
         isSpeaking = true
         synthesizer.speak(utterance)
     }
 
-    /// The display name of the currently stored voice (or "Default" if none).
+    /// The display name of the currently stored voice. Falls back to the best
+    /// installed voice's name when nothing is explicitly selected.
     static func voiceName(for identifier: String) -> String {
-        guard !identifier.isEmpty else { return "Default" }
-        return AVSpeechSynthesisVoice(identifier: identifier)?.name ?? "Default"
+        if !identifier.isEmpty,
+           let voice = AVSpeechSynthesisVoice(identifier: identifier) {
+            return voice.name
+        }
+        return bestAvailableVoice()?.name ?? "Default"
+    }
+
+    /// Highest-quality English voice installed: Premium → Enhanced → Default.
+    static func bestAvailableVoice() -> AVSpeechSynthesisVoice? {
+        let english = AVSpeechSynthesisVoice.speechVoices()
+            .filter { $0.language.hasPrefix("en") }
+        let best = english.max { a, b in a.quality.rawValue < b.quality.rawValue }
+        return best ?? AVSpeechSynthesisVoice(language: "en-US")
+    }
+
+    /// True when the device only has low-quality (compact/default) voices,
+    /// i.e. the user has not downloaded any Enhanced or Premium voices.
+    static func hasOnlyCompactVoices() -> Bool {
+        let english = AVSpeechSynthesisVoice.speechVoices()
+            .filter { $0.language.hasPrefix("en") }
+        return !english.contains { $0.quality == .enhanced || $0.quality == .premium }
     }
 
     func stop() {

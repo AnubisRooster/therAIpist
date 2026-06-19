@@ -17,6 +17,7 @@
 		2760341BED47D78AB179F8DB /* NoteService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 944F52374F3D256D87070F74 /* NoteService.swift */; };
 		39A1BD924BFFACB1D289415C /* DreamService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C573E0E8397509037BC2ABE /* DreamService.swift */; };
 		4D3E9591534F521D7C217B91 /* ModelService.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF4BE5016360D07B4A1B03F2 /* ModelService.swift */; };
+		4D7ED89FBA7DD083C535DD8F /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 4290A23EA6EF05CF895B9B33 /* Assets.xcassets */; };
 		60751590572BDFB97B89E8EC /* GlobalMemoryService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32EFFACA0671B2DB902C7DA9 /* GlobalMemoryService.swift */; };
 		62C67B9F41C9822B1FD5F9A1 /* InsightsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF40E7F165FFD8EC37D6EC13 /* InsightsView.swift */; };
 		6CAFEC1AFBB5013E59635D31 /* PINView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F868C10EB7C5EB2A7B00489 /* PINView.swift */; };
@@ -47,6 +48,7 @@
 		32EFFACA0671B2DB902C7DA9 /* GlobalMemoryService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlobalMemoryService.swift; sourceTree = "<group>"; };
 		333E9AD680E34FD91F20E3F2 /* InsightService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsightService.swift; sourceTree = "<group>"; };
 		354679F376952EA2F614469A /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		4290A23EA6EF05CF895B9B33 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		50509B03F33B1863EC8F3377 /* SpeechService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechService.swift; sourceTree = "<group>"; };
 		575F01212E36AE1D15CB6E16 /* TherapyService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TherapyService.swift; sourceTree = "<group>"; };
 		650881394B747E23BC11BF32 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
@@ -147,6 +149,7 @@
 		926DB095A0AF704F65319C4F /* Therapist */ = {
 			isa = PBXGroup;
 			children = (
+				4290A23EA6EF05CF895B9B33 /* Assets.xcassets */,
 				6AAC81CE3481650BEC6360E1 /* TherapistApp.swift */,
 				874D69F22DEB268A50F9E2CF /* Models */,
 				78421F3212AF73A22ED91049 /* Resources */,
@@ -180,6 +183,7 @@
 			buildConfigurationList = 34DE3F5D58720B22C06C7506 /* Build configuration list for PBXNativeTarget "Therapist" */;
 			buildPhases = (
 				725F98957CB62CB9400D10D6 /* Sources */,
+				A01A2C815785667237D59528 /* Resources */,
 			);
 			buildRules = (
 			);
@@ -225,6 +229,17 @@
 			);
 		};
 /* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		A01A2C815785667237D59528 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4D7ED89FBA7DD083C535DD8F /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		725F98957CB62CB9400D10D6 /* Sources */ = {
