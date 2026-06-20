@@ -254,23 +254,98 @@ struct ChatView: View {
 struct MessageBubble: View {
     let message: MessageModel
 
+    private var hasBadges: Bool {
+        message.role == "assistant" && (
+            message.capturedNodeCount > 0 ||
+            message.capturedEdgeCount > 0 ||
+            message.capturedMemoryCount > 0 ||
+            message.capturedGlobalMemory
+        )
+    }
+
     var body: some View {
-        HStack {
-            if message.role == "user" {
-                Spacer(minLength: 60)
-                Text(message.content)
-                    .padding(12)
-                    .background(Color.blue.opacity(0.2))
-                    .cornerRadius(16, corners: [.topLeft, .topRight, .bottomLeft])
-            } else {
-                Text(message.content)
-                    .padding(12)
-                    .background(Color.green.opacity(0.15))
-                    .cornerRadius(16, corners: [.topLeft, .topRight, .bottomRight])
-                Spacer(minLength: 60)
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                if message.role == "user" {
+                    Spacer(minLength: 60)
+                    Text(message.content)
+                        .padding(12)
+                        .background(Color.blue.opacity(0.2))
+                        .cornerRadius(16, corners: [.topLeft, .topRight, .bottomLeft])
+                } else {
+                    Text(message.content)
+                        .padding(12)
+                        .background(Color.green.opacity(0.15))
+                        .cornerRadius(16, corners: [.topLeft, .topRight, .bottomRight])
+                    Spacer(minLength: 60)
+                }
+            }
+
+            if hasBadges {
+                CapturedBadgeRow(message: message)
+                    .padding(.leading, 12)
             }
         }
         .padding(.horizontal)
+    }
+}
+
+/// Small pill badges shown below an assistant message when the exchange
+/// triggered memory storage, graph node creation, or edge wiring.
+private struct CapturedBadgeRow: View {
+    let message: MessageModel
+
+    var body: some View {
+        HStack(spacing: 6) {
+            if message.capturedMemoryCount > 0 {
+                BadgePill(
+                    icon: "brain",
+                    label: "\(message.capturedMemoryCount) \(message.capturedMemoryCount == 1 ? "memory" : "memories")",
+                    color: .teal
+                )
+            }
+            if message.capturedNodeCount > 0 {
+                BadgePill(
+                    icon: "circle.hexagongrid",
+                    label: "\(message.capturedNodeCount) \(message.capturedNodeCount == 1 ? "node" : "nodes")",
+                    color: .purple
+                )
+            }
+            if message.capturedEdgeCount > 0 {
+                BadgePill(
+                    icon: "link",
+                    label: "\(message.capturedEdgeCount) \(message.capturedEdgeCount == 1 ? "edge" : "edges")",
+                    color: .indigo
+                )
+            }
+            if message.capturedGlobalMemory {
+                BadgePill(
+                    icon: "star.fill",
+                    label: "insight saved",
+                    color: .orange
+                )
+            }
+        }
+    }
+}
+
+private struct BadgePill: View {
+    let icon: String
+    let label: String
+    let color: Color
+
+    var body: some View {
+        HStack(spacing: 3) {
+            Image(systemName: icon)
+                .font(.system(size: 9, weight: .semibold))
+            Text(label)
+                .font(.system(size: 10, weight: .medium))
+        }
+        .foregroundColor(color)
+        .padding(.horizontal, 7)
+        .padding(.vertical, 3)
+        .background(color.opacity(0.12))
+        .clipShape(Capsule())
     }
 }
 

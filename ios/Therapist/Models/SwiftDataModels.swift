@@ -13,6 +13,7 @@ final class SessionModel {
     var localModel: String
     var createdAt: Date
     var updatedAt: Date
+    var isArchived: Bool
 
     @Relationship(deleteRule: .cascade) var messages: [MessageModel] = []
     @Relationship(deleteRule: .cascade) var memories: [MemoryModel] = []
@@ -31,6 +32,7 @@ final class SessionModel {
         self.modality = modality
         self.mode = "auto"
         self.localModel = ""
+        self.isArchived = false
         self.createdAt = Date()
         self.updatedAt = Date()
     }
@@ -78,12 +80,22 @@ final class MessageModel {
     var tokenCount: Int
     var createdAt: Date
 
+    // Captured-insight badge counts — populated after extraction runs
+    var capturedNodeCount: Int
+    var capturedEdgeCount: Int
+    var capturedMemoryCount: Int
+    var capturedGlobalMemory: Bool
+
     init(session: SessionModel, role: String, content: String, tokenCount: Int = 0) {
         self.id = UUID().uuidString
         self.session = session
         self.role = role
         self.content = content
         self.tokenCount = tokenCount
+        self.capturedNodeCount = 0
+        self.capturedEdgeCount = 0
+        self.capturedMemoryCount = 0
+        self.capturedGlobalMemory = false
         self.createdAt = Date()
     }
 }

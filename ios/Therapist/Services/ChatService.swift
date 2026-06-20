@@ -127,6 +127,11 @@ actor ChatService {
         let assistantMsg = MessageModel(session: session, role: "assistant", content: finalResponse, tokenCount: tokenCount)
         context.insert(assistantMsg)
 
+        // Snapshot counts before extraction so we can badge the assistant message.
+        let nodeIDsBefore   = Set(session.graphNodes.map(\.id))
+        let edgeIDsBefore   = Set(session.graphNodes.flatMap(\.outgoingEdges).map(\.id))
+        let memoryIDsBefore = Set(session.memories.map(\.id))
+
         // Embed and store this exchange locally for semantic recall.
         memoryService.recordExchange(
             session: session,
@@ -137,12 +142,18 @@ actor ChatService {
         memoryService.consolidateRecentMessages(session: session, context: context)
         graphService.extractEntitiesFromMessage(session: session, message: userMessage, context: context)
 
-        let _ = globalMemoryService.promoteIfValuable(
+        let promoted = globalMemoryService.promoteIfValuable(
             userMessage: userMessage,
             assistantResponse: finalResponse,
             sessionID: session.id,
             context: context
         )
+
+        // Stamp the assistant message with how much was captured this turn.
+        assistantMsg.capturedNodeCount   = session.graphNodes.filter { !nodeIDsBefore.contains($0.id) }.count
+        assistantMsg.capturedEdgeCount   = session.graphNodes.flatMap(\.outgoingEdges).filter { !edgeIDsBefore.contains($0.id) }.count
+        assistantMsg.capturedMemoryCount = session.memories.filter { !memoryIDsBefore.contains($0.id) }.count
+        assistantMsg.capturedGlobalMemory = promoted != nil
 
         let agentCtx = AgentContext(
             sessionId: session.id,
