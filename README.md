@@ -25,7 +25,8 @@ An AI-assisted self-reflection companion: a native **SwiftUI** iOS app that blen
 - **13 modalities** — Integrated, Adlerian, Jungian, DBT, CBT, Humanistic, Existential, Gestalt, Somatic, Narrative, ACT, Psychodynamic, and IFS — selectable per session
 - **Adaptive verbosity** — the assistant calibrates response length based on conversational context
 - **Text-to-speech** — responses spoken aloud with configurable voice, rate, and pitch; natural-sounding system voices
-- **Voice input** — tap-to-transcribe with the device microphone
+- **Hands-free voice mode** — a continuous speak/listen loop: the app transcribes your speech (on-device when supported), ends your turn automatically after a natural pause (~1.6s of silence), speaks the therapist's reply aloud, then returns to listening — no tapping between turns. The mic is torn down while speaking so it never transcribes its own voice.
+- **Voice input** — also available via the keyboard's built-in dictation for typed messages
 
 ### Memory & knowledge
 - **Episodic / semantic memory** — each exchange is embedded with Apple's `NLEmbedding` and recalled semantically in future turns within and across sessions
@@ -73,7 +74,10 @@ ios/Therapist/
 │   ├── GlobalMemoryService.swift  # Cross-session significant memory promotion
 │   ├── GraphService.swift         # Entity extraction + edge wiring
 │   ├── TherapyService.swift       # Modality prompts + system prompt assembly
-│   ├── SpeechService.swift        # AVSpeechSynthesizer TTS wrapper
+│   ├── SpeechService.swift        # AVSpeechSynthesizer TTS wrapper (+ onFinish loop hook)
+│   ├── VoiceConversationController.swift  # Hands-free loop: SFSpeechRecognizer +
+│   │                              #   AVAudioEngine + silence endpointing
+│   ├── BadgeBackfillService.swift # One-time retro-tagging of old conversations
 │   ├── SafetyService.swift        # Crisis + boundary detection
 │   └── AgentOrchestrator.swift    # Specialized sub-agents (notes, dreams, graph)
 │
