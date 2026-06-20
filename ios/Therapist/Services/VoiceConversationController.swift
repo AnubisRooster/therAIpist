@@ -218,6 +218,10 @@ final class VoiceConversationController: NSObject, ObservableObject {
             // format ("microphone isn't ready").
             try session.setCategory(.playAndRecord, mode: .default,
                                     options: [.defaultToSpeaker, .allowBluetooth])
+            // Hint a standard hardware rate so the input route settles on the
+            // first activation instead of briefly reporting 0 Hz (the transient
+            // AURemoteIO -10851 log). Best-effort; ignore if the route rejects it.
+            try? session.setPreferredSampleRate(48_000)
             try session.setActive(true, options: .notifyOthersOnDeactivation)
 
             let request = SFSpeechAudioBufferRecognitionRequest()
