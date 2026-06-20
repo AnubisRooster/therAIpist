@@ -1,7 +1,12 @@
 import Foundation
 import SwiftData
 
-actor ChatService {
+/// All SwiftData reads/writes here run on the main actor because the
+/// `ModelContext` passed in is the app's main context, which is NOT safe to use
+/// off the main thread. The expensive work (network / on-device inference) is
+/// performed behind `await` calls that suspend without blocking the UI.
+@MainActor
+final class ChatService {
     static let shared = ChatService()
 
     private let safety = SafetyService.shared
@@ -37,6 +42,11 @@ actor ChatService {
             )
             context.insert(event)
 
+            // Persist the exchange so the crisis resources are visible in the
+            // conversation (not just flashed as a caption).
+            context.insert(MessageModel(session: session, role: "user", content: userMessage))
+            context.insert(MessageModel(session: session, role: "assistant", content: resourceMessage))
+
             return ChatResult(
                 response: resourceMessage,
                 isCrisis: true,
@@ -44,6 +54,17 @@ actor ChatService {
                 agentResponse: nil
             )
         }
+
+        // Capture conversation history BEFORE inserting the new user message, so
+        // the current turn isn't duplicated (it is appended separately by
+        // buildMessages). Sort chronologically — SwiftData relationships are
+        // unordered, so suffix() on the raw set could send turns out of order.
+        let provider = session.resolvedProvider
+        let historyLimit = provider == "local" ? 6 : 10
+        let recentMessages = session.messages
+            .sorted { $0.createdAt < $1.createdAt }
+            .suffix(historyLimit)
+            .map { ($0.role, $0.content) }
 
         let userMsg = MessageModel(session: session, role: "user", content: userMessage)
         context.insert(userMsg)
@@ -56,12 +77,6 @@ actor ChatService {
             }
             memoryContext += crossSessionContext
         }
-
-        let provider = session.resolvedProvider
-        // Local models have limited context (4096 tokens shared with the long system
-        // prompt). Cap history at 3 exchanges (6 messages) to avoid overflow.
-        let historyLimit = provider == "local" ? 6 : 10
-        let recentMessages = session.messages.suffix(historyLimit).map { ($0.role, $0.content) }
 
         let llmMessages = therapy.buildMessages(
             modality: session.modality,

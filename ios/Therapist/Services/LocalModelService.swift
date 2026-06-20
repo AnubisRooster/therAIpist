@@ -180,6 +180,9 @@ final class LocalModelService: ObservableObject {
             // Store before resume so cancelDownload() can cancel it.
             self.activeTasks[modelID] = task
             task.resume()
+            // Release the session (and its strongly-retained delegate) once the
+            // download finishes, instead of leaking one session per download.
+            session.finishTasksAndInvalidate()
         }
     }
 }
