@@ -28,6 +28,8 @@ targets:
     info:
       path: Therapist/Resources/Info.plist
       properties:
+        NSMicrophoneUsageDescription: "therAIpist uses the microphone for hands-free voice conversations, so you can speak with the therapist and hear spoken replies."
+        NSSpeechRecognitionUsageDescription: "therAIpist transcribes your speech (on-device when supported) so you can talk through your thoughts instead of typing."
         UILaunchScreen:
           UIColorName: ""
         UISupportedInterfaceOrientations:

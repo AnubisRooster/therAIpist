@@ -18,6 +18,10 @@
 	<string>1.0</string>
 	<key>CFBundleVersion</key>
 	<string>1</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>therAIpist uses the microphone for hands-free voice conversations, so you can speak with the therapist and hear spoken replies.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>therAIpist transcribes your speech (on-device when supported) so you can talk through your thoughts instead of typing.</string>
 	<key>UILaunchScreen</key>
 	<dict>
 		<key>UIColorName</key>
