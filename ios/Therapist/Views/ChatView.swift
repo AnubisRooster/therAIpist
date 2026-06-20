@@ -7,6 +7,7 @@ struct ChatView: View {
     @EnvironmentObject private var speech:            SpeechService
     @EnvironmentObject private var localModelService: LocalModelService
     @ObservedObject private var localEngine = LocalLLMEngine.shared
+    @StateObject private var voice = VoiceConversationController()
     let session: SessionModel
     @State private var showInsights    = false
     @State private var showNotes       = false
@@ -103,10 +104,24 @@ struct ChatView: View {
                     .padding(.horizontal)
             }
 
+            if voice.isActive {
+                VoiceStatusBar(voice: voice)
+            }
+
             HStack(spacing: 8) {
+                Button {
+                    toggleVoiceMode()
+                } label: {
+                    Image(systemName: voice.isActive ? "waveform.circle.fill" : "mic.circle")
+                        .font(.title2)
+                        .foregroundColor(voice.isActive ? .teal : .secondary)
+                        .symbolEffect(.pulse, isActive: voice.phase == .listening)
+                }
+
                 TextField("Type a message...", text: $messageText, axis: .vertical)
                     .textFieldStyle(.roundedBorder)
                     .lineLimit(1...4)
+                    .disabled(voice.isActive)
 
                 Button {
                     sendMessage()
@@ -114,7 +129,7 @@ struct ChatView: View {
                     Image(systemName: "arrow.up.circle.fill")
                         .font(.title2)
                 }
-                .disabled(messageText.trimmingCharacters(in: .whitespaces).isEmpty || isBusy)
+                .disabled(messageText.trimmingCharacters(in: .whitespaces).isEmpty || isBusy || voice.isActive)
             }
             .padding()
             .background(.bar)
@@ -181,6 +196,7 @@ struct ChatView: View {
         .sheet(isPresented: $showNotes) { NotesView(session: session) }
         .sheet(isPresented: $showDreams) { DreamsView(session: session) }
         .sheet(isPresented: $showGraph) { GraphView(session: session) }
+        .onDisappear { voice.stop() }
     }
 
     private func modalityColor(_ modality: String) -> Color {
@@ -201,6 +217,28 @@ struct ChatView: View {
         case "ifs": return .primary
         default: return .secondary
         }
+    }
+
+    private func toggleVoiceMode() {
+        if voice.isActive {
+            voice.stop()
+            return
+        }
+        // Voice mode implies spoken replies.
+        ttsEnabled = true
+        voice.onUtterance = { [session] spokenText in
+            let result = await ChatService.shared.processMessage(
+                session: session,
+                userMessage: spokenText,
+                context: context
+            )
+            await MainActor.run {
+                session.updatedAt = Date()
+                try? context.save()
+            }
+            return result.response
+        }
+        voice.start()
     }
 
     private func sendMessage() {
@@ -248,6 +286,69 @@ struct ChatView: View {
         elapsedTimer?.invalidate()
         elapsedTimer = nil
         elapsedSeconds = 0
+    }
+}
+
+/// Compact status strip shown above the input bar while hands-free voice mode
+/// is active. Surfaces the current phase and a live partial transcript.
+struct VoiceStatusBar: View {
+    @ObservedObject var voice: VoiceConversationController
+
+    private var label: String {
+        switch voice.phase {
+        case .idle:      return ""
+        case .listening: return "Listening…"
+        case .thinking:  return "Thinking…"
+        case .speaking:  return "Speaking…"
+        }
+    }
+
+    private var icon: String {
+        switch voice.phase {
+        case .idle:      return "mic.slash"
+        case .listening: return "waveform"
+        case .thinking:  return "ellipsis"
+        case .speaking:  return "speaker.wave.2.fill"
+        }
+    }
+
+    private var tint: Color {
+        switch voice.phase {
+        case .listening: return .teal
+        case .thinking:  return .orange
+        case .speaking:  return .blue
+        case .idle:      return .secondary
+        }
+    }
+
+    var body: some View {
+        VStack(spacing: 4) {
+            HStack(spacing: 8) {
+                Image(systemName: icon)
+                    .foregroundColor(tint)
+                    .symbolEffect(.variableColor, isActive: voice.phase == .listening || voice.phase == .speaking)
+                Text(label)
+                    .font(.caption.weight(.semibold))
+                    .foregroundColor(tint)
+                Spacer()
+                if let err = voice.errorMessage {
+                    Text(err)
+                        .font(.caption2)
+                        .foregroundColor(.red)
+                        .lineLimit(2)
+                }
+            }
+            if voice.phase == .listening && !voice.partialText.isEmpty {
+                Text(voice.partialText)
+                    .font(.caption)
+                    .foregroundColor(.primary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .lineLimit(3)
+            }
+        }
+        .padding(.horizontal)
+        .padding(.vertical, 6)
+        .background(tint.opacity(0.08))
     }
 }
 
