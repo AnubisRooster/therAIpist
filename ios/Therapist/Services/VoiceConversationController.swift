@@ -49,6 +49,19 @@ final class VoiceConversationController: NSObject, ObservableObject {
     /// Guards the loop so async callbacks don't restart a stopped session.
     private var running = false
 
+    /// Prevents overlapping/re-entrant calls into beginListening().
+    private var isConfiguring = false
+
+    /// Consecutive immediate recognition failures. Capped so a recognizer that
+    /// keeps erroring (e.g. no network, on-device model unavailable) can never
+    /// spin the main thread into a freeze.
+    private var consecutiveFailures = 0
+    private let maxConsecutiveFailures = 3
+
+    /// Set true once the recognizer has produced at least one usable transcript,
+    /// so we know on-device recognition actually works on this device.
+    private var allowOnDevice = true
+
     private let recognizer = SFSpeechRecognizer(locale: Locale(identifier: "en-US"))
     private let audioEngine = AVAudioEngine()
     private var request: SFSpeechAudioBufferRecognitionRequest?
@@ -78,6 +91,7 @@ final class VoiceConversationController: NSObject, ObservableObject {
             }
             self.running = true
             self.isActive = true
+            self.consecutiveFailures = 0
             self.beginListening()
         }
     }
@@ -86,6 +100,8 @@ final class VoiceConversationController: NSObject, ObservableObject {
     func stop() {
         running = false
         isActive = false
+        isConfiguring = false
+        consecutiveFailures = 0
         silenceTimer?.invalidate()
         silenceTimer = nil
         teardownAudio()
@@ -111,11 +127,20 @@ final class VoiceConversationController: NSObject, ObservableObject {
 
     private func beginListening() {
         guard running else { return }
+        guard !isConfiguring else { return }   // never overlap setup
+        isConfiguring = true
+        defer { isConfiguring = false }
 
         // Reset per-turn state.
         partialText = ""
         lastTranscript = ""
         teardownAudio()   // ensure any prior engine/task is gone
+
+        guard let recognizer, recognizer.isAvailable else {
+            errorMessage = "Speech recognition isn't available right now."
+            stop()
+            return
+        }
 
         do {
             let session = AVAudioSession.sharedInstance()
@@ -127,13 +152,21 @@ final class VoiceConversationController: NSObject, ObservableObject {
 
             let request = SFSpeechAudioBufferRecognitionRequest()
             request.shouldReportPartialResults = true
-            if recognizer?.supportsOnDeviceRecognition == true {
+            // Only force on-device when supported AND it hasn't been proven flaky.
+            if allowOnDevice && recognizer.supportsOnDeviceRecognition {
                 request.requiresOnDeviceRecognition = true
             }
             self.request = request
 
             let input = audioEngine.inputNode
             let format = input.outputFormat(forBus: 0)
+            // A zero sample-rate format means the input hardware isn't ready;
+            // bail out gracefully instead of crashing in installTap.
+            guard format.sampleRate > 0 else {
+                errorMessage = "Microphone isn't ready. Please try again."
+                stop()
+                return
+            }
             input.removeTap(onBus: 0)
             input.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak self] buffer, _ in
                 self?.request?.append(buffer)
@@ -144,14 +177,14 @@ final class VoiceConversationController: NSObject, ObservableObject {
 
             phase = .listening
 
-            task = recognizer?.recognitionTask(with: request) { [weak self] result, error in
+            task = recognizer.recognitionTask(with: request) { [weak self] result, error in
                 guard let self else { return }
                 Task { @MainActor in
                     if let result {
                         self.handleTranscript(result.bestTranscription.formattedString)
                     }
                     if error != nil {
-                        // Common when we end audio ourselves; only retry if we were
+                        // Only treat as a failure worth retrying if we were
                         // actively listening and captured nothing.
                         if self.running && self.phase == .listening && self.lastTranscript.isEmpty {
                             self.handleRecognitionFailure()
@@ -168,6 +201,7 @@ final class VoiceConversationController: NSObject, ObservableObject {
     private func handleTranscript(_ text: String) {
         guard running, phase == .listening else { return }
         guard text != lastTranscript else { return }
+        consecutiveFailures = 0           // recognizer is working
         lastTranscript = text
         partialText = text
         resetSilenceTimer()
@@ -181,9 +215,30 @@ final class VoiceConversationController: NSObject, ObservableObject {
         }
     }
 
+    /// Handles an immediate recognizer error WITHOUT spinning the main thread.
+    /// Retries are delayed and capped; after the cap we stop with a message.
     private func handleRecognitionFailure() {
         teardownAudio()
-        if running { beginListening() }
+        guard running else { return }
+
+        consecutiveFailures += 1
+
+        // If on-device recognition keeps failing instantly, drop the on-device
+        // requirement and let the system fall back to server recognition.
+        if consecutiveFailures == 2 { allowOnDevice = false }
+
+        guard consecutiveFailures <= maxConsecutiveFailures else {
+            errorMessage = "Voice recognition isn't responding. Tap the mic to try again, or type your message."
+            stop()
+            return
+        }
+
+        // Delayed retry breaks any tight error loop.
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: 600_000_000)
+            guard let self, self.running, self.phase != .speaking, self.phase != .thinking else { return }
+            self.beginListening()
+        }
     }
 
     // MARK: - Endpointing → send → speak → resume
