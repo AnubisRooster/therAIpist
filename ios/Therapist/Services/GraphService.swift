@@ -42,18 +42,31 @@ class GraphService {
         return session.graphNodes.filter { targetIDs.contains($0.id) }
     }
 
-    // MARK: - Entity + edge extraction
+    // MARK: - Pure analysis (no mutation)
 
-    /// Extracts entities from a single user message and wires edges between
-    /// co-occurring nodes.  Returns the nodes created / reinforced so the
-    /// caller can use them for further analysis.
-    @discardableResult
-    func extractEntitiesFromMessage(session: SessionModel,
-                                    message: String,
-                                    context: ModelContext) -> [GraphNodeModel] {
+    struct NodeSpec {
+        let type: String
+        let label: String
+        let properties: [String: String]
+    }
+
+    struct EdgeSpec {
+        let sourceLabel: String
+        let targetLabel: String
+        let type: String
+    }
+
+    struct Extraction {
+        let nodes: [NodeSpec]
+        let edges: [EdgeSpec]
+    }
+
+    /// Analyzes a message and returns the entities + edges it implies, without
+    /// touching SwiftData. Both the live extraction and the backfill use this so
+    /// their labels always agree.
+    func analyzeMessage(_ message: String) -> Extraction {
         let lower = message.lowercased()
 
-        // ── Emotion words ──────────────────────────────────────────────────
         let emotionWords = [
             "angry", "anger", "sad", "sadness", "happy", "anxious", "anxiety",
             "fearful", "fear", "guilty", "guilt", "ashamed", "shame", "hopeful",
@@ -62,7 +75,6 @@ class GraphService {
             "confused", "numb", "empty", "worthless", "helpless",
         ]
 
-        // ── Person / relationship patterns ────────────────────────────────
         let personPatterns: [(pattern: String, label: String)] = [
             ("my mother", "Mother"), ("my mom", "Mother"),
             ("my father", "Father"), ("my dad", "Father"),
@@ -75,7 +87,6 @@ class GraphService {
             ("my ex", "Ex-partner"),
         ]
 
-        // ── Belief / cognitive patterns ───────────────────────────────────
         let beliefPatterns = [
             "i believe", "i think that", "i feel that", "i always", "i never",
             "i should", "i must", "i can't", "i have to", "i am worthless",
@@ -83,81 +94,107 @@ class GraphService {
             "nobody cares", "i am broken", "i will never",
         ]
 
-        var extractedEmotions: [GraphNodeModel] = []
-        var extractedPersons:  [GraphNodeModel] = []
-        var extractedBeliefs:  [GraphNodeModel] = []
+        var emotions: [NodeSpec] = []
+        var persons:  [NodeSpec] = []
+        var beliefs:  [NodeSpec] = []
 
-        // Extract emotions
         for word in emotionWords where lower.contains(word) {
-            let node = addNode(session: session, type: "emotion",
-                               label: word.capitalized,
-                               properties: ["source": "message"],
-                               context: context)
-            extractedEmotions.append(node)
+            emotions.append(NodeSpec(type: "emotion", label: word.capitalized,
+                                     properties: ["source": "message"]))
         }
 
-        // Extract persons
         for item in personPatterns where lower.contains(item.pattern) {
-            let node = addNode(session: session, type: "person",
-                               label: item.label,
-                               properties: ["relation": item.pattern],
-                               context: context)
-            extractedPersons.append(node)
+            persons.append(NodeSpec(type: "person", label: item.label,
+                                    properties: ["relation": item.pattern]))
         }
 
-        // Extract beliefs (capture the phrase that follows the opener)
         for pattern in beliefPatterns where lower.contains(pattern) {
             let parts = lower.components(separatedBy: pattern)
             if parts.count > 1 {
                 let tail = parts[1].trimmingCharacters(in: .whitespacesAndNewlines
                     .union(.punctuationCharacters)).prefix(50)
                 let label = tail.isEmpty ? pattern : "\(pattern) \(tail)"
-                let node = addNode(session: session, type: "belief",
-                                   label: String(label),
-                                   properties: ["pattern": pattern],
-                                   context: context)
-                extractedBeliefs.append(node)
+                beliefs.append(NodeSpec(type: "belief", label: String(label),
+                                        properties: ["pattern": pattern]))
             }
         }
 
-        // ── Wire edges from co-occurrence ─────────────────────────────────
-        //
-        // person → TRIGGERS → emotion  (person nodes that are mentioned alongside emotions)
-        for person in extractedPersons {
-            for emotion in extractedEmotions {
-                addEdge(session: session, source: person,
-                        targetLabel: emotion.label, type: "TRIGGERS", context: context)
+        // De-duplicate within a single message (same label twice → once)
+        emotions = dedupe(emotions)
+        persons  = dedupe(persons)
+        beliefs  = dedupe(beliefs)
+
+        var edges: [EdgeSpec] = []
+
+        // person → TRIGGERS → emotion
+        for person in persons {
+            for emotion in emotions {
+                edges.append(EdgeSpec(sourceLabel: person.label,
+                                      targetLabel: emotion.label, type: "TRIGGERS"))
             }
         }
-
-        // emotion → CAUSES → belief  (feeling driving a cognitive pattern)
-        for emotion in extractedEmotions {
-            for belief in extractedBeliefs {
-                addEdge(session: session, source: emotion,
-                        targetLabel: belief.label, type: "CAUSES", context: context)
+        // emotion → CAUSES → belief
+        for emotion in emotions {
+            for belief in beliefs {
+                edges.append(EdgeSpec(sourceLabel: emotion.label,
+                                      targetLabel: belief.label, type: "CAUSES"))
             }
         }
-
-        // belief → ASSOCIATED_WITH → emotion  (reciprocal link)
-        for belief in extractedBeliefs {
-            for emotion in extractedEmotions {
-                addEdge(session: session, source: belief,
-                        targetLabel: emotion.label, type: "ASSOCIATED_WITH", context: context)
+        // belief → ASSOCIATED_WITH → emotion
+        for belief in beliefs {
+            for emotion in emotions {
+                edges.append(EdgeSpec(sourceLabel: belief.label,
+                                      targetLabel: emotion.label, type: "ASSOCIATED_WITH"))
             }
         }
-
-        // emotion → ASSOCIATED_WITH → emotion  (co-occurring feelings)
-        if extractedEmotions.count > 1 {
-            for i in 0..<extractedEmotions.count {
-                for j in (i + 1)..<extractedEmotions.count {
-                    addEdge(session: session, source: extractedEmotions[i],
-                            targetLabel: extractedEmotions[j].label,
-                            type: "ASSOCIATED_WITH", context: context)
+        // emotion → ASSOCIATED_WITH → emotion (co-occurring)
+        if emotions.count > 1 {
+            for i in 0..<emotions.count {
+                for j in (i + 1)..<emotions.count {
+                    edges.append(EdgeSpec(sourceLabel: emotions[i].label,
+                                          targetLabel: emotions[j].label,
+                                          type: "ASSOCIATED_WITH"))
                 }
             }
         }
 
-        return extractedEmotions + extractedPersons + extractedBeliefs
+        return Extraction(nodes: emotions + persons + beliefs, edges: edges)
+    }
+
+    private func dedupe(_ specs: [NodeSpec]) -> [NodeSpec] {
+        var seen = Set<String>()
+        var out: [NodeSpec] = []
+        for s in specs where !seen.contains(s.label) {
+            seen.insert(s.label)
+            out.append(s)
+        }
+        return out
+    }
+
+    // MARK: - Live extraction (mutates the graph)
+
+    /// Extracts entities from a single message and wires edges between
+    /// co-occurring nodes. Returns the nodes created / reinforced.
+    @discardableResult
+    func extractEntitiesFromMessage(session: SessionModel,
+                                    message: String,
+                                    context: ModelContext) -> [GraphNodeModel] {
+        let extraction = analyzeMessage(message)
+
+        var created: [GraphNodeModel] = []
+        for spec in extraction.nodes {
+            let node = addNode(session: session, type: spec.type, label: spec.label,
+                               properties: spec.properties, context: context)
+            created.append(node)
+        }
+
+        for edge in extraction.edges {
+            guard let source = findNode(session: session, label: edge.sourceLabel) else { continue }
+            addEdge(session: session, source: source,
+                    targetLabel: edge.targetLabel, type: edge.type, context: context)
+        }
+
+        return created
     }
 
     // MARK: - Graph analysis

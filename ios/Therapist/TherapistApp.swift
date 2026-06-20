@@ -24,6 +24,7 @@ struct TherapistApp: App {
 
 /// Root routing: onboarding (first launch) → PIN → main app.
 struct AppRootView: View {
+    @Environment(\.modelContext) private var modelContext
     @StateObject private var modelService      = ModelService()
     @StateObject private var speechService     = SpeechService.shared
     @StateObject private var localModelService = LocalModelService.shared
@@ -46,6 +47,7 @@ struct AppRootView: View {
                     .environmentObject(speechService)
                     .environmentObject(localModelService)
                     .task {
+                        BadgeBackfillService.runIfNeeded(context: modelContext)
                         await LLMService.shared.configure(apiKey: openrouterKey, defaultModel: defaultModel)
                         await modelService.refreshIfNeeded(apiKey: openrouterKey)
                         localModelService.refreshDownloadedStatus()
