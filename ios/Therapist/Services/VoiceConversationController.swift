@@ -88,6 +88,12 @@ final class VoiceConversationController: NSObject, ObservableObject {
     private var silenceTimer: Timer?
     private var lastTranscript = ""
 
+    /// Bumped every time a new recognition task is created. A cancelled
+    /// SFSpeechRecognitionTask can still deliver one trailing callback after
+    /// `cancel()`; callbacks carrying a stale generation are ignored so a
+    /// superseded task can't trigger a redundant restart.
+    private var recognitionGeneration = 0
+
     /// Finalized text from earlier recognition segments in the CURRENT turn.
     /// SFSpeechRecognizer terminates a recognition request after ~1 minute, so a
     /// long monologue is captured as several segments stitched together here.
@@ -281,9 +287,13 @@ final class VoiceConversationController: NSObject, ObservableObject {
         self.request = request
         phase = .listening
 
+        recognitionGeneration += 1
+        let generation = recognitionGeneration
         task = recognizer.recognitionTask(with: request) { [weak self] result, error in
             guard let self else { return }
             Task { @MainActor in
+                // Ignore trailing callbacks from a task we've already replaced.
+                guard generation == self.recognitionGeneration else { return }
                 var wasFinal = false
                 if let result {
                     wasFinal = result.isFinal
