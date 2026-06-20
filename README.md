@@ -4,218 +4,188 @@
   <img src="docs/icon.png" alt="therAIpist app icon" width="160" />
 </p>
 
-An AI-assisted psychotherapeutic companion: a **FastAPI** backend paired with a native **SwiftUI** iPhone client. It blends multiple therapeutic traditions (Jungian, Adlerian, DBT, and an integrated mode), remembers context across conversations, and is built with safety boundaries and privacy in mind.
+An AI-assisted self-reflection companion: a native **SwiftUI** iOS app that blends multiple therapeutic traditions, builds a personal knowledge graph across sessions, and can run entirely on-device with no internet connection.
 
-> **Disclaimer**
-> therAIpist is an experimental support tool, **not** a licensed therapist and **not** a substitute for professional mental-health care. It does not diagnose conditions or prescribe treatment. If you are in crisis, contact your local emergency services or a crisis line (in the US: dial/text **988**).
-
----
-
-## Screens
-
-> The images below are **UI mockups/renderings** of the SwiftUI client (the app is built from source in Xcode; see [iOS app](#ios-app)).
-
-| PIN login | Sessions |
-|-----------|----------|
-| ![PIN login screen](docs/screenshots/pin.png) | ![Session list](docs/screenshots/sessions.png) |
-
-| Chat (in-chat model picker) | Model picker (free-first) |
-|-----------------------------|---------------------------|
-| ![Chat screen](docs/screenshots/chat.png) | ![Model picker](docs/screenshots/model-picker.png) |
+> **Important disclaimer**
+> therAIpist is **not** a licensed therapist, psychologist, or medical provider. It is a journaling and self-reflection tool only. It cannot diagnose, treat, or manage any mental health condition.
+>
+> **If you are in crisis, please reach out immediately:**
+> - 🇺🇸 **988 Suicide & Crisis Lifeline** — call or text **988** — [988lifeline.org](https://988lifeline.org)
+> - **Crisis Text Line** — text HOME to **741741** — [crisistextline.org](https://www.crisistextline.org)
+> - **NAMI Helpline** — 1-800-950-6264 — [nami.org/help](https://www.nami.org/help)
+> - **SAMHSA National Helpline** — 1-800-662-4357 — [samhsa.gov](https://www.samhsa.gov/find-help/national-helpline)
+>
+> Find a real therapist: [Psychology Today](https://www.psychologytoday.com/us/therapists) · [Open Path Collective](https://openpathcollective.org) · [BetterHelp](https://www.betterhelp.com)
 
 ---
 
 ## Features
 
-- **Multiple modalities** — Integrated, Adlerian, Jungian, and DBT therapy styles, selectable per session.
-- **Conversational memory** — episodic/semantic/procedural memory with vector recall, so the assistant remembers relevant context across turns.
-- **Knowledge graph** — extracts people, events, emotions, beliefs, and themes into a graph for richer insight.
-- **Safety first** — negation-aware crisis detection with crisis-resource referrals, plus a redact-and-replace filter that blocks diagnostic or prescriptive assistant responses.
-- **OpenRouter-first** — the iOS client and the intended backend configuration both use OpenRouter. The server provider abstraction also accepts Ollama sessions, but this is optional.
-- **On-device privacy (iOS)** — conversations and their embeddings are stored locally with Apple's `NLEmbedding`; a Keychain-backed PIN gates the app.
-- **Extras** — insights, notes, dream analysis, voice transcription, and a dashboard.
+### Therapy & conversation
+- **13 modalities** — Integrated, Adlerian, Jungian, DBT, CBT, Humanistic, Existential, Gestalt, Somatic, Narrative, ACT, Psychodynamic, and IFS — selectable per session
+- **Adaptive verbosity** — the assistant calibrates response length based on conversational context
+- **Text-to-speech** — responses spoken aloud with configurable voice, rate, and pitch; natural-sounding system voices
+- **Voice input** — tap-to-transcribe with the device microphone
+
+### Memory & knowledge
+- **Episodic / semantic memory** — each exchange is embedded with Apple's `NLEmbedding` and recalled semantically in future turns within and across sessions
+- **Global memories** — therapeutically significant moments (trauma mentions, major insights, grief, relationship patterns) are automatically promoted to a cross-session memory store with a three-tier importance system
+- **Knowledge graph** — extracts emotions, persons, beliefs, and wires edges between co-occurring entities (person → TRIGGERS → emotion, emotion → CAUSES → belief, etc.)
+- **In-message insight badges** — pill-shaped indicators appear beneath assistant replies to show when memories, graph nodes, edges, or global insights were captured in that exchange
+
+### Models
+- **Cloud (OpenRouter)** — access 300+ models; free models are surfaced first; list refreshed every 24 hours
+- **On-device (local)** — GGUF models via `LLM.swift` / `llama.cpp` with Metal GPU acceleration; no API key, no internet, fully private
+  - Llama 3.2 1B (~800 MB) — recommended for devices with 4–6 GB RAM
+  - Llama 3.2 3B (~2 GB) — recommended for 6–8 GB RAM
+  - Phi-3.5 Mini (~2.2 GB) — recommended for 8 GB+ RAM
+- **Per-session model selection** — tap the model chip in the chat nav bar to switch
+
+### Data & sessions
+- **SwiftData persistence** — all data (messages, memories, nodes, edges, notes, dreams) is stored locally in a SwiftData store
+- **Archive sessions** — swipe to archive instead of delete; all underlying data is preserved; restore at any time from the Archive tab
+- **Notes & dreams** — record session notes and dream narratives per conversation
+- **Dashboard** — aggregated stats across all sessions; tap any stat (nodes, edges, memories, notes, dreams, global memories) to drill into the full list
+
+### Safety
+- **Crisis detection** — every user message is checked with negation-aware keyword matching; crisis resources are surfaced automatically
+- **Boundary enforcement** — diagnostic or prescriptive assistant responses are intercepted and replaced before reaching the user
+- **Safety event log** — all flagged exchanges are recorded per session
+
+### Onboarding
+- **8-step setup** — welcome → disclaimer acknowledgment → OpenRouter API key → on-device model guide → personal intake → concerns → therapy background → goals
+- **Device-aware model recommendation** — the on-device setup step reads actual device RAM and recommends the appropriate model
+- **Full crisis resource list** during onboarding (before the user ever starts a session)
 
 ---
 
 ## Architecture
 
 ```
-┌──────────────────────┐      REST API       ┌──────────────────────┐
-│   iOS App (SwiftUI)  │ ◄─────────────────► │  FastAPI Backend      │
-│   iPhone Client      │                      │  (Mac / server / VPS)│
-└──────────────────────┘                      └───────┬──────────────┘
-                                                       │
-                      ┌────────────────────────────────┼─────────────────────────────┐
-                      │                                │                             │
-                ┌─────▼──────┐                ┌────────▼────────┐          ┌─────────▼─────────┐
-                │  SQLite DB  │                │  Vector store    │          │  Provider Layer    │
-                │ (server +   │                │ (in-memory or    │          │  Ollama │ OpenRouter│
-                │  on-device) │                │  Qdrant)         │          │  + embedding prov. │
-                └────────────┘                └─────────────────┘          └───────────────────┘
-```
-
-See [`ARCHITECTURE_PLAN.md`](ARCHITECTURE_PLAN.md) for the full design and phase roadmap.
-
-### Repository layout
-
-```
-.
-├── app/                  # FastAPI backend
-│   ├── api/              # Routers (chat, sessions, memory, graph, safety, voice, …)
-│   ├── agents/           # Crisis + specialized therapy agents and orchestrator
-│   ├── core/             # config, database, security (API-key auth)
-│   ├── models/           # SQLAlchemy ORM models + Pydantic schemas
-│   └── services/         # chat, memory, safety, mode, graph, providers/
-├── migrations/           # Alembic migrations
-├── tests/                # pytest suite (200+ tests)
-├── ios/Therapist/        # SwiftUI client (source tree)
-├── desktop/              # Minimal Python desktop client
-├── docker-compose.yml    # Qdrant for local vector storage
-└── pyproject.toml
+ios/Therapist/
+├── Services/
+│   ├── ChatService.swift          # Core turn orchestrator: memory, graph, LLM, safety
+│   ├── LLMService.swift           # Routes to OpenRouter or local engine
+│   ├── LocalLLMEngine.swift       # llama.cpp inference via LLM.swift; stop-sequence,
+│   │                              #   timeout, concurrent-generation guards
+│   ├── LocalModelService.swift    # Catalog, download management, progress tracking
+│   ├── MemoryService.swift        # Episodic/semantic embedding + recall
+│   ├── GlobalMemoryService.swift  # Cross-session significant memory promotion
+│   ├── GraphService.swift         # Entity extraction + edge wiring
+│   ├── TherapyService.swift       # Modality prompts + system prompt assembly
+│   ├── SpeechService.swift        # AVSpeechSynthesizer TTS wrapper
+│   ├── SafetyService.swift        # Crisis + boundary detection
+│   └── AgentOrchestrator.swift    # Specialized sub-agents (notes, dreams, graph)
+│
+├── Models/
+│   └── SwiftDataModels.swift      # SessionModel, MessageModel, MemoryModel,
+│                                  #   GraphNodeModel, GraphEdgeModel, NoteModel,
+│                                  #   DreamModel, GlobalMemoryModel, SafetyEventModel
+│
+└── Views/
+    ├── ContentView.swift          # Session list (archive-aware @Query)
+    ├── ChatView.swift             # Chat UI + MessageBubble with insight badges
+    ├── OnboardingView.swift       # 8-step first-launch flow
+    ├── DashboardView.swift        # Stats + drill-down detail sheets
+    ├── SettingsView.swift         # API key, TTS, defaults, on-device model manager
+    ├── ModelPickerView.swift      # Per-session cloud / on-device model picker
+    ├── InsightsView.swift
+    ├── NotesView.swift
+    ├── DreamsView.swift
+    └── GraphView.swift
 ```
 
 ---
 
-## Backend
+## Getting Started
 
 ### Requirements
 
-- Python **3.12+**
-- An [OpenRouter](https://openrouter.ai) API key
-- (Optional) [Ollama](https://ollama.com) — only needed if you want local-model embeddings on the server (see note below)
-- (Optional) Docker, to run Qdrant as the vector store
+- Xcode 16+
+- iOS 17+ device or simulator
+- (Optional) [OpenRouter](https://openrouter.ai) API key for cloud models
+- (Optional) 4–8 GB device RAM for on-device models
 
-### Setup
-
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -e ".[dev]"
-```
-
-Create a `.env`:
-
-```dotenv
-DATABASE_URL=sqlite+aiosqlite:///./therapist.db
-
-# OpenRouter — required for chat completions
-OPENROUTER_API_KEY=sk-or-...
-OPENROUTER_DEFAULT_MODEL=openai/gpt-4o
-
-# Security — leave empty to disable auth for local dev
-API_KEY=
-
-# CORS — credentials are only honored when origins are explicit (not "*")
-CORS_ORIGINS=["*"]
-CORS_ALLOW_CREDENTIALS=false
-```
-
-> **A note on embeddings**
-> The server's memory/recall system needs an embedding provider, and OpenRouter does not expose a reliable embeddings endpoint. By default it falls back to [Ollama](https://ollama.com) (`EMBEDDING_PROVIDER=ollama`). If you don't want to run Ollama, set `VECTOR_STORE_TYPE=in_memory` and the server will skip persistent vector recall (conversations are still stored in SQLite). A future update will support sentence-transformers as a fully local alternative.
->
-> ```dotenv
-> # Optional — only add if you want Ollama-backed memory recall
-> EMBEDDING_PROVIDER=ollama
-> EMBEDDING_MODEL=llama3.2
-> OLLAMA_BASE_URL=http://localhost:11434
-> ```
-
-### Database migrations
-
-The schema is managed with **Alembic**. For a fresh database:
+### Build
 
 ```bash
-alembic upgrade head
+cd ios
+xcodegen generate          # regenerates Therapist.xcodeproj from project.yml
+open Therapist.xcodeproj
 ```
 
-(`init_db` also creates tables on startup for local convenience, but Alembic is the source of truth for production.)
+Build and run on your device or simulator. Swift Package Manager will resolve `LLM.swift` automatically on first build.
 
-### Run
+### First launch
 
-```bash
-uvicorn app.main:app --reload
-```
+The onboarding flow walks you through:
 
-The API is then available at `http://localhost:8000` (interactive docs at `/docs`).
+1. **Disclaimer** — read and acknowledge the app's limitations and crisis resources (required)
+2. **OpenRouter API key** — skip this step if you only want on-device models
+3. **On-device models** — device-personalised model recommendation; download from **Settings → On-Device Models** after setup
+4. **Intake** — optional personal context (name, concerns, therapy history, goals) that shapes every session's system prompt
 
-Optionally start the vector store:
+### On-device models
 
-```bash
-docker compose up -d   # Qdrant on :6333
-```
+1. Open **Settings** (gear icon on the sessions screen)
+2. Scroll to **On-Device Models**
+3. Tap **Download** next to your chosen model (your device's RAM determines the recommendation)
+4. Once downloaded, open any chat → tap the model chip → select **On-Device**
 
-### Authentication
-
-When `API_KEY` is set, every request must include it as either header:
-
-```
-Authorization: Bearer <API_KEY>
-# or
-X-API-Key: <API_KEY>
-```
-
-When `API_KEY` is empty, authentication is disabled (intended for local development only).
-
-### API overview
-
-| Method | Path | Description |
-|--------|------|-------------|
-| `GET` | `/health` | Health + provider model availability |
-| `POST` / `GET` / `PATCH` / `DELETE` | `/sessions` | Manage therapy sessions |
-| `POST` | `/chat` | Send a message, get a response |
-| `GET` | `/chat/{session_id}` | Conversation history |
-| `*` | `/memory`, `/graph`, `/insights`, `/therapy`, `/notes`, `/dreams`, `/voice`, `/safety`, `/mode`, `/agents`, `/dashboard` | Feature endpoints |
-
-**`POST /chat`**
-
-```json
-{ "session_id": "uuid", "message": "I've been feeling anxious about work..." }
-```
-
-```json
-{
-  "response": "It sounds like work has been weighing on you...",
-  "message_id": "uuid",
-  "session_id": "uuid",
-  "provider_used": "openrouter",
-  "model_used": "openai/gpt-4o",
-  "token_count": { "prompt": 245, "completion": 128 }
-}
-```
-
-### Tests
-
-```bash
-pytest -q
-```
+> **Note:** First inference after loading a model may take 10–30 seconds. Subsequent turns are faster. Keep the device plugged in during long sessions.
 
 ---
 
-## iOS app
+## Knowledge graph
 
-A native SwiftUI client living in [`ios/Therapist/`](ios/Therapist). It is **OpenRouter-only** and designed for privacy.
+Each user message is processed for entities:
 
-- **Model selection from chat** — tap the model pill in the chat navigation bar to open the picker.
-- **Free-first model list** — fetched from OpenRouter and cached for 24 hours; free models are surfaced first.
-- **On-device memory** — each exchange is embedded with Apple's `NLEmbedding` and stored in SwiftData for local semantic recall.
-- **PIN login** — a 6-digit PIN (stored in the Keychain) gates the app; change it from Settings.
+| Entity type | Examples |
+|-------------|---------|
+| **Emotion** | anger, shame, grief, anxiety, loneliness |
+| **Person** | Mother, Father, Partner, Ex-partner, Boss |
+| **Belief** | "I always…", "I can't…", "I don't deserve…" |
 
-### Building
+Edges are wired between co-occurring entities in the same message:
 
-The source tree under `ios/Therapist/` is added to an Xcode project (no `.xcodeproj` is committed). To run it:
+| Edge | Meaning |
+|------|---------|
+| `Person → TRIGGERS → Emotion` | A relationship figure is mentioned alongside a feeling |
+| `Emotion → CAUSES → Belief` | A feeling driving a cognitive pattern |
+| `Belief → ASSOCIATED_WITH → Emotion` | Reciprocal link |
+| `Emotion → ASSOCIATED_WITH → Emotion` | Co-occurring feelings |
 
-1. Create a new iOS App in Xcode (SwiftUI lifecycle, SwiftData).
-2. Add the files under `ios/Therapist/` to the target.
-3. Add your OpenRouter API key in the app's **Settings** screen.
-4. Build and run on iOS 17+.
+View the graph any time via **Graph** in the chat toolbar.
+
+---
+
+## Memory system
+
+| Layer | Scope | How triggered |
+|-------|-------|---------------|
+| **Episodic memory** | Per-session | Every exchange; embedded with NLEmbedding |
+| **Semantic memory** | Per-session | Consolidated from recent messages |
+| **Global memory** | Cross-session | Tier-3: any trauma/crisis word; Tier-2: 2+ relationship/shame/grief words; Tier-1: 3+ distress words |
+
+Global memories and cross-session episodic recall are injected into every new session's system prompt, giving the assistant continuity without requiring the user to repeat themselves.
+
+---
+
+## Session archive
+
+Sessions are never hard-deleted by default:
+- Swipe left → **Archive** (orange) — preserves all messages, memories, graph, notes, dreams
+- Tap **Archive** in the toolbar → restore any session or permanently delete it
 
 ---
 
 ## Safety & ethics
 
-- **Crisis detection** runs on every user message with negation handling (e.g. "I don't want to die" is not flagged) and returns crisis resources (988, Crisis Text Line, 911) when warranted.
-- **Boundary enforcement**: assistant responses containing diagnostic or prescriptive language are replaced before they reach the user, not merely logged.
-- This project is for research/educational purposes and must not be presented as professional therapy.
+- Crisis detection runs on every user message with negation handling ("I don't want to die" is not flagged)
+- The app provides 988 and Crisis Text Line resources automatically when crisis signals are detected
+- Boundary enforcement intercepts assistant responses containing diagnostic or prescriptive language
+- All safety events are logged per session
+- This project is for research and personal use only; it must not be presented as professional therapy
 
 ---
 
