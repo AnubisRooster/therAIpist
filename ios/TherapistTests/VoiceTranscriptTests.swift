@@ -39,4 +39,38 @@ final class VoiceTranscriptTests: XCTestCase {
         }
         XCTAssertEqual(committed, "first part second part third part")
     }
+
+    // MARK: - "send" voice command
+
+    func testDetectSendStripsTrailingCommand() {
+        XCTAssertEqual(
+            VoiceConversationController.detectSendCommand(in: "I feel anxious today send"),
+            "I feel anxious today")
+    }
+
+    func testDetectSendHandlesTrailingPunctuationAndCasing() {
+        XCTAssertEqual(
+            VoiceConversationController.detectSendCommand(in: "I am doing better. Send."),
+            "I am doing better")
+    }
+
+    func testDetectSendMultiWordVariants() {
+        XCTAssertEqual(
+            VoiceConversationController.detectSendCommand(in: "tell me more send the message"),
+            "tell me more")
+        XCTAssertEqual(
+            VoiceConversationController.detectSendCommand(in: "okay send it now"),
+            "okay")
+    }
+
+    func testDetectSendCommandOnlyReturnsEmpty() {
+        XCTAssertEqual(VoiceConversationController.detectSendCommand(in: "send"), "")
+        XCTAssertEqual(VoiceConversationController.detectSendCommand(in: "Send."), "")
+    }
+
+    func testDetectSendReturnsNilWhenNoCommand() {
+        XCTAssertNil(VoiceConversationController.detectSendCommand(in: "I went to the store"))
+        // "send" embedded mid-sentence is not a trailing command.
+        XCTAssertNil(VoiceConversationController.detectSendCommand(in: "please send my regards to her"))
+    }
 }

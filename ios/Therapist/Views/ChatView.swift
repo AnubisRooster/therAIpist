@@ -102,6 +102,13 @@ struct ChatView: View {
                     .font(.caption)
                     .foregroundColor(.red)
                     .padding(.horizontal)
+            } else if !voice.isActive, let voiceError = voice.errorMessage {
+                // Surface voice-start failures (permissions, availability) even
+                // though the active status bar isn't shown.
+                Text(voiceError)
+                    .font(.caption)
+                    .foregroundColor(.red)
+                    .padding(.horizontal)
             }
 
             if voice.isActive {
@@ -200,6 +207,10 @@ struct ChatView: View {
         .sheet(isPresented: $showNotes) { NotesView(session: session) }
         .sheet(isPresented: $showDreams) { DreamsView(session: session) }
         .sheet(isPresented: $showGraph) { GraphView(session: session) }
+        .onChange(of: voice.pendingUtterance) { _, newValue in
+            guard let newValue else { return }
+            handleVoiceUtterance(newValue.text)
+        }
         .onDisappear { voice.stop() }
     }
 
@@ -230,19 +241,30 @@ struct ChatView: View {
         }
         // Voice mode implies spoken replies.
         ttsEnabled = true
-        voice.onUtterance = { [session] spokenText in
+        voice.start()
+    }
+
+    /// Processes a spoken turn on the view's live ModelContext — exactly like a
+    /// typed message — so the user + assistant bubbles render immediately, then
+    /// hands the reply back to the voice loop to be spoken aloud.
+    private func handleVoiceUtterance(_ text: String) {
+        isLoading = true
+        errorMessage = nil
+        if session.resolvedProvider == "local" {
+            startElapsedTimer()
+        }
+        Task {
             let result = await ChatService.shared.processMessage(
                 session: session,
-                userMessage: spokenText,
+                userMessage: text,
                 context: context
             )
-            await MainActor.run {
-                session.updatedAt = Date()
-                try? context.save()
-            }
-            return result.response
+            session.updatedAt = Date()
+            try? context.save()
+            isLoading = false
+            stopElapsedTimer()
+            voice.deliverResponse(result.response)
         }
-        voice.start()
     }
 
     private func sendMessage() {
@@ -301,7 +323,7 @@ struct VoiceStatusBar: View {
     private var label: String {
         switch voice.phase {
         case .idle:      return ""
-        case .listening: return "Listening…"
+        case .listening: return "Listening… (pause or say \u{201C}send\u{201D})"
         case .thinking:  return "Thinking…"
         case .speaking:  return "Speaking…"
         }

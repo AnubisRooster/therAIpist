@@ -26,12 +26,22 @@ final class VoiceConversationController: NSObject, ObservableObject {
         case speaking
     }
 
+    /// A finalized spoken turn. The unique `id` guarantees `onChange` fires even
+    /// when two consecutive utterances have identical text.
+    struct VoiceUtterance: Equatable {
+        let id = UUID()
+        let text: String
+    }
+
     @Published private(set) var phase: Phase = .idle
     @Published var partialText = ""
     @Published var errorMessage: String?
 
-    /// Returns the assistant's response text to speak (or nil to just resume).
-    var onUtterance: ((String) async -> String?)?
+    /// A captured turn waiting to be processed by the view layer. The view
+    /// observes this, runs the chat pipeline on its live ModelContext (so the
+    /// message bubbles render exactly like typed messages), then calls
+    /// `deliverResponse(_:)` with the reply to speak.
+    @Published private(set) var pendingUtterance: VoiceUtterance?
 
     /// Whether the conversation loop is engaged. Driven by `running` so the UI
     /// reflects "on" immediately, even during the brief thinking/speaking phases.
@@ -58,6 +68,11 @@ final class VoiceConversationController: NSObject, ObservableObject {
     private var consecutiveFailures = 0
     private let maxConsecutiveFailures = 3
 
+    /// Right after the mic permission is granted the input node can report a
+    /// zero sample-rate for a moment. Retry a few times before giving up.
+    private var micNotReadyRetries = 0
+    private let maxMicNotReadyRetries = 5
+
     /// Set true once the recognizer has produced at least one usable transcript,
     /// so we know on-device recognition actually works on this device.
     private var allowOnDevice = true
@@ -82,6 +97,34 @@ final class VoiceConversationController: NSObject, ObservableObject {
         if committed.isEmpty { return segment }
         if segment.isEmpty { return committed }
         return committed + " " + segment
+    }
+
+    /// Spoken phrases that mean "send what I've said so far".
+    private static let sendCommands = [
+        "send message", "send the message", "send it now", "send it",
+        "send now", "send",
+    ]
+
+    /// Detects a trailing "send" voice command.
+    /// - Returns: `nil` if no command; `""` if the command was the only thing
+    ///   said (nothing to send); otherwise the message with the command stripped.
+    /// Pure and static for unit testing.
+    static func detectSendCommand(in text: String) -> String? {
+        var trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        while let last = trimmed.last, last.isPunctuation { trimmed.removeLast() }
+        let lower = trimmed.lowercased()
+
+        for cmd in sendCommands {
+            if lower == cmd { return "" }
+            let suffix = " " + cmd
+            if lower.hasSuffix(suffix) {
+                let end = trimmed.index(trimmed.endIndex, offsetBy: -suffix.count)
+                var msg = String(trimmed[..<end])
+                while let last = msg.last, last.isWhitespace || last.isPunctuation { msg.removeLast() }
+                return msg
+            }
+        }
+        return nil
     }
 
     // MARK: - Public control
@@ -115,6 +158,8 @@ final class VoiceConversationController: NSObject, ObservableObject {
         isActive = false
         isConfiguring = false
         consecutiveFailures = 0
+        micNotReadyRetries = 0
+        pendingUtterance = nil
         silenceTimer?.invalidate()
         silenceTimer = nil
         teardownAudio()
@@ -179,13 +224,25 @@ final class VoiceConversationController: NSObject, ObservableObject {
 
             let input = audioEngine.inputNode
             let format = input.outputFormat(forBus: 0)
-            // A zero sample-rate format means the input hardware isn't ready;
-            // bail out gracefully instead of crashing in installTap.
+            // A zero sample-rate format means the input hardware isn't ready yet
+            // (common right after granting permission). Retry a few times before
+            // surfacing an error, instead of giving up on the first tap.
             guard format.sampleRate > 0 else {
-                errorMessage = "Microphone isn't ready. Please try again."
-                stop()
+                if micNotReadyRetries < maxMicNotReadyRetries {
+                    micNotReadyRetries += 1
+                    Task { @MainActor [weak self] in
+                        try? await Task.sleep(nanoseconds: 300_000_000)
+                        guard let self, self.running else { return }
+                        self.beginListening(continuing: continuing)
+                    }
+                } else {
+                    micNotReadyRetries = 0
+                    errorMessage = "Microphone isn't ready. Tap the mic to try again."
+                    stop()
+                }
                 return
             }
+            micNotReadyRetries = 0
             input.removeTap(onBus: 0)
             input.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak self] buffer, _ in
                 self?.request?.append(buffer)
@@ -217,6 +274,25 @@ final class VoiceConversationController: NSObject, ObservableObject {
     private func handleTranscript(_ segment: String, isFinal: Bool) {
         guard running, phase == .listening else { return }
         let full = Self.combinedTranscript(committed: committedText, segment: segment)
+
+        // "…send" voice command → finalize and send immediately.
+        if let stripped = Self.detectSendCommand(in: full) {
+            consecutiveFailures = 0
+            guard !stripped.isEmpty else {
+                // Only the word "send" was heard — nothing to send; keep listening.
+                lastTranscript = ""
+                committedText = ""
+                partialText = ""
+                resetSilenceTimer()
+                return
+            }
+            lastTranscript = stripped
+            committedText = stripped
+            partialText = stripped
+            endpoint()
+            return
+        }
+
         if full != lastTranscript {
             consecutiveFailures = 0       // recognizer is working
             lastTranscript = full
@@ -308,19 +384,21 @@ final class VoiceConversationController: NSObject, ObservableObject {
 
         phase = .thinking
         committedText = ""
-        let captured = utterance
+        partialText = utterance
 
-        Task { [weak self] in
-            guard let self else { return }
-            let response = await self.onUtterance?(captured)
-            await MainActor.run {
-                guard self.running, self.phase == .thinking else { return }
-                if let response, !response.isEmpty {
-                    self.speakThenResume(response)
-                } else {
-                    self.beginListening()
-                }
-            }
+        // Hand the turn to the view layer; it will call deliverResponse(_:).
+        pendingUtterance = VoiceUtterance(text: utterance)
+    }
+
+    /// Called by the view after it has processed the utterance and produced a
+    /// reply. Speaks the reply (then resumes listening), or resumes immediately
+    /// when there's nothing to say.
+    func deliverResponse(_ text: String?) {
+        guard running, phase == .thinking else { return }
+        if let text, !text.isEmpty {
+            speakThenResume(text)
+        } else {
+            beginListening()
         }
     }
 
