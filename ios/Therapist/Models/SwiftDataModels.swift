@@ -13,7 +13,7 @@ final class SessionModel {
     var localModel: String
     var createdAt: Date
     var updatedAt: Date
-    var isArchived: Bool
+    var isArchived: Bool = false
 
     @Relationship(deleteRule: .cascade) var messages: [MessageModel] = []
     @Relationship(deleteRule: .cascade) var memories: [MemoryModel] = []
@@ -80,11 +80,13 @@ final class MessageModel {
     var tokenCount: Int
     var createdAt: Date
 
-    // Captured-insight badge counts — populated after extraction runs
-    var capturedNodeCount: Int
-    var capturedEdgeCount: Int
-    var capturedMemoryCount: Int
-    var capturedGlobalMemory: Bool
+    // Captured-insight badge counts — populated after extraction runs.
+    // Inline defaults are REQUIRED for SwiftData lightweight migration to
+    // open stores created before these fields existed.
+    var capturedNodeCount: Int = 0
+    var capturedEdgeCount: Int = 0
+    var capturedMemoryCount: Int = 0
+    var capturedGlobalMemory: Bool = false
 
     init(session: SessionModel, role: String, content: String, tokenCount: Int = 0) {
         self.id = UUID().uuidString
