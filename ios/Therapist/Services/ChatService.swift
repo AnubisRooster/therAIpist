@@ -10,12 +10,28 @@ final class ChatService {
     static let shared = ChatService()
 
     private let safety = SafetyService.shared
-    private let llm = LLMService.shared
+    private let llm: LLMSending
     private let therapy = TherapyService.shared
     private let memoryService = MemoryService.shared
     private let graphService = GraphService.shared
     private let globalMemoryService = GlobalMemoryService.shared
     private let orchestrator = AgentOrchestrator()
+
+    /// Allows tests to inject a mock LLM. Production uses LLMService.shared.
+    /// `localModelFileExists` is injectable so the "no model downloaded" path is
+    /// testable without touching the real filesystem.
+    private let localModelFileExists: (String) -> Bool
+
+    init(llm: LLMSending = LLMService.shared,
+         localModelFileExists: @escaping (String) -> Bool = ChatService.defaultLocalModelExists) {
+        self.llm = llm
+        self.localModelFileExists = localModelFileExists
+    }
+
+    static func defaultLocalModelExists(_ model: String) -> Bool {
+        let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        return FileManager.default.fileExists(atPath: docs.appendingPathComponent("models/\(model).gguf").path)
+    }
 
     struct ChatResult {
         let response: String
@@ -88,8 +104,15 @@ final class ChatService {
 
         let model = session.resolvedModel
 
-        // Pre-warm the local engine if this session uses it.
+        // Pre-warm the local engine if this session uses it. If no model file is
+        // present, give clear guidance instead of a confusing generic reply.
         if provider == "local" {
+            guard localModelFileExists(model) else {
+                return configError(
+                    "No on-device model is downloaded yet. Open Settings → On-Device Models to download one, or switch this session to OpenRouter using the model chip at the top.",
+                    session: session, context: context
+                )
+            }
             let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
             let filePath = docs.appendingPathComponent("models/\(model).gguf")
             await LocalLLMEngine.shared.loadModel(id: model, url: filePath)
@@ -118,6 +141,16 @@ final class ChatService {
                 isCrisis: false,
                 tokenCount: 0,
                 agentResponse: nil
+            )
+        } catch LLMError.noAPIKey {
+            return configError(
+                "No OpenRouter API key is set, so cloud replies aren't available. Add your key in Settings, or switch this session to an on-device model using the model chip at the top.",
+                session: session, context: context
+            )
+        } catch LocalLLMError.notLoaded, LLMError.localModelNotDownloaded {
+            return configError(
+                "The on-device model couldn't be loaded. Try re-downloading it in Settings → On-Device Models, or switch to OpenRouter for this session.",
+                session: session, context: context
             )
         } catch {
             assistantResponse = "I'm here to listen. Could you tell me more about that?"
@@ -186,5 +219,13 @@ final class ChatService {
             tokenCount: tokenCount,
             agentResponse: agentResult.agentName != "integrative_agent" ? agentResult.content : nil
         )
+    }
+
+    /// Inserts a guidance message as an assistant bubble so configuration
+    /// problems (no API key, no downloaded model) are visible in the chat
+    /// rather than silently swallowed.
+    private func configError(_ message: String, session: SessionModel, context: ModelContext) -> ChatResult {
+        context.insert(MessageModel(session: session, role: "assistant", content: message))
+        return ChatResult(response: message, isCrisis: false, tokenCount: 0, agentResponse: nil)
     }
 }

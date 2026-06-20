@@ -20,12 +20,33 @@ final class LocalLLMEngine: ObservableObject {
 
     private var llm: LLM?
 
+    /// Tracks an in-flight load so concurrent callers serialize instead of
+    /// racing (which could leave two half-loaded models or unload one mid-use).
+    private var loadingTask: Task<Void, Never>?
+
     private init() {}
 
     // MARK: - Lifecycle
 
     /// Loads the GGUF at `url` for `id`.  No-ops if `id` is already loaded.
+    /// Concurrent calls are serialized: a second call waits for the in-flight
+    /// load to finish rather than starting a competing one.
     func loadModel(id: String, url: URL) async {
+        if loadedModelID == id, llm != nil { return }
+
+        // If a load is already running, wait for it before deciding what to do.
+        if let loadingTask {
+            await loadingTask.value
+            if loadedModelID == id, llm != nil { return }
+        }
+
+        let task = Task { await self.performLoad(id: id, url: url) }
+        loadingTask = task
+        await task.value
+        loadingTask = nil
+    }
+
+    private func performLoad(id: String, url: URL) async {
         guard loadedModelID != id else { return }
         isLoading = true
         loadError = nil

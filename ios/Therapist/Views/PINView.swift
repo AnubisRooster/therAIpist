@@ -20,8 +20,12 @@ struct PINView: View {
     @State private var entered  = ""
     @State private var shaking  = false
     @State private var errorMsg = ""
+    @State private var lockoutRemaining = 0
 
     private let length = 6
+    private let lockoutTimer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
+
+    private var isLockedOut: Bool { lockoutRemaining > 0 }
 
     init(onSuccess: @escaping () -> Void, forceSetup: Bool = false) {
         self.onSuccess  = onSuccess
@@ -55,7 +59,12 @@ struct PINView: View {
             dotRow
                 .modifier(ShakeEffect(active: shaking))
 
-            if !errorMsg.isEmpty {
+            if isLockedOut {
+                Text("Too many attempts. Try again in \(lockoutRemaining)s.")
+                    .font(.caption)
+                    .foregroundStyle(.red)
+                    .transition(.opacity)
+            } else if !errorMsg.isEmpty {
                 Text(errorMsg)
                     .font(.caption)
                     .foregroundStyle(.red)
@@ -67,8 +76,15 @@ struct PINView: View {
             numPad
                 .padding(.horizontal, 40)
                 .padding(.bottom, 40)
+                .disabled(isLockedOut)
+                .opacity(isLockedOut ? 0.4 : 1)
         }
         .animation(.default, value: errorMsg)
+        .animation(.default, value: lockoutRemaining)
+        .onAppear { lockoutRemaining = PINService.shared.lockoutRemaining }
+        .onReceive(lockoutTimer) { _ in
+            if lockoutRemaining > 0 { lockoutRemaining -= 1 }
+        }
     }
 
     // MARK: Sub-views
@@ -107,6 +123,7 @@ struct PINView: View {
     // MARK: Logic
 
     private func tap(_ digit: String) {
+        guard !isLockedOut else { return }
         guard entered.count < length else { return }
         entered.append(digit)
         errorMsg = ""
@@ -129,10 +146,14 @@ struct PINView: View {
             }
 
         case .unlock:
-            if PINService.shared.verify(entered) {
+            switch PINService.shared.attempt(entered) {
+            case .success:
                 onSuccess()
-            } else {
-                bounce("Incorrect PIN")
+            case .incorrect(let remaining):
+                bounce(remaining <= 2 ? "Incorrect PIN — \(remaining) attempt\(remaining == 1 ? "" : "s") left" : "Incorrect PIN")
+            case .lockedOut(let seconds):
+                lockoutRemaining = seconds
+                bounce("Too many attempts")
             }
         }
     }

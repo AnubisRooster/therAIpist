@@ -1,8 +1,14 @@
 import Foundation
 
+/// Abstraction over the inference backend so callers (e.g. ChatService) can be
+/// unit-tested with a mock instead of hitting the network or a real model.
+protocol LLMSending: Sendable {
+    func sendMessage(provider: String, model: String, messages: [LLMMessage]) async throws -> String
+}
+
 /// Single chokepoint for all LLM inference in the app.
 /// Routes to OpenRouter (cloud) or LocalLLMEngine (on-device) based on `provider`.
-actor LLMService {
+actor LLMService: LLMSending {
     static let shared = LLMService()
 
     private let openRouterBase = "https://openrouter.ai/api/v1"

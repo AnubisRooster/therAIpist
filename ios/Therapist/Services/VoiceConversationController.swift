@@ -69,7 +69,20 @@ final class VoiceConversationController: NSObject, ObservableObject {
     private var silenceTimer: Timer?
     private var lastTranscript = ""
 
+    /// Finalized text from earlier recognition segments in the CURRENT turn.
+    /// SFSpeechRecognizer terminates a recognition request after ~1 minute, so a
+    /// long monologue is captured as several segments stitched together here.
+    private var committedText = ""
+
     private let speech = SpeechService.shared
+
+    /// Joins committed text from prior segments with the live segment. Pure and
+    /// static so it can be unit-tested without audio hardware.
+    static func combinedTranscript(committed: String, segment: String) -> String {
+        if committed.isEmpty { return segment }
+        if segment.isEmpty { return committed }
+        return committed + " " + segment
+    }
 
     // MARK: - Public control
 
@@ -125,15 +138,21 @@ final class VoiceConversationController: NSObject, ObservableObject {
 
     // MARK: - Listening
 
-    private func beginListening() {
+    /// - Parameter continuing: when true, this is a restart of the SAME turn
+    ///   (e.g. the recognizer hit its ~1-minute limit mid-monologue), so the
+    ///   already-captured text is preserved rather than reset.
+    private func beginListening(continuing: Bool = false) {
         guard running else { return }
         guard !isConfiguring else { return }   // never overlap setup
         isConfiguring = true
         defer { isConfiguring = false }
 
-        // Reset per-turn state.
-        partialText = ""
-        lastTranscript = ""
+        // Reset per-turn state (unless we're continuing the same turn).
+        if !continuing {
+            partialText = ""
+            lastTranscript = ""
+            committedText = ""
+        }
         teardownAudio()   // ensure any prior engine/task is gone
 
         guard let recognizer, recognizer.isAvailable else {
@@ -181,14 +200,11 @@ final class VoiceConversationController: NSObject, ObservableObject {
                 guard let self else { return }
                 Task { @MainActor in
                     if let result {
-                        self.handleTranscript(result.bestTranscription.formattedString)
+                        self.handleTranscript(result.bestTranscription.formattedString,
+                                              isFinal: result.isFinal)
                     }
                     if error != nil {
-                        // Only treat as a failure worth retrying if we were
-                        // actively listening and captured nothing.
-                        if self.running && self.phase == .listening && self.lastTranscript.isEmpty {
-                            self.handleRecognitionFailure()
-                        }
+                        self.handleSegmentEnd(hadResult: result != nil)
                     }
                 }
             }
@@ -198,13 +214,46 @@ final class VoiceConversationController: NSObject, ObservableObject {
         }
     }
 
-    private func handleTranscript(_ text: String) {
+    private func handleTranscript(_ segment: String, isFinal: Bool) {
         guard running, phase == .listening else { return }
-        guard text != lastTranscript else { return }
-        consecutiveFailures = 0           // recognizer is working
-        lastTranscript = text
-        partialText = text
-        resetSilenceTimer()
+        let full = Self.combinedTranscript(committed: committedText, segment: segment)
+        if full != lastTranscript {
+            consecutiveFailures = 0       // recognizer is working
+            lastTranscript = full
+            partialText = full
+            resetSilenceTimer()
+        }
+        // The recognizer finalized this segment (often its ~1-min cap). Commit
+        // the text and start a fresh segment so a long monologue isn't cut off.
+        if isFinal, !segment.isEmpty {
+            committedText = full
+            restartSegment()
+        }
+    }
+
+    /// A recognition segment ended (final or error). If we already have text for
+    /// this turn, keep the turn alive by restarting; otherwise treat it as a
+    /// genuine start failure with capped, delayed retries.
+    private func handleSegmentEnd(hadResult: Bool) {
+        guard running, phase == .listening else { return }
+        if lastTranscript.isEmpty && committedText.isEmpty {
+            handleRecognitionFailure()
+        } else {
+            committedText = lastTranscript
+            restartSegment()
+        }
+    }
+
+    /// Restarts recognition for the same turn after a short delay, preserving
+    /// committed text. The delay prevents a tight restart loop.
+    private func restartSegment() {
+        guard running, phase == .listening else { return }
+        teardownAudio()
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: 150_000_000)
+            guard let self, self.running, self.phase == .listening else { return }
+            self.beginListening(continuing: true)
+        }
     }
 
     private func resetSilenceTimer() {
@@ -258,6 +307,7 @@ final class VoiceConversationController: NSObject, ObservableObject {
         teardownAudio()
 
         phase = .thinking
+        committedText = ""
         let captured = utterance
 
         Task { [weak self] in
@@ -297,6 +347,15 @@ final class VoiceConversationController: NSObject, ObservableObject {
                 }
             }
         )
+    }
+
+    /// Stops the current spoken reply and returns to listening. Used when the
+    /// user taps the speaker control mid-reply so the voice loop doesn't stall
+    /// in the `.speaking` phase (the dropped TTS `onFinish` never fires).
+    func skipSpeaking() {
+        guard running, phase == .speaking else { return }
+        speech.stop()
+        beginListening()
     }
 
     // MARK: - Teardown

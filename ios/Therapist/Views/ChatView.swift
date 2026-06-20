@@ -165,7 +165,11 @@ struct ChatView: View {
             }
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
-                    if speech.isSpeaking {
+                    if voice.isActive {
+                        // In hands-free mode, skip the spoken reply and return to
+                        // listening instead of stalling the loop in `.speaking`.
+                        voice.skipSpeaking()
+                    } else if speech.isSpeaking {
                         speech.stop()
                     } else {
                         ttsEnabled.toggle()

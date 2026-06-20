@@ -25,7 +25,7 @@ An AI-assisted self-reflection companion: a native **SwiftUI** iOS app that blen
 - **13 modalities** — Integrated, Adlerian, Jungian, DBT, CBT, Humanistic, Existential, Gestalt, Somatic, Narrative, ACT, Psychodynamic, and IFS — selectable per session
 - **Adaptive verbosity** — the assistant calibrates response length based on conversational context
 - **Text-to-speech** — responses spoken aloud with configurable voice, rate, and pitch; natural-sounding system voices
-- **Hands-free voice mode** — a continuous speak/listen loop: the app transcribes your speech (on-device when supported), ends your turn automatically after a natural pause (~1.6s of silence), speaks the therapist's reply aloud, then returns to listening — no tapping between turns. The mic is torn down while speaking so it never transcribes its own voice.
+- **Hands-free voice mode** — a continuous speak/listen loop: the app transcribes your speech (on-device when supported), ends your turn automatically after a natural pause (~3s of silence), speaks the therapist's reply aloud, then returns to listening — no tapping between turns. The mic is torn down while speaking so it never transcribes its own voice. Long monologues are stitched across `SFSpeechRecognizer`'s ~1-minute segment limit, and tapping the speaker icon mid-reply skips it and resumes listening rather than stalling the loop.
 - **Voice input** — also available via the keyboard's built-in dictation for typed messages
 
 ### Memory & knowledge
@@ -49,9 +49,11 @@ An AI-assisted self-reflection companion: a native **SwiftUI** iOS app that blen
 - **Dashboard** — aggregated stats across all sessions; tap any stat (nodes, edges, memories, notes, dreams, global memories) to drill into the full list
 
 ### Safety
-- **Crisis detection** — every user message is checked with negation-aware keyword matching; crisis resources are surfaced automatically
+- **Crisis detection** — every user message is checked with keyword matching that errs toward caution; crisis resources are surfaced automatically and persisted into the conversation
 - **Boundary enforcement** — diagnostic or prescriptive assistant responses are intercepted and replaced before reaching the user
 - **Safety event log** — all flagged exchanges are recorded per session
+- **PIN lockout** — repeated incorrect PIN entries trigger an escalating lockout (30s → 60s → 5m → 15m) to deter brute-force unlocking
+- **Clear configuration guidance** — if a session has no API key (cloud) or no downloaded model (on-device), the chat surfaces an actionable message instead of failing silently
 
 ### Onboarding
 - **8-step setup** — welcome → disclaimer acknowledgment → OpenRouter API key → on-device model guide → personal intake → concerns → therapy background → goals
@@ -185,11 +187,34 @@ Sessions are never hard-deleted by default:
 
 ## Safety & ethics
 
-- Crisis detection runs on every user message with negation handling ("I don't want to die" is not flagged)
-- The app provides 988 and Crisis Text Line resources automatically when crisis signals are detected
+- Crisis detection runs on every user message; it errs toward caution, so phrasing that contains a crisis keyword is flagged even when negated
+- The app provides 988 and Crisis Text Line resources automatically when crisis signals are detected, and persists them into the conversation
 - Boundary enforcement intercepts assistant responses containing diagnostic or prescriptive language
 - All safety events are logged per session
 - This project is for research and personal use only; it must not be presented as professional therapy
+
+---
+
+## Testing
+
+A hosted XCTest target (`TherapistTests`) covers the core logic with positive and
+negative cases, plus end-to-end pipeline tests:
+
+- **Unit** — safety detection, knowledge-graph extraction/edges, memory keywording,
+  global-memory promotion tiers, provider/model resolution, PIN brute-force lockout,
+  and voice transcript stitching
+- **End-to-end** — `ChatService.processMessage` exercised with an in-memory SwiftData
+  store and a mock LLM: normal turns (bubbles, memory, graph, badges), crisis routing,
+  history ordering, boundary replacement, and the no-API-key / no-model guidance paths
+- **Concurrency** — `LocalLLMEngine` load serialization and graceful failure
+
+Run them with:
+
+```bash
+cd ios
+xcodegen generate
+xcodebuild test -scheme Therapist -destination 'platform=iOS Simulator,name=iPhone 17'
+```
 
 ---
 
