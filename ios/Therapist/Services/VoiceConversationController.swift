@@ -78,7 +78,11 @@ final class VoiceConversationController: NSObject, ObservableObject {
     private var allowOnDevice = true
 
     private let recognizer = SFSpeechRecognizer(locale: Locale(identifier: "en-US"))
-    private let audioEngine = AVAudioEngine()
+    /// Recreated on every listen so its input node materializes against the
+    /// already-active recording session. Reusing one engine caches a 0 Hz input
+    /// format (AURemoteIO -10851) when the node is first touched before the
+    /// session is configured.
+    private var audioEngine = AVAudioEngine()
     private var request: SFSpeechAudioBufferRecognitionRequest?
     private var task: SFSpeechRecognitionTask?
     private var silenceTimer: Timer?
@@ -224,14 +228,15 @@ final class VoiceConversationController: NSObject, ObservableObject {
             }
             self.request = request
 
+            // Use a FRESH engine so its input node reads the now-active recording
+            // session's real format. A reused engine caches a 0 Hz/2-ch format
+            // (AURemoteIO -10851) from when the node was first touched.
+            audioEngine = AVAudioEngine()
             let input = audioEngine.inputNode
-            // Prepare allocates the input hardware so its format is valid before
-            // we read it; reading the format too early can return 0 Hz.
-            audioEngine.prepare()
-            let format = input.outputFormat(forBus: 0)
-            // A zero sample-rate/channel format means the input hardware isn't
-            // ready yet (common right after granting permission). Retry a few
-            // times WITHOUT tearing the session down, before surfacing an error.
+            let format = input.inputFormat(forBus: 0)
+            // A zero sample-rate/channel format means the input route isn't ready
+            // yet (common right after granting permission). Retry a few times,
+            // recreating the engine each time, before surfacing an error.
             guard format.sampleRate > 0, format.channelCount > 0 else {
                 if micNotReadyRetries < maxMicNotReadyRetries {
                     micNotReadyRetries += 1
@@ -249,11 +254,11 @@ final class VoiceConversationController: NSObject, ObservableObject {
             }
             micNotReadyRetries = 0
             errorMessage = nil   // a prior failure is now resolved
-            input.removeTap(onBus: 0)
             input.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak self] buffer, _ in
                 self?.request?.append(buffer)
             }
 
+            audioEngine.prepare()
             try audioEngine.start()
 
             phase = .listening
