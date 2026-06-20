@@ -187,22 +187,16 @@ final class VoiceConversationController: NSObject, ObservableObject {
 
     // MARK: - Listening
 
-    /// - Parameter continuing: when true, this is a restart of the SAME turn
-    ///   (e.g. the recognizer hit its ~1-minute limit mid-monologue), so the
-    ///   already-captured text is preserved rather than reset.
+    /// - Parameter continuing: when `true` this is a segment restart mid-turn
+    ///   (SFSpeechRecognizer's ~1-minute cap was hit while the user was still
+    ///   speaking).  The audio engine and its tap stay running — only the
+    ///   recognition request is replaced — so there is no audio gap and no
+    ///   zero-byte tap callbacks.  When `false` the full engine is (re)created.
     private func beginListening(continuing: Bool = false) {
         guard running else { return }
-        guard !isConfiguring else { return }   // never overlap setup
+        guard !isConfiguring else { return }
         isConfiguring = true
         defer { isConfiguring = false }
-
-        // Reset per-turn state (unless we're continuing the same turn).
-        if !continuing {
-            partialText = ""
-            lastTranscript = ""
-            committedText = ""
-        }
-        teardownAudio()   // ensure any prior engine/task is gone
 
         guard let recognizer, recognizer.isAvailable else {
             errorMessage = "Speech recognition isn't available right now."
@@ -210,78 +204,99 @@ final class VoiceConversationController: NSObject, ObservableObject {
             return
         }
 
-        do {
-            let session = AVAudioSession.sharedInstance()
-            // Configure for two-way voice. Do NOT toggle setActive(false) first —
-            // repeatedly deactivating the session on each (re)start prevents the
-            // input route from settling and is a common cause of a 0 Hz input
-            // format ("microphone isn't ready").
-            try session.setCategory(.playAndRecord, mode: .default,
-                                    options: [.defaultToSpeaker, .allowBluetooth])
-            // Hint a standard hardware rate so the input route settles on the
-            // first activation instead of briefly reporting 0 Hz (the transient
-            // AURemoteIO -10851 log). Best-effort; ignore if the route rejects it.
-            try? session.setPreferredSampleRate(48_000)
-            try session.setActive(true, options: .notifyOthersOnDeactivation)
+        if continuing {
+            // ── Segment restart ──────────────────────────────────────────────
+            // Keep the engine and its tap alive; just swap the recognition
+            // request.  This avoids any audio gap and prevents the
+            // mBuffers[0].mDataByteSize == 0 warnings caused by tearing down
+            // and recreating the engine while the mic is hot.
+            task?.cancel()
+            task = nil
+            request?.endAudio()
+            request = nil
+        } else {
+            // ── Fresh start ──────────────────────────────────────────────────
+            partialText = ""
+            lastTranscript = ""
+            committedText = ""
+            teardownAudio()   // stop any prior engine / task
 
-            let request = SFSpeechAudioBufferRecognitionRequest()
-            request.shouldReportPartialResults = true
-            // Only force on-device when supported AND it hasn't been proven flaky.
-            if allowOnDevice && recognizer.supportsOnDeviceRecognition {
-                request.requiresOnDeviceRecognition = true
-            }
-            self.request = request
+            do {
+                let session = AVAudioSession.sharedInstance()
+                try session.setCategory(.playAndRecord, mode: .default,
+                                        options: [.defaultToSpeaker, .allowBluetooth])
+                // Hint a hardware rate so the input route settles on the first
+                // activation (reduces transient AURemoteIO -10851 log).
+                try? session.setPreferredSampleRate(48_000)
+                try session.setActive(true, options: .notifyOthersOnDeactivation)
 
-            // Use a FRESH engine so its input node reads the now-active recording
-            // session's real format. A reused engine caches a 0 Hz/2-ch format
-            // (AURemoteIO -10851) from when the node was first touched.
-            audioEngine = AVAudioEngine()
-            let input = audioEngine.inputNode
-            let format = input.inputFormat(forBus: 0)
-            // A zero sample-rate/channel format means the input route isn't ready
-            // yet (common right after granting permission). Retry a few times,
-            // recreating the engine each time, before surfacing an error.
-            guard format.sampleRate > 0, format.channelCount > 0 else {
-                if micNotReadyRetries < maxMicNotReadyRetries {
-                    micNotReadyRetries += 1
-                    Task { @MainActor [weak self] in
-                        try? await Task.sleep(nanoseconds: 250_000_000)
-                        guard let self, self.running else { return }
-                        self.beginListening(continuing: continuing)
+                // Create a fresh engine AFTER the session is active so its input
+                // node reads the real hardware format instead of a cached 0 Hz value.
+                audioEngine = AVAudioEngine()
+                let input = audioEngine.inputNode
+                let format = input.inputFormat(forBus: 0)
+
+                guard format.sampleRate > 0, format.channelCount > 0 else {
+                    if micNotReadyRetries < maxMicNotReadyRetries {
+                        micNotReadyRetries += 1
+                        Task { @MainActor [weak self] in
+                            try? await Task.sleep(nanoseconds: 250_000_000)
+                            guard let self, self.running else { return }
+                            self.beginListening(continuing: false)
+                        }
+                    } else {
+                        micNotReadyRetries = 0
+                        errorMessage = "Microphone couldn't start. Make sure no other app is using it, then tap the mic again."
+                        stop()
                     }
-                } else {
-                    micNotReadyRetries = 0
-                    errorMessage = "Microphone couldn't start. Make sure no other app (or the keyboard's dictation) is using it, then tap the mic again."
-                    stop()
+                    return
                 }
+                micNotReadyRetries = 0
+                errorMessage = nil
+
+                input.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak self] buffer, _ in
+                    // Skip empty buffers that arrive as the audio pipeline warms
+                    // up — appending them causes AVAudioBuffer mDataByteSize == 0
+                    // warnings and can confuse the recognizer.
+                    guard let pcm = buffer as? AVAudioPCMBuffer,
+                          pcm.frameLength > 0 else { return }
+                    self?.request?.append(pcm)
+                }
+
+                audioEngine.prepare()
+                try audioEngine.start()
+            } catch {
+                errorMessage = "Could not start listening: \(error.localizedDescription)"
+                stop()
                 return
             }
-            micNotReadyRetries = 0
-            errorMessage = nil   // a prior failure is now resolved
-            input.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak self] buffer, _ in
-                self?.request?.append(buffer)
-            }
+        }
 
-            audioEngine.prepare()
-            try audioEngine.start()
+        // ── Start a new recognition request (shared by both paths) ───────────
+        let request = SFSpeechAudioBufferRecognitionRequest()
+        request.shouldReportPartialResults = true
+        if allowOnDevice && recognizer.supportsOnDeviceRecognition {
+            request.requiresOnDeviceRecognition = true
+        }
+        self.request = request
+        phase = .listening
 
-            phase = .listening
-
-            task = recognizer.recognitionTask(with: request) { [weak self] result, error in
-                guard let self else { return }
-                Task { @MainActor in
-                    if let result {
-                        self.handleTranscript(result.bestTranscription.formattedString,
-                                              isFinal: result.isFinal)
-                    }
-                    if error != nil {
-                        self.handleSegmentEnd(hadResult: result != nil)
-                    }
+        task = recognizer.recognitionTask(with: request) { [weak self] result, error in
+            guard let self else { return }
+            Task { @MainActor in
+                var wasFinal = false
+                if let result {
+                    wasFinal = result.isFinal
+                    self.handleTranscript(result.bestTranscription.formattedString,
+                                          isFinal: result.isFinal)
+                }
+                // If isFinal was true, handleTranscript already scheduled a
+                // restart — don't also call handleSegmentEnd or we get a
+                // double-restart that creates an audio gap mid-monologue.
+                if error != nil, !wasFinal {
+                    self.handleSegmentEnd(hadResult: result != nil)
                 }
             }
-        } catch {
-            errorMessage = "Could not start listening: \(error.localizedDescription)"
-            stop()
         }
     }
 
@@ -334,16 +349,12 @@ final class VoiceConversationController: NSObject, ObservableObject {
         }
     }
 
-    /// Restarts recognition for the same turn after a short delay, preserving
-    /// committed text. The delay prevents a tight restart loop.
+    /// Starts a new recognition segment for the current turn, preserving all
+    /// committed text.  The audio engine stays running — no gap, no empty
+    /// tap buffers — only the recognition request is replaced.
     private func restartSegment() {
         guard running, phase == .listening else { return }
-        teardownAudio()
-        Task { @MainActor [weak self] in
-            try? await Task.sleep(nanoseconds: 150_000_000)
-            guard let self, self.running, self.phase == .listening else { return }
-            self.beginListening(continuing: true)
-        }
+        beginListening(continuing: true)
     }
 
     private func resetSilenceTimer() {
@@ -453,14 +464,13 @@ final class VoiceConversationController: NSObject, ObservableObject {
     // MARK: - Teardown
 
     private func teardownAudio() {
-        if audioEngine.isRunning {
-            audioEngine.stop()
-        }
-        audioEngine.inputNode.removeTap(onBus: 0)
         request?.endAudio()
         task?.cancel()
         request = nil
         task = nil
+        if audioEngine.isRunning { audioEngine.stop() }
+        // removeTap is idempotent; safe to call even if no tap is installed.
+        audioEngine.inputNode.removeTap(onBus: 0)
     }
 
     private func deactivateSession() {
