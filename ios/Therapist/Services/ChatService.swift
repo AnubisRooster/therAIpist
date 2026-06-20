@@ -135,7 +135,7 @@ actor ChatService {
             context: context
         )
         memoryService.consolidateRecentMessages(session: session, context: context)
-        graphService.extractEntitiesFromMessage(session: session, message: userMessage)
+        graphService.extractEntitiesFromMessage(session: session, message: userMessage, context: context)
 
         let _ = globalMemoryService.promoteIfValuable(
             userMessage: userMessage,
