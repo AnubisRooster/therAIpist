@@ -47,11 +47,13 @@ final class VoiceConversationController: NSObject, ObservableObject {
     /// reflects "on" immediately, even during the brief thinking/speaking phases.
     @Published private(set) var isActive = false
 
-    /// Seconds of silence that ends a turn. Configurable via Settings; defaults
-    /// to 3s per user preference.
+    /// Seconds of trailing silence that ends a turn. Configurable via Settings
+    /// (2–12s). Defaults to 5s — long enough to think between sentences without
+    /// the turn being cut off mid-thought.
     private var silenceInterval: TimeInterval {
         let stored = UserDefaults.standard.double(forKey: "voice_silence_seconds")
-        return stored > 0 ? stored : 3.0
+        guard stored > 0 else { return 5.0 }
+        return min(max(stored, 2.0), 12.0)
     }
     private let minCharacters = 2   // ignore stray blips
 
@@ -332,16 +334,27 @@ final class VoiceConversationController: NSObject, ObservableObject {
             return
         }
 
-        if full != lastTranscript {
+        if !full.isEmpty, full != lastTranscript {
             consecutiveFailures = 0       // recognizer is working
             lastTranscript = full
             partialText = full
             resetSilenceTimer()
         }
-        // The recognizer finalized this segment (often its ~1-min cap). Commit
-        // the text and start a fresh segment so a long monologue isn't cut off.
-        if isFinal, !segment.isEmpty {
-            committedText = full
+
+        // A final result means the recognizer reached its OWN endpoint — either a
+        // natural pause or its ~1-minute cap. That is NOT the end of the user's
+        // turn: only `silenceInterval` of true trailing silence ends a turn.
+        if isFinal {
+            if !segment.isEmpty {
+                committedText = full
+                // The user just finished speaking a sentence; re-arm the silence
+                // timer so the pause-driven finalize + restart cycle never eats
+                // into the silence budget and cuts the turn off early.
+                resetSilenceTimer()
+            }
+            // ALWAYS restart so we keep listening for the rest of the turn (the
+            // recognizer won't accept more audio after a final result). The
+            // silence timer remains the sole arbiter of when the turn ends.
             restartSegment()
         }
     }

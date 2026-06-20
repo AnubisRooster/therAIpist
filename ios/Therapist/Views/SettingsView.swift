@@ -16,6 +16,8 @@ struct SettingsView: View {
     @AppStorage("tts_pitch")       private var ttsPitch: Double = 1.0
     @AppStorage("tts_voice_id")    private var ttsVoiceID     = ""
 
+    @AppStorage("voice_silence_seconds") private var voiceSilenceSeconds: Double = 5.0
+
     // Intake profile (editable after onboarding)
     @AppStorage("user_name")       private var userName       = ""
     @AppStorage("user_pronouns")   private var userPronouns   = ""
@@ -108,6 +110,19 @@ struct SettingsView: View {
                     Text("Voice")
                 } footer: {
                     Text("Uses on-device text-to-speech. No audio leaves the device. Download more voices in iOS Settings → Accessibility → Spoken Content → Voices.")
+                        .font(.caption)
+                }
+
+                Section {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Pause before sending: \(String(format: "%.1f", voiceSilenceSeconds))s")
+                            .font(.caption).foregroundColor(.secondary)
+                        Slider(value: $voiceSilenceSeconds, in: 2...12, step: 0.5)
+                    }
+                } header: {
+                    Text("Hands-free mode")
+                } footer: {
+                    Text("How long to wait after you stop speaking before your turn is sent. Increase this if you take longer pauses between sentences. You can also say “send” to send immediately.")
                         .font(.caption)
                 }
 
