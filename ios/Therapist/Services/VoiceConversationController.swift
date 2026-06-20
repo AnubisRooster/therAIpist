@@ -27,17 +27,27 @@ final class VoiceConversationController: NSObject, ObservableObject {
     }
 
     @Published private(set) var phase: Phase = .idle
-    @Published private(set) var partialText = ""
+    @Published var partialText = ""
     @Published var errorMessage: String?
 
     /// Returns the assistant's response text to speak (or nil to just resume).
     var onUtterance: ((String) async -> String?)?
 
-    var isActive: Bool { phase != .idle }
+    /// Whether the conversation loop is engaged. Driven by `running` so the UI
+    /// reflects "on" immediately, even during the brief thinking/speaking phases.
+    @Published private(set) var isActive = false
 
-    // Tuning
-    private let silenceInterval: TimeInterval = 1.6   // pause that ends a turn
-    private let minCharacters = 2                     // ignore stray blips
+    /// Seconds of silence that ends a turn. Configurable via Settings; defaults
+    /// to 3s per user preference.
+    private var silenceInterval: TimeInterval {
+        let stored = UserDefaults.standard.double(forKey: "voice_silence_seconds")
+        return stored > 0 ? stored : 3.0
+    }
+    private let minCharacters = 2   // ignore stray blips
+
+    /// True from the moment the user enables voice mode until they disable it.
+    /// Guards the loop so async callbacks don't restart a stopped session.
+    private var running = false
 
     private let recognizer = SFSpeechRecognizer(locale: Locale(identifier: "en-US"))
     private let audioEngine = AVAudioEngine()
@@ -52,22 +62,30 @@ final class VoiceConversationController: NSObject, ObservableObject {
 
     /// Requests permissions and starts the conversation loop.
     func start() {
-        guard phase == .idle else { return }
+        guard !running else { return }
         errorMessage = nil
+
+        guard let recognizer, recognizer.isAvailable else {
+            errorMessage = "Speech recognition isn't available on this device right now."
+            return
+        }
 
         requestAuthorization { [weak self] granted in
             guard let self else { return }
             guard granted else {
                 self.errorMessage = "Microphone and speech permissions are required for voice mode. Enable them in Settings."
-                self.phase = .idle
                 return
             }
+            self.running = true
+            self.isActive = true
             self.beginListening()
         }
     }
 
     /// Stops everything and returns to idle.
     func stop() {
+        running = false
+        isActive = false
         silenceTimer?.invalidate()
         silenceTimer = nil
         teardownAudio()
@@ -75,6 +93,7 @@ final class VoiceConversationController: NSObject, ObservableObject {
         partialText = ""
         lastTranscript = ""
         phase = .idle
+        deactivateSession()
     }
 
     // MARK: - Authorization
@@ -91,14 +110,17 @@ final class VoiceConversationController: NSObject, ObservableObject {
     // MARK: - Listening
 
     private func beginListening() {
-        guard isActiveOrStarting else { return }
+        guard running else { return }
 
         // Reset per-turn state.
         partialText = ""
         lastTranscript = ""
+        teardownAudio()   // ensure any prior engine/task is gone
 
         do {
             let session = AVAudioSession.sharedInstance()
+            // Fully reset the session so switching back from TTS playback is reliable.
+            try? session.setActive(false, options: .notifyOthersOnDeactivation)
             try session.setCategory(.playAndRecord, mode: .default,
                                     options: [.duckOthers, .defaultToSpeaker, .allowBluetooth])
             try session.setActive(true, options: .notifyOthersOnDeactivation)
@@ -129,8 +151,9 @@ final class VoiceConversationController: NSObject, ObservableObject {
                         self.handleTranscript(result.bestTranscription.formattedString)
                     }
                     if error != nil {
-                        // Common when we end audio ourselves; only surface if unexpected.
-                        if self.phase == .listening && self.lastTranscript.isEmpty {
+                        // Common when we end audio ourselves; only retry if we were
+                        // actively listening and captured nothing.
+                        if self.running && self.phase == .listening && self.lastTranscript.isEmpty {
                             self.handleRecognitionFailure()
                         }
                     }
@@ -138,16 +161,12 @@ final class VoiceConversationController: NSObject, ObservableObject {
             }
         } catch {
             errorMessage = "Could not start listening: \(error.localizedDescription)"
-            phase = .idle
+            stop()
         }
     }
 
-    /// True while we intend to keep the loop running (active, or transitioning
-    /// back into listening from speaking).
-    private var isActiveOrStarting: Bool { phase != .idle }
-
     private func handleTranscript(_ text: String) {
-        guard phase == .listening else { return }
+        guard running, phase == .listening else { return }
         guard text != lastTranscript else { return }
         lastTranscript = text
         partialText = text
@@ -164,16 +183,13 @@ final class VoiceConversationController: NSObject, ObservableObject {
 
     private func handleRecognitionFailure() {
         teardownAudio()
-        // Soft retry: resume listening once if still active.
-        if phase != .idle {
-            beginListening()
-        }
+        if running { beginListening() }
     }
 
     // MARK: - Endpointing → send → speak → resume
 
     private func endpoint() {
-        guard phase == .listening else { return }
+        guard running, phase == .listening else { return }
         let utterance = lastTranscript.trimmingCharacters(in: .whitespacesAndNewlines)
 
         // Too short to be a real turn — keep listening.
@@ -193,7 +209,7 @@ final class VoiceConversationController: NSObject, ObservableObject {
             guard let self else { return }
             let response = await self.onUtterance?(captured)
             await MainActor.run {
-                guard self.phase == .thinking else { return }   // stopped meanwhile
+                guard self.running, self.phase == .thinking else { return }
                 if let response, !response.isEmpty {
                     self.speakThenResume(response)
                 } else {
@@ -217,7 +233,11 @@ final class VoiceConversationController: NSObject, ObservableObject {
             voiceID: voiceID,
             onFinish: { [weak self] in
                 Task { @MainActor in
-                    guard let self, self.phase == .speaking else { return }
+                    guard let self, self.running, self.phase == .speaking else { return }
+                    // Brief pause so the audio session can flip from playback
+                    // back to record cleanly before the mic re-engages.
+                    try? await Task.sleep(nanoseconds: 300_000_000)
+                    guard self.running else { return }
                     self.beginListening()
                 }
             }
@@ -235,5 +255,9 @@ final class VoiceConversationController: NSObject, ObservableObject {
         task?.cancel()
         request = nil
         task = nil
+    }
+
+    private func deactivateSession() {
+        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
     }
 }
