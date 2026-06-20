@@ -9,8 +9,10 @@ struct NewSessionView: View {
     @State private var modality = "free_form"
     @State private var persona: PersonaKind = .therapist
 
-    @AppStorage("therapist_name") private var therapistName = ""
-    @AppStorage("companion_name") private var companionName = "Kai"
+    @AppStorage("therapist_name")        private var therapistName        = ""
+    @AppStorage("companion_name")        private var companionName        = "Kai"
+    @AppStorage("companion_gender")      private var companionGender      = CompanionGender.unspecified.rawValue
+    @AppStorage("companion_personality") private var companionPersonality = CompanionPersonality.warm.rawValue
 
     private var personaName: String {
         let raw = (persona == .therapist ? therapistName : companionName)
@@ -37,6 +39,27 @@ struct NewSessionView: View {
                 } footer: {
                     if !personaName.isEmpty {
                         Text("You'll be chatting with \(personaName). Change names and voices in Settings.")
+                            .font(.caption)
+                    }
+                }
+
+                if persona == .companion {
+                    Section {
+                        TextField("Name", text: $companionName)
+                        Picker("Gender", selection: $companionGender) {
+                            ForEach(CompanionGender.allCases) { g in
+                                Text(g.label).tag(g.rawValue)
+                            }
+                        }
+                        Picker("Personality", selection: $companionPersonality) {
+                            ForEach(CompanionPersonality.allCases) { p in
+                                Text(p.label).tag(p.rawValue)
+                            }
+                        }
+                    } header: {
+                        Text("Your companion")
+                    } footer: {
+                        Text("These apply to all your companion chats and can be changed anytime in Settings. Pick a voice in Settings too.")
                             .font(.caption)
                     }
                 }

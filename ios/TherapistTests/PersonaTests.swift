@@ -64,6 +64,40 @@ final class PersonaTests: XCTestCase {
         XCTAssertEqual(PersonaService.kind(for: s), .therapist)   // unknown → therapist
     }
 
+    // MARK: - Companion traits (gender + personality)
+
+    func testCompanionTraitsDefaultToWarmUnspecified() {
+        let d = TestSupport.ephemeralDefaults()
+        let traits = PersonaService.companionTraits(defaults: d)
+        XCTAssertTrue(traits.contains("warm and nurturing"))   // default personality
+        XCTAssertFalse(traits.contains("pronouns"))            // unspecified gender → no line
+    }
+
+    func testCompanionTraitsReflectChoices() {
+        let d = TestSupport.ephemeralDefaults()
+        d.set(CompanionPersonality.playful.rawValue, forKey: "companion_personality")
+        d.set(CompanionGender.feminine.rawValue, forKey: "companion_gender")
+        let traits = PersonaService.companionTraits(defaults: d)
+        XCTAssertTrue(traits.contains("playful and witty"))
+        XCTAssertTrue(traits.contains("she/her"))
+    }
+
+    func testResolvedCompanionCarriesTraitsAndTherapistDoesNot() {
+        let d = TestSupport.ephemeralDefaults()
+        d.set(CompanionPersonality.bold.rawValue, forKey: "companion_personality")
+        XCTAssertTrue(PersonaService.resolve(kind: .companion, defaults: d).traits.contains("bold and flirty"))
+        XCTAssertEqual(PersonaService.resolve(kind: .therapist, defaults: d).traits, "")
+    }
+
+    func testCompanionPromptIncludesTraitsAndStripsPlaceholder() {
+        let p = Persona(kind: .companion, name: "Remy", voiceID: "",
+                        traits: "Your personality is calm and grounded.\nYou use they/them pronouns for yourself.")
+        let prompt = TherapyService.shared.getSystemPrompt(persona: p, modality: "free_form")
+        XCTAssertTrue(prompt.contains("calm and grounded"))
+        XCTAssertTrue(prompt.contains("they/them"))
+        XCTAssertFalse(prompt.contains("%TRAITS%"))
+    }
+
     // MARK: - System prompts
 
     func testCompanionPromptInjectsNameAndIsWarm() {

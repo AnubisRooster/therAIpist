@@ -14,7 +14,9 @@ class TherapyService {
         switch persona.kind {
         case .companion:
             let name = persona.name.isEmpty ? persona.kind.defaultName : persona.name
-            prompt = companionPromptTemplate.replacingOccurrences(of: "%NAME%", with: name)
+            prompt = companionPromptTemplate
+                .replacingOccurrences(of: "%NAME%", with: name)
+                .replacingOccurrences(of: "%TRAITS%", with: persona.traits)
         case .therapist:
             let base = modalityPrompts[modality] ?? modalityPrompts["integrated"]!
             if persona.name.isEmpty {

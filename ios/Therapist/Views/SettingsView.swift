@@ -20,8 +20,10 @@ struct SettingsView: View {
 
     @AppStorage("therapist_name")     private var therapistName     = ""
     @AppStorage("therapist_voice_id") private var therapistVoiceID  = ""
-    @AppStorage("companion_name")     private var companionName      = "Kai"
-    @AppStorage("companion_voice_id") private var companionVoiceID   = ""
+    @AppStorage("companion_name")        private var companionName        = "Kai"
+    @AppStorage("companion_voice_id")    private var companionVoiceID     = ""
+    @AppStorage("companion_gender")      private var companionGender      = CompanionGender.unspecified.rawValue
+    @AppStorage("companion_personality") private var companionPersonality = CompanionPersonality.warm.rawValue
 
     // Intake profile (editable after onboarding)
     @AppStorage("user_name")       private var userName       = ""
@@ -148,6 +150,19 @@ struct SettingsView: View {
 
                 Section {
                     TextField("Name", text: $companionName)
+
+                    Picker("Gender", selection: $companionGender) {
+                        ForEach(CompanionGender.allCases) { g in
+                            Text(g.label).tag(g.rawValue)
+                        }
+                    }
+
+                    Picker("Personality", selection: $companionPersonality) {
+                        ForEach(CompanionPersonality.allCases) { p in
+                            Text(p.label).tag(p.rawValue)
+                        }
+                    }
+
                     NavigationLink {
                         VoicePickerView(storageKey: "companion_voice_id")
                             .environmentObject(speechService)
@@ -157,7 +172,7 @@ struct SettingsView: View {
                 } header: {
                     Label("Companion persona", systemImage: "heart.fill")
                 } footer: {
-                    Text("Companion Mode is a warm, chatty friend who wants to know you, encourage you, and grow with you. They share the same memories as your therapist sessions. Start a Companion chat from the “+” on the sessions screen.")
+                    Text("Choose your companion's name, gender, personality, and voice. Companion Mode is a warm, chatty friend who wants to know you, encourage you, and grow with you — and shares the same memories as your therapist sessions. Start a Companion chat from the “+” on the sessions screen.")
                         .font(.caption)
                 }
 

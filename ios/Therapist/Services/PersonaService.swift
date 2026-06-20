@@ -61,8 +61,63 @@ enum PersonaKind: String, CaseIterable, Identifiable {
     }
 }
 
-/// A fully-resolved persona identity: which kind, its display name, and the
-/// voice to speak with.
+/// The companion's gender presentation. Shapes how it refers to itself and the
+/// pronouns it uses. (The actual spoken voice is chosen separately.)
+enum CompanionGender: String, CaseIterable, Identifiable {
+    case unspecified, feminine, masculine, nonbinary
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .unspecified: return "Unspecified"
+        case .feminine:    return "Feminine (she/her)"
+        case .masculine:   return "Masculine (he/him)"
+        case .nonbinary:   return "Non-binary (they/them)"
+        }
+    }
+
+    var promptLine: String {
+        switch self {
+        case .unspecified: return ""
+        case .feminine:    return "You have a feminine presence and use she/her pronouns for yourself."
+        case .masculine:   return "You have a masculine presence and use he/him pronouns for yourself."
+        case .nonbinary:   return "You have a non-binary presence and use they/them pronouns for yourself."
+        }
+    }
+}
+
+/// The companion's overall personality flavor.
+enum CompanionPersonality: String, CaseIterable, Identifiable {
+    case warm, playful, calm, cheerful, deep, bold
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .warm:     return "Warm & nurturing"
+        case .playful:  return "Playful & witty"
+        case .calm:     return "Calm & grounded"
+        case .cheerful: return "Bubbly & cheerful"
+        case .deep:     return "Thoughtful & deep"
+        case .bold:     return "Bold & flirty"
+        }
+    }
+
+    var promptLine: String {
+        switch self {
+        case .warm:     return "Your personality is warm and nurturing: gentle, reassuring, and tender. You make people feel safe and cared for."
+        case .playful:  return "Your personality is playful and witty: quick with a joke, light teasing, and a mischievous sense of humor that keeps things fun."
+        case .calm:     return "Your personality is calm and grounded: steady, unhurried, and soothing. You bring a sense of peace and perspective."
+        case .cheerful: return "Your personality is bubbly and cheerful: upbeat, enthusiastic, and full of warm energy that's contagious."
+        case .deep:     return "Your personality is thoughtful and deep: reflective, curious about the big questions, and drawn to meaningful conversation."
+        case .bold:     return "Your personality is bold and flirty: confident, charming, and a little daring — comfortable being openly affectionate and playful when the moment is right, while always staying respectful of their comfort."
+        }
+    }
+}
+
+/// A fully-resolved persona identity: which kind, its display name, the voice to
+/// speak with, and (for companions) the personality/gender traits.
 struct Persona: Equatable {
     let kind: PersonaKind
     /// Custom name if set, otherwise the kind's default (may be empty for an
@@ -71,6 +126,9 @@ struct Persona: Equatable {
     /// Resolved TTS voice identifier (persona voice, falling back to the global
     /// voice, falling back to empty = best available system voice).
     let voiceID: String
+    /// Personality + gender descriptor lines injected into the companion prompt.
+    /// Empty for the therapist.
+    var traits: String = ""
 
     /// Name to show in the UI; never empty.
     var displayName: String {
@@ -99,6 +157,18 @@ enum PersonaService {
         let globalVoice = defaults.string(forKey: "tts_voice_id") ?? ""
         let voiceID = personaVoice.isEmpty ? globalVoice : personaVoice
 
-        return Persona(kind: kind, name: name, voiceID: voiceID)
+        let traits = kind == .companion ? companionTraits(defaults: defaults) : ""
+
+        return Persona(kind: kind, name: name, voiceID: voiceID, traits: traits)
+    }
+
+    /// Builds the companion's personality + gender descriptor block from the
+    /// user's choices.
+    static func companionTraits(defaults: UserDefaults = .standard) -> String {
+        let personality = CompanionPersonality(rawValue: defaults.string(forKey: "companion_personality") ?? "") ?? .warm
+        let gender = CompanionGender(rawValue: defaults.string(forKey: "companion_gender") ?? "") ?? .unspecified
+        return [personality.promptLine, gender.promptLine]
+            .filter { !$0.isEmpty }
+            .joined(separator: "\n")
     }
 }
