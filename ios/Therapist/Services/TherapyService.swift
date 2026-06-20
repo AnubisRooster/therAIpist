@@ -3,9 +3,27 @@ import Foundation
 class TherapyService {
     static let shared = TherapyService()
 
-    func getSystemPrompt(modality: String, customPrompt: String = "") -> String {
-        let basePrompt = modalityPrompts[modality] ?? modalityPrompts["integrated"]!
-        var prompt = basePrompt
+    /// Builds the system prompt for a persona. Companion uses its own warm
+    /// prompt; therapist uses the chosen modality. A custom name, when present,
+    /// is injected so the assistant has an identity.
+    func getSystemPrompt(persona: Persona,
+                         modality: String,
+                         customPrompt: String = "") -> String {
+        var prompt: String
+
+        switch persona.kind {
+        case .companion:
+            let name = persona.name.isEmpty ? persona.kind.defaultName : persona.name
+            prompt = companionPromptTemplate.replacingOccurrences(of: "%NAME%", with: name)
+        case .therapist:
+            let base = modalityPrompts[modality] ?? modalityPrompts["integrated"]!
+            if persona.name.isEmpty {
+                prompt = base
+            } else {
+                prompt = "Your name is \(persona.name). When it feels natural, you can let the client know your name and let it give you a bit of personality.\n\n" + base
+            }
+        }
+
         let profileContext = userProfileContext()
         if !profileContext.isEmpty {
             prompt += "\n\n\(profileContext)"
@@ -43,10 +61,10 @@ class TherapyService {
         return "Client context (from intake):\n" + lines.joined(separator: "\n")
     }
 
-    func buildMessages(modality: String, customPrompt: String, messageHistory: [(String, String)], userMessage: String, memoryContext: String) -> [LLMMessage] {
+    func buildMessages(persona: Persona, modality: String, customPrompt: String, messageHistory: [(String, String)], userMessage: String, memoryContext: String) -> [LLMMessage] {
         var messages: [LLMMessage] = []
 
-        let systemPrompt = getSystemPrompt(modality: modality, customPrompt: customPrompt)
+        let systemPrompt = getSystemPrompt(persona: persona, modality: modality, customPrompt: customPrompt)
         messages.append(LLMMessage(role: "system", content: systemPrompt))
 
         if !memoryContext.isEmpty {

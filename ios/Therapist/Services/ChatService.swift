@@ -41,6 +41,7 @@ final class ChatService {
     }
 
     func processMessage(session: SessionModel, userMessage: String, context: ModelContext) async -> ChatResult {
+        let persona = PersonaService.resolve(for: session)
         let globalMemories = globalMemoryService.recall(query: userMessage, context: context)
         var crossSessionContext = ""
         if !globalMemories.isEmpty {
@@ -95,6 +96,7 @@ final class ChatService {
         }
 
         let llmMessages = therapy.buildMessages(
+            persona: persona,
             modality: session.modality,
             customPrompt: session.systemPrompt,
             messageHistory: recentMessages,
@@ -159,7 +161,7 @@ final class ChatService {
 
         let boundaryCheck = safety.checkBoundaryViolation(assistantResponse)
         let finalResponse = boundaryCheck.isViolation
-            ? "I notice you're asking about something beyond my scope. As a therapeutic support, I can help you explore your feelings and experiences. Would you like to tell me more about what brought you here today?"
+            ? "I want to be honest with you — that's beyond what I can safely help with, and I'm not able to give medical or diagnostic advice. But I'm right here with you. Want to tell me more about what's going on?"
             : assistantResponse
 
         if boundaryCheck.isViolation {

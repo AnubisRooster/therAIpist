@@ -14,6 +14,10 @@ final class SessionModel {
     var createdAt: Date
     var updatedAt: Date
     var isArchived: Bool = false
+    // Which persona drives this session: "therapist" (default) or "companion".
+    // Inline default is REQUIRED for SwiftData lightweight migration to open
+    // stores created before this field existed.
+    var persona: String = "therapist"
 
     @Relationship(deleteRule: .cascade) var messages: [MessageModel] = []
     @Relationship(deleteRule: .cascade) var memories: [MemoryModel] = []
@@ -33,6 +37,7 @@ final class SessionModel {
         self.mode = "auto"
         self.localModel = ""
         self.isArchived = false
+        self.persona = "therapist"
         self.createdAt = Date()
         self.updatedAt = Date()
     }

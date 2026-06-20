@@ -4,10 +4,16 @@ import SwiftUI
 /// Lists every English voice installed on the device, grouped by quality tier.
 /// Tapping a row selects it and plays a short preview.
 struct VoicePickerView: View {
-    @AppStorage("tts_voice_id") private var selectedVoiceID = ""
+    @AppStorage private var selectedVoiceID: String
     @AppStorage("tts_rate")     private var ttsRate: Double  = 0.5
     @AppStorage("tts_pitch")    private var ttsPitch: Double = 1.0
     @EnvironmentObject          private var speech: SpeechService
+
+    /// Which AppStorage key this picker edits. Defaults to the global voice;
+    /// persona pickers pass their own key (e.g. "companion_voice_id").
+    init(storageKey: String = "tts_voice_id") {
+        _selectedVoiceID = AppStorage(wrappedValue: "", storageKey)
+    }
 
     // All English voices installed on this device, best quality first.
     private let voices: [AVSpeechSynthesisVoice] = {

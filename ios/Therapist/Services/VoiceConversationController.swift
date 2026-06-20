@@ -79,6 +79,10 @@ final class VoiceConversationController: NSObject, ObservableObject {
     /// so we know on-device recognition actually works on this device.
     private var allowOnDevice = true
 
+    /// Voice the spoken replies should use. Set by the view to the active
+    /// persona's voice; falls back to the global TTS voice when nil/empty.
+    var preferredVoiceID: String?
+
     private let recognizer = SFSpeechRecognizer(locale: Locale(identifier: "en-US"))
     /// Recreated on every listen so its input node materializes against the
     /// already-active recording session. Reusing one engine caches a 0 Hz input
@@ -455,7 +459,10 @@ final class VoiceConversationController: NSObject, ObservableObject {
 
         let rate    = Float(UserDefaults.standard.double(forKey: "tts_rate"))
         let pitch   = Float(UserDefaults.standard.double(forKey: "tts_pitch"))
-        let voiceID = UserDefaults.standard.string(forKey: "tts_voice_id") ?? ""
+        let personaVoice = preferredVoiceID ?? ""
+        let voiceID = personaVoice.isEmpty
+            ? (UserDefaults.standard.string(forKey: "tts_voice_id") ?? "")
+            : personaVoice
 
         speech.speak(
             text,

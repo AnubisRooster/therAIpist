@@ -31,6 +31,7 @@
 		6EBB88189639752E07ABB10E /* SafetyServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0581D2258450F18F3E17AFE3 /* SafetyServiceTests.swift */; };
 		70B3BB2BC546EB0FD6E3A707 /* LocalLLMEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 115C81BB8363E5F06EA3303E /* LocalLLMEngineTests.swift */; };
 		75F280F5076A64614E2E32E3 /* GraphServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4109CAA4F079EF7B7B0AAFD4 /* GraphServiceTests.swift */; };
+		7757CE1E9FF56CD14ED522FA /* PersonaService.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD807732B6AA596C62EAACAB /* PersonaService.swift */; };
 		7A17C9CAF5858F88081B5D61 /* DashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4F11D0EDFFD12098624E8C7 /* DashboardView.swift */; };
 		866FF2077F990F1222B47397 /* SafetyService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6EE6DE3CA5C6934F88E1DAA0 /* SafetyService.swift */; };
 		9B7F15BE23099C999028E58A /* LLMService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9CFA9D1088AE93C9537A8E18 /* LLMService.swift */; };
@@ -45,6 +46,7 @@
 		BC69E1F596CF6A15F4704DC9 /* LocalLLMEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77E5C71511EAC047F0992745 /* LocalLLMEngine.swift */; };
 		BDE709FD95C3BB5817D82CBD /* ChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F96D8E321E56CF9301833CE5 /* ChatView.swift */; };
 		C760C757D0C06DA0EDE1019E /* SpeechService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50509B03F33B1863EC8F3377 /* SpeechService.swift */; };
+		C83EADB53620A24DD5B2DF66 /* PersonaTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB7EE1C7C06B86E413ACD569 /* PersonaTests.swift */; };
 		CC39E622F47F9FD0B026F98C /* ChatService.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC490536A296899A16D06A8D /* ChatService.swift */; };
 		D1554F68EB248BD21DD67147 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD46995D96416AD999A05710 /* OnboardingView.swift */; };
 		D26AC46605A40B00DE88E5A1 /* VoiceTranscriptTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8BB146387FA63BE78299C6DF /* VoiceTranscriptTests.swift */; };
@@ -92,7 +94,7 @@
 		7B66D9B0C478D8ADE380D64C /* NewSessionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewSessionView.swift; sourceTree = "<group>"; };
 		7C573E0E8397509037BC2ABE /* DreamService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DreamService.swift; sourceTree = "<group>"; };
 		8247533172B2362899FFBB29 /* AgentSystem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentSystem.swift; sourceTree = "<group>"; };
-		82F24F0752AA76B48E8788A6 /* Therapist.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Therapist.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		82F24F0752AA76B48E8788A6 /* Therapist.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Therapist.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		858F22BFF444241014953741 /* ChatServiceE2ETests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatServiceE2ETests.swift; sourceTree = "<group>"; };
 		8BB146387FA63BE78299C6DF /* VoiceTranscriptTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceTranscriptTests.swift; sourceTree = "<group>"; };
 		8CDAE0376C33CA89B735BD81 /* VoiceService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceService.swift; sourceTree = "<group>"; };
@@ -101,10 +103,12 @@
 		9CFA9D1088AE93C9537A8E18 /* LLMService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMService.swift; sourceTree = "<group>"; };
 		9EA4DA407B6AE1E32CF90DF3 /* GraphService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraphService.swift; sourceTree = "<group>"; };
 		B733E490095AF7D47DA8D2A1 /* EmbeddingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmbeddingService.swift; sourceTree = "<group>"; };
+		BB7EE1C7C06B86E413ACD569 /* PersonaTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersonaTests.swift; sourceTree = "<group>"; };
 		BD46995D96416AD999A05710 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
 		C29C49EE4665A79130532A66 /* DashboardService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardService.swift; sourceTree = "<group>"; };
 		C7EF57872E42353E8E306853 /* VoiceConversationController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceConversationController.swift; sourceTree = "<group>"; };
 		C9C782A14A01E91D0A9918FA /* BadgeBackfillService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BadgeBackfillService.swift; sourceTree = "<group>"; };
+		CD807732B6AA596C62EAACAB /* PersonaService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersonaService.swift; sourceTree = "<group>"; };
 		CEA2B400CC7FF4901629DBB4 /* PINService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PINService.swift; sourceTree = "<group>"; };
 		CF40E7F165FFD8EC37D6EC13 /* InsightsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsightsView.swift; sourceTree = "<group>"; };
 		CF4BE5016360D07B4A1B03F2 /* ModelService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelService.swift; sourceTree = "<group>"; };
@@ -147,6 +151,7 @@
 				D108D2FB690D2B875B45F2AA /* MemoryService.swift */,
 				CF4BE5016360D07B4A1B03F2 /* ModelService.swift */,
 				944F52374F3D256D87070F74 /* NoteService.swift */,
+				CD807732B6AA596C62EAACAB /* PersonaService.swift */,
 				CEA2B400CC7FF4901629DBB4 /* PINService.swift */,
 				6EE6DE3CA5C6934F88E1DAA0 /* SafetyService.swift */,
 				50509B03F33B1863EC8F3377 /* SpeechService.swift */,
@@ -184,6 +189,7 @@
 				4109CAA4F079EF7B7B0AAFD4 /* GraphServiceTests.swift */,
 				115C81BB8363E5F06EA3303E /* LocalLLMEngineTests.swift */,
 				0547D550048AA69FCE64BEC0 /* MemoryServiceTests.swift */,
+				BB7EE1C7C06B86E413ACD569 /* PersonaTests.swift */,
 				08B8E4472E85F942522C5576 /* PINLockoutTests.swift */,
 				0581D2258450F18F3E17AFE3 /* SafetyServiceTests.swift */,
 				4C2E3E137BA2B43146C53624 /* SessionModelTests.swift */,
@@ -304,6 +310,7 @@
 						ProvisioningStyle = Automatic;
 					};
 					CA9434505CC5FD52BDCAAE62 = {
+						DevelopmentTeam = "";
 						ProvisioningStyle = Automatic;
 					};
 				};
@@ -318,7 +325,7 @@
 			mainGroup = BCE7D8DA0AF02EA5DF8D9AD7;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				64B0224D0B94F9350F0890CE /* XCRemoteSwiftPackageReference "LLM" */,
+				64B0224D0B94F9350F0890CE /* XCRemoteSwiftPackageReference "LLM.swift" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 86EE4942D7C8B39A4FDDB403 /* Products */;
@@ -353,6 +360,7 @@
 				70B3BB2BC546EB0FD6E3A707 /* LocalLLMEngineTests.swift in Sources */,
 				1322EAA00CFC2FB3A2897DBA /* MemoryServiceTests.swift in Sources */,
 				DC44A97AFF2B72692BECE4F3 /* PINLockoutTests.swift in Sources */,
+				C83EADB53620A24DD5B2DF66 /* PersonaTests.swift in Sources */,
 				6EBB88189639752E07ABB10E /* SafetyServiceTests.swift in Sources */,
 				4B808F4BB84AABD9F9FCB12A /* SessionModelTests.swift in Sources */,
 				3CFF2CAF166070E6F50AF6DF /* TestSupport.swift in Sources */,
@@ -388,6 +396,7 @@
 				D1554F68EB248BD21DD67147 /* OnboardingView.swift in Sources */,
 				E37E384E27E4B1F60AE2451F /* PINService.swift in Sources */,
 				6CAFEC1AFBB5013E59635D31 /* PINView.swift in Sources */,
+				7757CE1E9FF56CD14ED522FA /* PersonaService.swift in Sources */,
 				866FF2077F990F1222B47397 /* SafetyService.swift in Sources */,
 				16653570295C89CBF513ABB7 /* SettingsView.swift in Sources */,
 				C760C757D0C06DA0EDE1019E /* SpeechService.swift in Sources */,
@@ -503,7 +512,6 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				DEVELOPMENT_TEAM = H2545W6NGW;
 				ENABLE_PREVIEWS = YES;
 				INFOPLIST_FILE = Therapist/Resources/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
@@ -522,7 +530,6 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				DEVELOPMENT_TEAM = H2545W6NGW;
 				ENABLE_PREVIEWS = YES;
 				INFOPLIST_FILE = Therapist/Resources/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
@@ -647,7 +654,7 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
-		64B0224D0B94F9350F0890CE /* XCRemoteSwiftPackageReference "LLM" */ = {
+		64B0224D0B94F9350F0890CE /* XCRemoteSwiftPackageReference "LLM.swift" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/eastriverlee/LLM.swift";
 			requirement = {
@@ -660,7 +667,7 @@
 /* Begin XCSwiftPackageProductDependency section */
 		C21A0FFD4358DAFD86CCFFDF /* LLM */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 64B0224D0B94F9350F0890CE /* XCRemoteSwiftPackageReference "LLM" */;
+			package = 64B0224D0B94F9350F0890CE /* XCRemoteSwiftPackageReference "LLM.swift" */;
 			productName = LLM;
 		};
 /* End XCSwiftPackageProductDependency section */

@@ -35,7 +35,6 @@ struct ChatView: View {
     @AppStorage("tts_enabled")  private var ttsEnabled = false
     @AppStorage("tts_rate")     private var ttsRate: Double  = 0.5
     @AppStorage("tts_pitch")    private var ttsPitch: Double = 1.0
-    @AppStorage("tts_voice_id") private var ttsVoiceID      = ""
 
     @State private var messageText    = ""
     @State private var isLoading      = false
@@ -51,6 +50,9 @@ struct ChatView: View {
 
     private var modelLabel: String { session.modelLabel }
 
+    /// Resolved each render from the session + app-wide persona settings.
+    private var persona: Persona { PersonaService.resolve(for: session) }
+
     var body: some View {
         VStack(spacing: 0) {
             ScrollViewReader { proxy in
@@ -64,7 +66,7 @@ struct ChatView: View {
                             HStack(spacing: 8) {
                                 Spacer()
                                 ProgressView()
-                                Text("Therapist is thinking...")
+                                Text("\(persona.displayName) is thinking...")
                                     .font(.caption)
                                     .foregroundColor(.secondary)
                                 Spacer()
@@ -163,10 +165,10 @@ struct ChatView: View {
         .toolbar {
             ToolbarItem(placement: .principal) {
                 HStack(spacing: 6) {
-                    Image(systemName: modalityIcons[session.modality] ?? "sparkles")
+                    Image(systemName: persona.kind.icon)
                         .font(.caption2)
-                        .foregroundColor(modalityColor(session.modality))
-                    Text(session.modality.replacingOccurrences(of: "_", with: " ").capitalized)
+                        .foregroundColor(persona.kind == .companion ? .pink : modalityColor(session.modality))
+                    Text(persona.displayName)
                         .font(.caption2.weight(.semibold))
                         .foregroundColor(.secondary)
                     Button {
@@ -256,8 +258,9 @@ struct ChatView: View {
             voice.stop()
             return
         }
-        // Voice mode implies spoken replies.
+        // Voice mode implies spoken replies, in the active persona's voice.
         ttsEnabled = true
+        voice.preferredVoiceID = persona.voiceID
         voice.start()
     }
 
@@ -312,7 +315,7 @@ struct ChatView: View {
                 speech.speak(result.response,
                              rate: Float(ttsRate),
                              pitch: Float(ttsPitch),
-                             voiceID: ttsVoiceID)
+                             voiceID: persona.voiceID)
             }
         }
     }

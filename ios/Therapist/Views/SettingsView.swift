@@ -18,6 +18,11 @@ struct SettingsView: View {
 
     @AppStorage("voice_silence_seconds") private var voiceSilenceSeconds: Double = 5.0
 
+    @AppStorage("therapist_name")     private var therapistName     = ""
+    @AppStorage("therapist_voice_id") private var therapistVoiceID  = ""
+    @AppStorage("companion_name")     private var companionName      = "Kai"
+    @AppStorage("companion_voice_id") private var companionVoiceID   = ""
+
     // Intake profile (editable after onboarding)
     @AppStorage("user_name")       private var userName       = ""
     @AppStorage("user_pronouns")   private var userPronouns   = ""
@@ -123,6 +128,36 @@ struct SettingsView: View {
                     Text("Hands-free mode")
                 } footer: {
                     Text("How long to wait after you stop speaking before your turn is sent. Increase this if you take longer pauses between sentences. You can also say “send” to send immediately.")
+                        .font(.caption)
+                }
+
+                Section {
+                    TextField("Name (optional)", text: $therapistName)
+                    NavigationLink {
+                        VoicePickerView(storageKey: "therapist_voice_id")
+                            .environmentObject(speechService)
+                    } label: {
+                        LabeledContent("Voice", value: SpeechService.voiceName(for: therapistVoiceID))
+                    }
+                } header: {
+                    Label("Therapist persona", systemImage: "brain.head.profile")
+                } footer: {
+                    Text("Give your therapist a name and a voice. The therapeutic approach is chosen per session when you start a new one.")
+                        .font(.caption)
+                }
+
+                Section {
+                    TextField("Name", text: $companionName)
+                    NavigationLink {
+                        VoicePickerView(storageKey: "companion_voice_id")
+                            .environmentObject(speechService)
+                    } label: {
+                        LabeledContent("Voice", value: SpeechService.voiceName(for: companionVoiceID))
+                    }
+                } header: {
+                    Label("Companion persona", systemImage: "heart.fill")
+                } footer: {
+                    Text("Companion Mode is a warm, chatty friend who wants to know you, encourage you, and grow with you. They share the same memories as your therapist sessions. Start a Companion chat from the “+” on the sessions screen.")
                         .font(.caption)
                 }
 

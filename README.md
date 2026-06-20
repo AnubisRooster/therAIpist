@@ -21,8 +21,13 @@ An AI-assisted self-reflection companion: a native **SwiftUI** iOS app that blen
 
 ## Features
 
+### Personas
+- **Therapist & Companion modes** — choose per session who you talk with. The **Therapist** is a reflective guide that follows a therapeutic modality you pick; **Companion Mode** is a warm, chatty, non-sycophantic friend who wants to know you, encourage you, learn alongside you, and build a loving, trusting rapport that persists across sessions.
+- **Named, voiced personalities** — give each persona its own name and its own text-to-speech voice in Settings, so it feels like a consistent presence rather than a generic assistant.
+- **Shared memory across personas** — both personas read and write the same episodic/semantic memory, knowledge graph, and global memories, so context and continuity carry over no matter which one you're talking to.
+
 ### Therapy & conversation
-- **13 modalities** — Integrated, Adlerian, Jungian, DBT, CBT, Humanistic, Existential, Gestalt, Somatic, Narrative, ACT, Psychodynamic, and IFS — selectable per session
+- **13 modalities** — Integrated, Adlerian, Jungian, DBT, CBT, Humanistic, Existential, Gestalt, Somatic, Narrative, ACT, Psychodynamic, and IFS — selectable per session (Therapist persona)
 - **Adaptive verbosity** — the assistant calibrates response length based on conversational context
 - **Text-to-speech** — responses spoken aloud with configurable voice, rate, and pitch; natural-sounding system voices
 - **Hands-free voice mode** — a continuous speak/listen loop: the app transcribes your speech (on-device when supported), ends your turn automatically after a natural pause (~3s of silence), speaks the therapist's reply aloud, then returns to listening — no tapping between turns. The mic is torn down while speaking so it never transcribes its own voice. Long monologues are stitched across `SFSpeechRecognizer`'s ~1-minute segment limit, and tapping the speaker icon mid-reply skips it and resumes listening rather than stalling the loop.
@@ -75,7 +80,8 @@ ios/Therapist/
 │   ├── MemoryService.swift        # Episodic/semantic embedding + recall
 │   ├── GlobalMemoryService.swift  # Cross-session significant memory promotion
 │   ├── GraphService.swift         # Entity extraction + edge wiring
-│   ├── TherapyService.swift       # Modality prompts + system prompt assembly
+│   ├── TherapyService.swift       # Persona/modality prompts + system prompt assembly
+│   ├── PersonaService.swift       # Therapist/Companion identity, name + voice resolution
 │   ├── SpeechService.swift        # AVSpeechSynthesizer TTS wrapper (+ onFinish loop hook)
 │   ├── VoiceConversationController.swift  # Hands-free loop: SFSpeechRecognizer +
 │   │                              #   AVAudioEngine + silence endpointing
@@ -202,7 +208,7 @@ negative cases, plus end-to-end pipeline tests:
 
 - **Unit** — safety detection, knowledge-graph extraction/edges, memory keywording,
   global-memory promotion tiers, provider/model resolution, PIN brute-force lockout,
-  and voice transcript stitching
+  voice transcript stitching, and persona resolution / system-prompt selection
 - **End-to-end** — `ChatService.processMessage` exercised with an in-memory SwiftData
   store and a mock LLM: normal turns (bubbles, memory, graph, badges), crisis routing,
   history ordering, boundary replacement, and the no-API-key / no-model guidance paths

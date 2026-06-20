@@ -7,29 +7,61 @@ struct NewSessionView: View {
 
     @State private var title = ""
     @State private var modality = "free_form"
+    @State private var persona: PersonaKind = .therapist
+
+    @AppStorage("therapist_name") private var therapistName = ""
+    @AppStorage("companion_name") private var companionName = "Kai"
+
+    private var personaName: String {
+        let raw = (persona == .therapist ? therapistName : companionName)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return raw.isEmpty ? persona.defaultName : raw
+    }
 
     var body: some View {
         NavigationStack {
             Form {
+                Section {
+                    Picker("Talk with", selection: $persona) {
+                        ForEach(PersonaKind.allCases) { kind in
+                            Label(kind.fallbackLabel, systemImage: kind.icon).tag(kind)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+
+                    Text(persona.blurb)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                } header: {
+                    Text("Who do you want to talk with?")
+                } footer: {
+                    if !personaName.isEmpty {
+                        Text("You'll be chatting with \(personaName). Change names and voices in Settings.")
+                            .font(.caption)
+                    }
+                }
+
                 Section("Session") {
                     TextField("Title (optional)", text: $title)
                 }
 
-                Section("Therapy Modality") {
-                    Picker("Modality", selection: $modality) {
-                        ForEach(allModalities, id: \.self) { m in
-                            HStack {
-                                Image(systemName: modalityIcons[m] ?? "sparkles")
-                                    .foregroundColor(modalityColor(m))
-                                Text(m.replacingOccurrences(of: "_", with: " ").capitalized)
-                            }.tag(m)
+                if persona == .therapist {
+                    Section("Therapy Modality") {
+                        Picker("Modality", selection: $modality) {
+                            ForEach(allModalities, id: \.self) { m in
+                                HStack {
+                                    Image(systemName: modalityIcons[m] ?? "sparkles")
+                                        .foregroundColor(modalityColor(m))
+                                    Text(m.replacingOccurrences(of: "_", with: " ").capitalized)
+                                }.tag(m)
+                            }
                         }
-                    }
-                    .pickerStyle(.menu)
+                        .pickerStyle(.menu)
 
-                    Text(modalityDescriptions[modality] ?? "")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                        Text(modalityDescriptions[modality] ?? "")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
                 }
 
                 Section("Model") {
@@ -54,11 +86,16 @@ struct NewSessionView: View {
     }
 
     private func createSession() {
+        let dateLabel = DateFormatter.localizedString(from: Date(), dateStyle: .short, timeStyle: .none)
+        let defaultTitle = persona == .companion
+            ? "\(personaName) · \(dateLabel)"
+            : "Session \(dateLabel)"
         let session = SessionModel(
-            title: title.isEmpty ? "Session \(DateFormatter.localizedString(from: Date(), dateStyle: .short, timeStyle: .none))" : title,
+            title: title.isEmpty ? defaultTitle : title,
             provider: "openrouter",
-            modality: modality
+            modality: persona == .companion ? "free_form" : modality
         )
+        session.persona = persona.rawValue
         context.insert(session)
         try? context.save()
     }
