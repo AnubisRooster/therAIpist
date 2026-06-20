@@ -208,10 +208,12 @@ final class VoiceConversationController: NSObject, ObservableObject {
 
         do {
             let session = AVAudioSession.sharedInstance()
-            // Fully reset the session so switching back from TTS playback is reliable.
-            try? session.setActive(false, options: .notifyOthersOnDeactivation)
+            // Configure for two-way voice. Do NOT toggle setActive(false) first —
+            // repeatedly deactivating the session on each (re)start prevents the
+            // input route from settling and is a common cause of a 0 Hz input
+            // format ("microphone isn't ready").
             try session.setCategory(.playAndRecord, mode: .default,
-                                    options: [.duckOthers, .defaultToSpeaker, .allowBluetooth])
+                                    options: [.defaultToSpeaker, .allowBluetooth])
             try session.setActive(true, options: .notifyOthersOnDeactivation)
 
             let request = SFSpeechAudioBufferRecognitionRequest()
@@ -223,32 +225,35 @@ final class VoiceConversationController: NSObject, ObservableObject {
             self.request = request
 
             let input = audioEngine.inputNode
+            // Prepare allocates the input hardware so its format is valid before
+            // we read it; reading the format too early can return 0 Hz.
+            audioEngine.prepare()
             let format = input.outputFormat(forBus: 0)
-            // A zero sample-rate format means the input hardware isn't ready yet
-            // (common right after granting permission). Retry a few times before
-            // surfacing an error, instead of giving up on the first tap.
-            guard format.sampleRate > 0 else {
+            // A zero sample-rate/channel format means the input hardware isn't
+            // ready yet (common right after granting permission). Retry a few
+            // times WITHOUT tearing the session down, before surfacing an error.
+            guard format.sampleRate > 0, format.channelCount > 0 else {
                 if micNotReadyRetries < maxMicNotReadyRetries {
                     micNotReadyRetries += 1
                     Task { @MainActor [weak self] in
-                        try? await Task.sleep(nanoseconds: 300_000_000)
+                        try? await Task.sleep(nanoseconds: 250_000_000)
                         guard let self, self.running else { return }
                         self.beginListening(continuing: continuing)
                     }
                 } else {
                     micNotReadyRetries = 0
-                    errorMessage = "Microphone isn't ready. Tap the mic to try again."
+                    errorMessage = "Microphone couldn't start. Make sure no other app (or the keyboard's dictation) is using it, then tap the mic again."
                     stop()
                 }
                 return
             }
             micNotReadyRetries = 0
+            errorMessage = nil   // a prior failure is now resolved
             input.removeTap(onBus: 0)
             input.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak self] buffer, _ in
                 self?.request?.append(buffer)
             }
 
-            audioEngine.prepare()
             try audioEngine.start()
 
             phase = .listening

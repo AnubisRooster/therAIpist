@@ -9,6 +9,23 @@ struct ChatView: View {
     @ObservedObject private var localEngine = LocalLLMEngine.shared
     @StateObject private var voice = VoiceConversationController()
     let session: SessionModel
+
+    /// Live query of this session's messages. A `@Query` observes the model
+    /// context directly, so newly inserted bubbles render immediately — the
+    /// SwiftData relationship (`session.messages`) does not reliably trigger a
+    /// SwiftUI re-render on insert.
+    @Query private var messages: [MessageModel]
+
+    init(session: SessionModel) {
+        self.session = session
+        let sid = session.id
+        _messages = Query(
+            filter: #Predicate<MessageModel> { $0.session?.id == sid },
+            sort: \MessageModel.createdAt,
+            order: .forward
+        )
+    }
+
     @State private var showInsights    = false
     @State private var showNotes       = false
     @State private var showDreams      = false
@@ -39,7 +56,7 @@ struct ChatView: View {
             ScrollViewReader { proxy in
                 ScrollView {
                     LazyVStack(spacing: 12) {
-                        ForEach(session.messages.sorted(by: { $0.createdAt < $1.createdAt })) { msg in
+                        ForEach(messages) { msg in
                             MessageBubble(message: msg)
                                 .id(msg.id)
                         }
@@ -57,8 +74,8 @@ struct ChatView: View {
                     }
                     .padding(.vertical)
                 }
-                .onChange(of: session.messages.count) { _, _ in
-                    if let last = session.messages.sorted(by: { $0.createdAt < $1.createdAt }).last {
+                .onChange(of: messages.count) { _, _ in
+                    if let last = messages.last {
                         withAnimation {
                             proxy.scrollTo(last.id, anchor: .bottom)
                         }
