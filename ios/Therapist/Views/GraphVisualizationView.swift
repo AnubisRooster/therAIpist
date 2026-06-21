@@ -79,8 +79,8 @@ struct GraphVisualizationSheet: View {
         let json = GraphExportService.cytoscapeJSON(graph: graph)
         NavigationStack {
             GraphVisualizationView(cytoscapeJSON: json)
-                .ignoresSafeArea()
-                .navigationTitle("Knowledge Graph")
+                .ignoresSafeArea(edges: .bottom)
+                .navigationTitle("Inner Map")
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) {
@@ -92,20 +92,27 @@ struct GraphVisualizationSheet: View {
                         }
                     }
                 }
-                .overlay(alignment: .bottom) {
-                    // Node count badge
+                .overlay(alignment: .top) {
+                    // Pattern/link count + one-line explainer. Placed at the top so
+                    // it never overlaps the colour legend pinned to the bottom of
+                    // the web view.
                     let nodeCount = graph.nodes.count
                     let edgeCount = graph.edges.count
                     if nodeCount > 0 {
-                        HStack(spacing: 8) {
-                            Label("\(nodeCount) nodes", systemImage: "circle.hexagongrid")
-                            Label("\(edgeCount) edges", systemImage: "arrow.triangle.branch")
+                        VStack(spacing: 4) {
+                            HStack(spacing: 8) {
+                                Label("\(nodeCount) patterns", systemImage: "circle.hexagongrid")
+                                Label("\(edgeCount) links", systemImage: "arrow.triangle.branch")
+                            }
+                            .font(.caption)
+                            Text("Tap a pattern or link to see how it connects.")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
                         }
-                        .font(.caption)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 6)
-                        .background(.ultraThinMaterial, in: Capsule())
-                        .padding(.bottom, 12)
+                        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
+                        .padding(.top, 8)
                     }
                 }
         }

@@ -62,6 +62,7 @@
 		E6296B8840585FB0844E1956 /* NewSessionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B66D9B0C478D8ADE380D64C /* NewSessionView.swift */; };
 		E734BCBDEC143DC1623BBA82 /* VectorStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3FC97A6C9CF980CC8A22E32 /* VectorStore.swift */; };
 		EAA5D87F1FEB4F4E7834B770 /* AgentSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8247533172B2362899FFBB29 /* AgentSystem.swift */; };
+		FD1D8013622BE95FD9D5752C /* InsightServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 535B8E45B2944C99CF334EA9 /* InsightServiceTests.swift */; };
 		FE83C997D46937362E46E855 /* InsightCaptureService.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE163B6998F9D2E10E508883 /* InsightCaptureService.swift */; };
 /* End PBXBuildFile section */
 
@@ -96,6 +97,7 @@
 		4E35383169E391C4C71A1F9E /* GraphVisualizationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraphVisualizationView.swift; sourceTree = "<group>"; };
 		50509B03F33B1863EC8F3377 /* SpeechService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechService.swift; sourceTree = "<group>"; };
 		516427EF25D95CCA909F4B8C /* GraphExportService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraphExportService.swift; sourceTree = "<group>"; };
+		535B8E45B2944C99CF334EA9 /* InsightServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsightServiceTests.swift; sourceTree = "<group>"; };
 		575F01212E36AE1D15CB6E16 /* TherapyService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TherapyService.swift; sourceTree = "<group>"; };
 		5F1E5B5D664AA98D4F87C171 /* graph.html */ = {isa = PBXFileReference; lastKnownFileType = text.html; path = graph.html; sourceTree = "<group>"; };
 		650881394B747E23BC11BF32 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
@@ -215,6 +217,7 @@
 				E3F78329A560A0736BB4632B /* GraphExportServiceTests.swift */,
 				4109CAA4F079EF7B7B0AAFD4 /* GraphServiceTests.swift */,
 				94C608044722DDB5FB714EA0 /* InsightCaptureServiceTests.swift */,
+				535B8E45B2944C99CF334EA9 /* InsightServiceTests.swift */,
 				115C81BB8363E5F06EA3303E /* LocalLLMEngineTests.swift */,
 				0547D550048AA69FCE64BEC0 /* MemoryServiceTests.swift */,
 				BB7EE1C7C06B86E413ACD569 /* PersonaTests.swift */,
@@ -390,6 +393,7 @@
 				C0A088D2F613DF67D4B552C9 /* GraphExportServiceTests.swift in Sources */,
 				75F280F5076A64614E2E32E3 /* GraphServiceTests.swift in Sources */,
 				3CCDF79E27689FD10F74A7DD /* InsightCaptureServiceTests.swift in Sources */,
+				FD1D8013622BE95FD9D5752C /* InsightServiceTests.swift in Sources */,
 				70B3BB2BC546EB0FD6E3A707 /* LocalLLMEngineTests.swift in Sources */,
 				1322EAA00CFC2FB3A2897DBA /* MemoryServiceTests.swift in Sources */,
 				DC44A97AFF2B72692BECE4F3 /* PINLockoutTests.swift in Sources */,

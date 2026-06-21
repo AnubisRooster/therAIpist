@@ -72,4 +72,27 @@ final class GraphServiceTests: XCTestCase {
         let secondStrength = graph.findNode(session: session, label: "Angry")?.strength ?? 0
         XCTAssertGreaterThan(secondStrength, firstStrength)
     }
+
+    // MARK: - Plain-language edge labels
+
+    func testEdgeTypeLabelsArePlainLanguage() {
+        XCTAssertEqual(graph.getEdgeTypeLabel("TRIGGERS"), "brings up")
+        XCTAssertEqual(graph.getEdgeTypeLabel("CAUSES"), "leads to")
+        XCTAssertEqual(graph.getEdgeTypeLabel("SUPPRESSES"), "pushes down")
+        XCTAssertEqual(graph.getEdgeTypeLabel("COMPENSATES_FOR"), "covers for")
+        XCTAssertEqual(graph.getEdgeTypeLabel("ASSOCIATED_WITH"), "goes with")
+    }
+
+    func testEdgeTypeLabelUnknownTypeIsHumanized() {
+        // Unknown types should be de-underscored and lowercased, not crash.
+        XCTAssertEqual(graph.getEdgeTypeLabel("SOME_NEW_TYPE"), "some new type")
+    }
+
+    func testEdgeTypeLabelNeverReturnsRawConstant() {
+        for type in ["TRIGGERS", "CAUSES", "SUPPRESSES", "COMPENSATES_FOR", "ASSOCIATED_WITH"] {
+            let label = graph.getEdgeTypeLabel(type)
+            XCTAssertFalse(label.contains("_"), "Label should not contain underscores")
+            XCTAssertEqual(label, label.lowercased(), "Label should be lowercased phrasing")
+        }
+    }
 }

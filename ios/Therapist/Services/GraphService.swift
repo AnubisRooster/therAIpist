@@ -236,14 +236,17 @@ class GraphService {
         }
     }
 
+    /// Plain-language phrasing for an edge type, so the relationship reads as a
+    /// sentence in the UI (e.g. "Mother brings up Sadness") instead of exposing
+    /// raw graph-theory verbs.
     func getEdgeTypeLabel(_ type: String) -> String {
         switch type {
-        case "CAUSES":           return "causes"
-        case "TRIGGERS":         return "triggers"
-        case "SUPPRESSES":       return "suppresses"
-        case "COMPENSATES_FOR":  return "compensates for"
-        case "ASSOCIATED_WITH":  return "associated with"
-        default:                 return type.lowercased()
+        case "CAUSES":           return "leads to"
+        case "TRIGGERS":         return "brings up"
+        case "SUPPRESSES":       return "pushes down"
+        case "COMPENSATES_FOR":  return "covers for"
+        case "ASSOCIATED_WITH":  return "goes with"
+        default:                 return type.replacingOccurrences(of: "_", with: " ").lowercased()
         }
     }
 }

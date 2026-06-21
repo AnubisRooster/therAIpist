@@ -35,6 +35,47 @@ class InsightService {
         )
     }
 
+    /// Plain-language, client-facing highlights that read an edge "out loud"
+    /// (e.g. "You often feel anxious when Mother comes up"). Falls back to the
+    /// most prominent emotions when no relationships have formed yet.
+    func plainLanguageHighlights(session: SessionModel) -> [String] {
+        let nodes = session.graphNodes
+        func node(_ id: String) -> GraphNodeModel? { nodes.first { $0.id == id } }
+        let edges = nodes.flatMap(\.outgoingEdges).sorted { $0.weight > $1.weight }
+
+        var out: [String] = []
+        var seen = Set<String>()
+        for edge in edges {
+            guard let source = edge.sourceNode, let target = node(edge.targetNodeID) else { continue }
+            let sentence: String
+            switch (source.type, edge.type, target.type) {
+            case ("person", "TRIGGERS", "emotion"):
+                sentence = "You often feel \(target.label.lowercased()) when \(source.label) comes up."
+            case ("emotion", "CAUSES", "belief"):
+                sentence = "Feeling \(source.label.lowercased()) seems to lead to the thought \u{201C}\(target.label)\u{201D}."
+            case ("emotion", "ASSOCIATED_WITH", "emotion"):
+                sentence = "\(source.label) and \(target.label.lowercased()) tend to show up together."
+            case ("belief", "ASSOCIATED_WITH", "emotion"):
+                sentence = "The belief \u{201C}\(source.label)\u{201D} goes with feeling \(target.label.lowercased())."
+            default:
+                sentence = "\(source.label) \(GraphService.shared.getEdgeTypeLabel(edge.type)) \(target.label)."
+            }
+            if !seen.contains(sentence) {
+                seen.insert(sentence)
+                out.append(sentence)
+            }
+            if out.count >= 4 { break }
+        }
+
+        if out.isEmpty {
+            let topEmotions = getTopEmotions(session: session).prefix(3).map { $0.0 }
+            if !topEmotions.isEmpty {
+                out.append("Feelings that have come up: \(topEmotions.joined(separator: ", ")).")
+            }
+        }
+        return out
+    }
+
     private func getTopEmotions(session: SessionModel) -> [(String, Float)] {
         let emotionNodes = session.graphNodes.filter { $0.type == "emotion" }
         return emotionNodes.map { ($0.label, $0.strength) }.sorted { $0.1 > $1.1 }

@@ -38,7 +38,12 @@ struct PINLockout {
     func lockoutRemaining(now: Date = Date()) -> Int {
         let until = Date(timeIntervalSince1970: defaults.double(forKey: untilKey))
         let remaining = until.timeIntervalSince(now)
-        return remaining > 0 ? Int(remaining.rounded(.up)) : 0
+        guard remaining > 0 else { return 0 }
+        // The deadline is round-tripped through UserDefaults as a Double near
+        // 1.7e9, which loses sub-microsecond precision. Shave a tiny epsilon
+        // before rounding up so an exact value like 20.0 doesn't intermittently
+        // round to 21 due to that floating-point noise.
+        return Int((remaining - 0.0001).rounded(.up))
     }
 
     var isLockedOut: Bool { lockoutRemaining() > 0 }

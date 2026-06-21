@@ -8,8 +8,21 @@ struct InsightsView: View {
     var body: some View {
         NavigationStack {
             let insights = InsightService.shared.generateInsights(session: session)
+            let highlights = InsightService.shared.plainLanguageHighlights(session: session)
 
             List {
+                if !highlights.isEmpty {
+                    Section {
+                        ForEach(highlights, id: \.self) { line in
+                            Text(line).font(.body)
+                        }
+                    } header: {
+                        Text("What comes up most for you")
+                    } footer: {
+                        Text("Drawn from the patterns and links in your conversations.")
+                    }
+                }
+
                 Section("Repeating Loops") {
                     if insights.repeatingLoops.isEmpty {
                         Text("No patterns detected yet")
@@ -240,7 +253,7 @@ struct GraphView: View {
     var body: some View {
         NavigationStack {
             List {
-                Section("Nodes (\(session.graphNodes.count))") {
+                Section("Patterns (\(session.graphNodes.count))") {
                     let types = Dictionary(grouping: session.graphNodes, by: { $0.type })
                     ForEach(Array(types.keys.sorted()), id: \.self) { type in
                         if let nodes = types[type] {
@@ -262,41 +275,38 @@ struct GraphView: View {
                     }
                 }
 
-                Section("Edges") {
+                Section("Connections") {
                     let edges = session.graphNodes.flatMap(\.outgoingEdges)
                     if edges.isEmpty {
                         Text("No connections yet")
                             .foregroundColor(.secondary)
                     }
                     ForEach(edges) { edge in
-                        let sourceLabel = edge.sourceNode?.label ?? "?"
-                        HStack {
+                        let sourceLabel = edge.sourceNode?.label ?? "Something"
+                        let targetLabel = session.graphNodes.first { $0.id == edge.targetNodeID }?.label ?? "another pattern"
+                        HStack(spacing: 4) {
                             Text(sourceLabel)
-                                .font(.caption)
-                            Image(systemName: "arrow.right")
-                                .font(.caption2)
-                            Text(edge.type.lowercased())
+                                .font(.caption.weight(.medium))
+                            Text(GraphService.shared.getEdgeTypeLabel(edge.type))
                                 .font(.caption2)
                                 .foregroundColor(.secondary)
-                            Image(systemName: "arrow.right")
-                                .font(.caption2)
-                            Text(edge.targetNodeID)
-                                .font(.caption)
+                            Text(targetLabel)
+                                .font(.caption.weight(.medium))
                         }
                     }
                 }
 
-                Section("Stats") {
+                Section("Overview") {
                     let nodes = session.graphNodes
                     let edges = nodes.flatMap(\.outgoingEdges)
                     let isolated = nodes.filter { node in
                         !edges.contains(where: { $0.sourceNode?.id == node.id || $0.targetNodeID == node.id })
                     }
-                    Text("Density: \(nodes.isEmpty ? 0 : edges.count / nodes.count, format: .number.precision(.fractionLength(2)))")
-                    Text("Isolated nodes: \(isolated.count)")
+                    Text("\(nodes.count) patterns · \(edges.count) links")
+                    Text("Patterns with no links yet: \(isolated.count)")
                 }
             }
-            .navigationTitle("Knowledge Graph")
+            .navigationTitle("Your Patterns")
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
             }

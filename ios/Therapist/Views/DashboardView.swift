@@ -50,20 +50,24 @@ struct DashboardView: View {
                     }
                 }
 
-                // MARK: Knowledge Graph
-                Section("Knowledge Graph") {
-                    TappableStatRow(label: "Total Nodes", value: "\(allNodes.count)",
+                // MARK: Your Patterns
+                Section {
+                    TappableStatRow(label: "Patterns found", value: "\(allNodes.count)",
                                    icon: "circle.hexagongrid") {
                         sheet = .nodes
                     }
-                    TappableStatRow(label: "Total Edges", value: "\(allEdges.count)",
+                    TappableStatRow(label: "Links found", value: "\(allEdges.count)",
                                    icon: "arrow.triangle.branch") {
                         sheet = .edges
                     }
-                    TappableStatRow(label: "Graph Map", value: "",
+                    TappableStatRow(label: "Inner Map", value: "",
                                    icon: "point.3.connected.trianglepath.dotted") {
                         sheet = .graphMap
                     }
+                } header: {
+                    Text("Your Patterns")
+                } footer: {
+                    Text("Patterns are the emotions, people, and beliefs that show up in your sessions. Links show how they influence each other.")
                 }
 
                 // MARK: Content
@@ -229,8 +233,8 @@ struct NodesListView: View {
                 }
                 .buttonStyle(.plain)
             }
-            .searchable(text: $query, prompt: "Search nodes")
-            .navigationTitle("Graph Nodes (\(nodes.count))")
+            .searchable(text: $query, prompt: "Search patterns")
+            .navigationTitle("Patterns (\(nodes.count))")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Done") { dismiss() } } }
         }
@@ -271,25 +275,34 @@ struct NodeDetailView: View {
         return dict
     }
 
+    /// Resolves an outgoing edge's target node to its human-readable label by
+    /// looking it up within the same session (edges store only the target id).
+    private func targetLabel(for edge: GraphEdgeModel) -> String {
+        node.session?.graphNodes.first { $0.id == edge.targetNodeID }?.label ?? "another pattern"
+    }
+
+    /// Approximate co-occurrence count from an edge weight (weight starts at 1.0
+    /// and rises ~0.5 per shared mention).
+    private func timesSeen(_ weight: Float) -> String {
+        let n = max(1, Int(((weight - 1.0) / 0.5).rounded()) + 1)
+        return "\(n) time\(n == 1 ? "" : "s")"
+    }
+
     var body: some View {
         NavigationStack {
             List {
-                Section("Node") {
-                    LabeledContent("Label", value: node.label)
-                    LabeledContent("Type",  value: node.type.capitalized)
-                    LabeledContent("Strength", value: String(format: "%.2f", node.strength))
-                    LabeledContent("Created", value: node.createdAt.formatted(date: .abbreviated, time: .shortened))
+                Section("Pattern") {
+                    LabeledContent("Name", value: node.label)
+                    LabeledContent("Kind", value: node.type.capitalized)
+                    LabeledContent("First noticed", value: node.createdAt.formatted(date: .abbreviated, time: .shortened))
                 }
                 if !node.outgoingEdges.isEmpty {
-                    Section("Outgoing Edges (\(node.outgoingEdges.count))") {
+                    Section("Connections (\(node.outgoingEdges.count))") {
                         ForEach(node.outgoingEdges, id: \.id) { edge in
                             VStack(alignment: .leading, spacing: 3) {
-                                Text(edge.type.replacingOccurrences(of: "_", with: " ").capitalized)
+                                Text("\(node.label) \(GraphService.shared.getEdgeTypeLabel(edge.type)) \(targetLabel(for: edge))")
                                     .font(.subheadline.weight(.medium))
-                                Text("→ node \(edge.targetNodeID.prefix(8))…")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                                Text("Weight \(String(format: "%.2f", edge.weight))")
+                                Text("Seen together \(timesSeen(edge.weight))")
                                     .font(.caption2)
                                     .foregroundStyle(.tertiary)
                             }
@@ -320,32 +333,43 @@ struct EdgesListView: View {
 
     @State private var query = ""
 
+    private func targetLabel(for edge: GraphEdgeModel) -> String {
+        edge.sourceNode?.session?.graphNodes.first { $0.id == edge.targetNodeID }?.label ?? "another pattern"
+    }
+
+    private func sentence(for edge: GraphEdgeModel) -> String {
+        let source = edge.sourceNode?.label ?? "Something"
+        return "\(source) \(GraphService.shared.getEdgeTypeLabel(edge.type)) \(targetLabel(for: edge))"
+    }
+
+    private func timesSeen(_ weight: Float) -> String {
+        let n = max(1, Int(((weight - 1.0) / 0.5).rounded()) + 1)
+        return "seen together \(n) time\(n == 1 ? "" : "s")"
+    }
+
     private var filtered: [GraphEdgeModel] {
-        guard !query.isEmpty else { return edges.sorted { $0.createdAt > $1.createdAt } }
+        let base = edges.sorted { $0.createdAt > $1.createdAt }
+        guard !query.isEmpty else { return base }
         let q = query.lowercased()
-        return edges.filter { $0.type.lowercased().contains(q) }
+        return base.filter { sentence(for: $0).lowercased().contains(q) }
     }
 
     var body: some View {
         NavigationStack {
             List(filtered, id: \.id) { edge in
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(edge.type.replacingOccurrences(of: "_", with: " ").capitalized)
+                    Text(sentence(for: edge))
                         .font(.subheadline.weight(.semibold))
-                    HStack {
-                        Text("Source: \(edge.sourceNode?.label ?? "—")")
-                        Text("·")
-                        Text("Weight \(String(format: "%.2f", edge.weight))")
-                    }
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    Text(timesSeen(edge.weight))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                     Text(edge.createdAt.formatted(date: .abbreviated, time: .omitted))
                         .font(.caption2)
                         .foregroundStyle(.tertiary)
                 }
             }
-            .searchable(text: $query, prompt: "Search edge type")
-            .navigationTitle("Graph Edges (\(edges.count))")
+            .searchable(text: $query, prompt: "Search links")
+            .navigationTitle("Links (\(edges.count))")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Done") { dismiss() } } }
         }

@@ -38,12 +38,37 @@
       text-align: center;
       display: none;
     }
+    #legend {
+      position: absolute;
+      bottom: 10px;
+      left: 10px;
+      right: 10px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: center;
+      background: rgba(0,0,0,0.5);
+      border-radius: 10px;
+      padding: 7px 10px;
+      font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+      font-size: 12px;
+      color: #eee;
+    }
+    .legend-item { display: flex; align-items: center; gap: 4px; }
+    .legend-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
   </style>
 </head>
 <body>
   <div id="cy"></div>
   <div id="info"></div>
-  <div id="empty">No graph data yet.<br>Start a conversation to build your knowledge graph.</div>
+  <div id="empty">No map yet.<br>Keep talking — your patterns and the links between them will appear here.</div>
+  <div id="legend">
+    <span class="legend-item"><span class="legend-dot" style="background:#D0021B"></span>Emotion</span>
+    <span class="legend-item"><span class="legend-dot" style="background:#4A90D9"></span>Person</span>
+    <span class="legend-item"><span class="legend-dot" style="background:#7ED321"></span>Belief</span>
+    <span class="legend-item"><span class="legend-dot" style="background:#9B59B6"></span>Theme</span>
+    <span class="legend-item"><span class="legend-dot" style="background:#F5A623"></span>Event</span>
+  </div>
   <script src="cytoscape.min.js"></script>
   <script>
     var cy = null;
@@ -56,6 +81,21 @@
       "theme":   "#9B59B6",
       "default": "#999999"
     };
+
+    // Plain-language phrasing for relationship types, mirroring
+    // GraphService.getEdgeTypeLabel on the Swift side.
+    var edgeLabels = {
+      "CAUSES":           "leads to",
+      "TRIGGERS":         "brings up",
+      "SUPPRESSES":       "pushes down",
+      "COMPENSATES_FOR":  "covers for",
+      "ASSOCIATED_WITH":  "goes with"
+    };
+
+    function labelForEdge(type) {
+      if (edgeLabels[type]) { return edgeLabels[type]; }
+      return (type || "").replace(/_/g, " ").toLowerCase();
+    }
 
     function colorFor(type) {
       return typeColors[type] || typeColors["default"];
@@ -144,7 +184,7 @@
               "width": function(ele) { return Math.max(1, ele.data("weight") * 1.5); },
               "opacity": 0.6,
               "font-size": "9px",
-              "label": "data(type)",
+              "label": function(ele) { return labelForEdge(ele.data("type")); },
               "color": "#aaa",
               "text-rotation": "autorotate",
               "text-background-color": "#000",
@@ -179,11 +219,11 @@
         var node = evt.target;
         var d = node.data();
         var nbCount = node.neighborhood("node").length;
+        var sessions = parseInt(d.sessions) || 1;
         infoEl.textContent =
-          d.label + " (" + d.type + ")" +
-          " · strength " + parseFloat(d.strength).toFixed(1) +
-          " · " + d.sessions + " session(s)" +
-          " · " + nbCount + " connection(s)";
+          d.label + " · a " + d.type + " that came up in " +
+          sessions + (sessions === 1 ? " session" : " sessions") +
+          " · linked to " + nbCount + (nbCount === 1 ? " other pattern" : " other patterns");
         infoEl.style.display = "block";
       });
 
@@ -192,9 +232,10 @@
         var d = edge.data();
         var srcLabel = cy.getElementById(d.source).data("label") || d.source;
         var tgtLabel = cy.getElementById(d.target).data("label") || d.target;
+        var times = Math.max(1, Math.round(parseFloat(d.weight)));
         infoEl.textContent =
-          srcLabel + " → " + d.type + " → " + tgtLabel +
-          " (weight " + parseFloat(d.weight).toFixed(1) + ")";
+          srcLabel + " " + labelForEdge(d.type) + " " + tgtLabel +
+          " · seen together " + times + (times === 1 ? " time" : " times");
         infoEl.style.display = "block";
       });
 

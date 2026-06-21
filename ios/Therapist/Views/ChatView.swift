@@ -214,7 +214,7 @@ struct ChatView: View {
                 Spacer()
                 Button("Dreams", systemImage: "moon") { showDreams = true }
                 Spacer()
-                Button("Graph", systemImage: "circle.hexagongrid") { showGraph = true }
+                Button("Patterns", systemImage: "circle.hexagongrid") { showGraph = true }
             }
         }
         .sheet(isPresented: $showModelPicker) {
