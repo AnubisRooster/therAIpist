@@ -14,7 +14,7 @@
     }
     #info {
       position: absolute;
-      top: 10px;
+      top: 96px;
       left: 10px;
       right: 10px;
       background: rgba(0,0,0,0.65);
@@ -216,15 +216,13 @@
       var infoEl = document.getElementById("info");
 
       cy.on("tap", "node", function(evt) {
-        var node = evt.target;
-        var d = node.data();
-        var nbCount = node.neighborhood("node").length;
-        var sessions = parseInt(d.sessions) || 1;
-        infoEl.textContent =
-          d.label + " · a " + d.type + " that came up in " +
-          sessions + (sessions === 1 ? " session" : " sessions") +
-          " · linked to " + nbCount + (nbCount === 1 ? " other pattern" : " other patterns");
-        infoEl.style.display = "block";
+        var d = evt.target.data();
+        infoEl.style.display = "none";
+        // Hand off to the native layer, which presents a full list of the
+        // patterns connected to this one in a table.
+        if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.nodeTap) {
+          window.webkit.messageHandlers.nodeTap.postMessage(d.id);
+        }
       });
 
       cy.on("tap", "edge", function(evt) {

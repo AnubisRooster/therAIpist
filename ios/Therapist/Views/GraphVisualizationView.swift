@@ -7,9 +7,15 @@ import WebKit
 /// Pass the Cytoscape JSON string produced by `GraphExportService.cytoscapeJSON`.
 struct GraphVisualizationView: UIViewRepresentable {
     let cytoscapeJSON: String
+    /// Called with the tapped node's id (the aggregated `(type:label)` key).
+    var onNodeTap: ((String) -> Void)? = nil
 
     func makeUIView(context: Context) -> WKWebView {
-        let webView = WKWebView(frame: .zero)
+        let config = WKWebViewConfiguration()
+        // graph.html posts the tapped node id on this channel.
+        config.userContentController.add(context.coordinator, name: "nodeTap")
+
+        let webView = WKWebView(frame: .zero, configuration: config)
         webView.isOpaque = false
         webView.backgroundColor = .clear
         webView.scrollView.isScrollEnabled = false
@@ -30,24 +36,41 @@ struct GraphVisualizationView: UIViewRepresentable {
     }
 
     func updateUIView(_ webView: WKWebView, context: Context) {
-        // If the JSON changes (e.g. data reloaded) re-inject once the page is loaded.
+        // Keep the coordinator's callback and data current across re-renders.
+        context.coordinator.onNodeTap = onNodeTap
         context.coordinator.pendingJSON = cytoscapeJSON
         if context.coordinator.isLoaded {
             context.coordinator.inject(into: webView)
         }
     }
 
-    func makeCoordinator() -> Coordinator { Coordinator() }
+    func makeCoordinator() -> Coordinator {
+        let c = Coordinator()
+        c.onNodeTap = onNodeTap
+        return c
+    }
+
+    static func dismantleUIView(_ webView: WKWebView, coordinator: Coordinator) {
+        // Avoid leaking the strong reference the userContentController holds.
+        webView.configuration.userContentController.removeScriptMessageHandler(forName: "nodeTap")
+    }
 
     // MARK: - Coordinator
 
-    final class Coordinator: NSObject, WKNavigationDelegate {
+    final class Coordinator: NSObject, WKNavigationDelegate, WKScriptMessageHandler {
         var pendingJSON: String = ""
         var isLoaded = false
+        var onNodeTap: ((String) -> Void)?
 
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
             isLoaded = true
             inject(into: webView)
+        }
+
+        func userContentController(_ controller: WKUserContentController,
+                                   didReceive message: WKScriptMessage) {
+            guard message.name == "nodeTap", let id = message.body as? String else { return }
+            onNodeTap?(id)
         }
 
         func inject(into webView: WKWebView) {
@@ -71,6 +94,7 @@ struct GraphVisualizationSheet: View {
 
     @State private var shareItems: [Any] = []
     @State private var showShare = false
+    @State private var selectedNode: AggregatedNode?
 
     var body: some View {
         // Aggregate once per render rather than recomputing for the web view,
@@ -78,7 +102,9 @@ struct GraphVisualizationSheet: View {
         let graph = GraphExportService.aggregate(sessions: sessions)
         let json = GraphExportService.cytoscapeJSON(graph: graph)
         NavigationStack {
-            GraphVisualizationView(cytoscapeJSON: json)
+            GraphVisualizationView(cytoscapeJSON: json, onNodeTap: { id in
+                selectedNode = graph.nodes.first { $0.id == id }
+            })
                 .ignoresSafeArea(edges: .bottom)
                 .navigationTitle("Inner Map")
                 .navigationBarTitleDisplayMode(.inline)
@@ -119,6 +145,10 @@ struct GraphVisualizationSheet: View {
         .sheet(isPresented: $showShare) {
             ShareSheet(items: shareItems)
         }
+        .sheet(item: $selectedNode) { node in
+            NodeConnectionsSheet(node: node,
+                                 graph: GraphExportService.aggregate(sessions: sessions))
+        }
     }
 
     private func prepareExport(graph: AggregatedGraph, json: String) {
@@ -132,6 +162,131 @@ struct GraphVisualizationSheet: View {
         }
         shareItems = items
         showShare = true
+    }
+}
+
+// MARK: - NodeConnectionsSheet
+
+/// Lists every pattern connected to a tapped node in a table, with the
+/// plain-language relationship and how often the two appeared together.
+struct NodeConnectionsSheet: View {
+    let node: AggregatedNode
+    let graph: AggregatedGraph
+    @Environment(\.dismiss) private var dismiss
+
+    /// One connected pattern + how it relates to the tapped node.
+    private struct Connection: Identifiable {
+        let id: String
+        let otherLabel: String
+        let otherType: String
+        let relationship: String   // full plain-language sentence
+        let timesSeen: Int
+    }
+
+    private var connections: [Connection] {
+        var nodeByID: [String: AggregatedNode] = [:]
+        for n in graph.nodes { nodeByID[n.id] = n }
+
+        var rows: [Connection] = []
+        for e in graph.edges {
+            let phrase = GraphService.shared.getEdgeTypeLabel(e.type)
+            let times = max(1, Int(e.weight.rounded()))
+            if e.sourceID == node.id, let other = nodeByID[e.targetID] {
+                rows.append(Connection(
+                    id: e.id,
+                    otherLabel: other.label,
+                    otherType: other.type,
+                    relationship: "\(node.label) \(phrase) \(other.label)",
+                    timesSeen: times
+                ))
+            } else if e.targetID == node.id, let other = nodeByID[e.sourceID] {
+                rows.append(Connection(
+                    id: e.id,
+                    otherLabel: other.label,
+                    otherType: other.type,
+                    relationship: "\(other.label) \(phrase) \(node.label)",
+                    timesSeen: times
+                ))
+            }
+        }
+        // Most-reinforced links first, then alphabetical.
+        return rows.sorted {
+            $0.timesSeen != $1.timesSeen ? $0.timesSeen > $1.timesSeen
+                                         : $0.otherLabel < $1.otherLabel
+        }
+    }
+
+    var body: some View {
+        NavigationStack {
+            List {
+                if connections.isEmpty {
+                    Section {
+                        Text("No links yet for this pattern. As it comes up alongside other things in your sessions, connections will appear here.")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                } else {
+                    Section {
+                        ForEach(connections) { c in
+                            VStack(alignment: .leading, spacing: 4) {
+                                HStack {
+                                    Text(c.otherLabel)
+                                        .font(.body.weight(.semibold))
+                                    Spacer()
+                                    typeCapsule(c.otherType)
+                                }
+                                Text(c.relationship)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                Text("Seen together \(c.timesSeen) time\(c.timesSeen == 1 ? "" : "s")")
+                                    .font(.caption2)
+                                    .foregroundStyle(.tertiary)
+                            }
+                            .padding(.vertical, 2)
+                        }
+                    } header: {
+                        Text("\(connections.count) connection\(connections.count == 1 ? "" : "s")")
+                    }
+                }
+            }
+            .navigationTitle(node.label)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .principal) {
+                    VStack(spacing: 1) {
+                        Text(node.label).font(.headline)
+                        Text(node.type.capitalized)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func typeCapsule(_ type: String) -> some View {
+        Text(type.capitalized)
+            .font(.caption2.weight(.medium))
+            .padding(.horizontal, 8)
+            .padding(.vertical, 3)
+            .background(color(for: type).opacity(0.18), in: Capsule())
+            .foregroundStyle(color(for: type))
+    }
+
+    /// Mirrors the legend colours in graph.html.
+    private func color(for type: String) -> Color {
+        switch type {
+        case "person":  return Color(red: 0.29, green: 0.56, blue: 0.85)
+        case "event":   return Color(red: 0.96, green: 0.65, blue: 0.14)
+        case "emotion": return Color(red: 0.82, green: 0.01, blue: 0.11)
+        case "belief":  return Color(red: 0.49, green: 0.83, blue: 0.13)
+        case "theme":   return Color(red: 0.61, green: 0.35, blue: 0.71)
+        default:        return .gray
+        }
     }
 }
 
