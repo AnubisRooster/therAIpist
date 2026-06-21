@@ -50,8 +50,10 @@ An AI-assisted self-reflection companion: a native **SwiftUI** iOS app that blen
 ### Data & sessions
 - **SwiftData persistence** — all data (messages, memories, nodes, edges, notes, dreams) is stored locally in a SwiftData store
 - **Archive sessions** — swipe to archive instead of delete; all underlying data is preserved; restore at any time from the Archive tab
-- **Notes & dreams** — record session notes and dream narratives per conversation
+- **Auto dream capture** — when you describe a dream in chat (cues: "I had a dream", "I dreamt", "nightmare", etc.), the app automatically creates a `DreamModel` with extracted feelings and Jungian symbols; a `moon.zzz` badge appears on the assistant reply
+- **Auto session summary note** — after the second user message in a session, a heuristic "Session Summary" reflection note is upserted (never duplicated), listing top emotions, people, themes, and beliefs from the current graph
 - **Dashboard** — aggregated stats across all sessions; tap any stat (nodes, edges, memories, notes, dreams, global memories) to drill into the full list
+- **Knowledge Graph Map** — tap "Graph Map" on the Dashboard to open an offline Cytoscape.js graph visualisation of the entire aggregated cross-session knowledge graph; nodes are sized by strength and coloured by type
 
 ### Safety
 - **Crisis detection** — every user message is checked with keyword matching that errs toward caution; crisis resources are surfaced automatically and persisted into the conversation
@@ -72,7 +74,10 @@ An AI-assisted self-reflection companion: a native **SwiftUI** iOS app that blen
 ```
 ios/Therapist/
 ├── Services/
-│   ├── ChatService.swift          # Core turn orchestrator: memory, graph, LLM, safety
+│   ├── ChatService.swift          # Core turn orchestrator: memory, graph, LLM, safety,
+│   │                              #   dream capture, note upsert
+│   ├── InsightCaptureService.swift# Dream detection (heuristic) + session summary notes
+│   ├── GraphExportService.swift   # Cross-session aggregation + GraphML + Cytoscape JSON
 │   ├── LLMService.swift           # Routes to OpenRouter or local engine
 │   ├── LocalLLMEngine.swift       # llama.cpp inference via LLM.swift; stop-sequence,
 │   │                              #   timeout, concurrent-generation guards
@@ -80,31 +85,42 @@ ios/Therapist/
 │   ├── MemoryService.swift        # Episodic/semantic embedding + recall
 │   ├── GlobalMemoryService.swift  # Cross-session significant memory promotion
 │   ├── GraphService.swift         # Entity extraction + edge wiring
+│   ├── DreamService.swift         # Dream recording (manual + auto from chat)
+│   ├── NoteService.swift          # Note creation (manual + auto summary)
 │   ├── TherapyService.swift       # Persona/modality prompts + system prompt assembly
 │   ├── PersonaService.swift       # Therapist/Companion identity, name + voice resolution
 │   ├── SpeechService.swift        # AVSpeechSynthesizer TTS wrapper (+ onFinish loop hook)
 │   ├── VoiceConversationController.swift  # Hands-free loop: SFSpeechRecognizer +
 │   │                              #   AVAudioEngine + silence endpointing
-│   ├── BadgeBackfillService.swift # One-time retro-tagging of old conversations
+│   ├── BadgeBackfillService.swift # One-time retro-tagging of old conversations (v2:
+│   │                              #   adds dream + note backfill)
 │   ├── SafetyService.swift        # Crisis + boundary detection
-│   └── AgentOrchestrator.swift    # Specialized sub-agents (notes, dreams, graph)
+│   └── AgentOrchestrator.swift    # Specialized sub-agents (routing by modality)
 │
 ├── Models/
-│   └── SwiftDataModels.swift      # SessionModel, MessageModel, MemoryModel,
-│                                  #   GraphNodeModel, GraphEdgeModel, NoteModel,
-│                                  #   DreamModel, GlobalMemoryModel, SafetyEventModel
+│   └── SwiftDataModels.swift      # SessionModel, MessageModel (capturedDream/Note),
+│                                  #   MemoryModel, GraphNodeModel, GraphEdgeModel,
+│                                  #   NoteModel, DreamModel, GlobalMemoryModel,
+│                                  #   SafetyEventModel
+│
+├── Resources/
+│   └── Graph/
+│       ├── graph.html             # Cytoscape.js host page (offline, bundled)
+│       └── cytoscape.min.js       # Pinned Cytoscape.js v3.30.4 (bundled, no CDN)
 │
 └── Views/
     ├── ContentView.swift          # Session list (archive-aware @Query)
     ├── ChatView.swift             # Chat UI + MessageBubble with insight badges
+    │                              #   (moon.zzz dream, note.text note badges)
     ├── OnboardingView.swift       # 8-step first-launch flow
-    ├── DashboardView.swift        # Stats + drill-down detail sheets
+    ├── DashboardView.swift        # Stats + drill-down detail sheets + Graph Map
+    ├── GraphVisualizationView.swift # WKWebView Cytoscape wrapper + export share sheet
     ├── SettingsView.swift         # API key, TTS, defaults, on-device model manager
     ├── ModelPickerView.swift      # Per-session cloud / on-device model picker
     ├── InsightsView.swift
     ├── NotesView.swift
     ├── DreamsView.swift
-    └── GraphView.swift
+    └── GraphView.swift            # Per-session node/edge list view
 ```
 
 ---
@@ -169,6 +185,37 @@ Edges are wired between co-occurring entities in the same message:
 
 View the graph any time via **Graph** in the chat toolbar.
 
+### Knowledge Graph Map (Dashboard)
+
+The **Graph Map** on the Dashboard visualises your *entire* knowledge graph merged across all sessions:
+
+- Nodes are sized by cumulative strength and coloured by type (blue = person, red = emotion, green = belief, orange = event, purple = theme)
+- Edges carry their relationship type as a label
+- Tap any node or edge for a detail tooltip; pinch to zoom, drag to pan
+
+#### Export for analysis
+
+Tap **Export** (↑ icon) to share the graph in two formats via the iOS share sheet (Mail, AirDrop, Files):
+
+| Format | File | Use case |
+|--------|------|----------|
+| **GraphML** | `knowledge-graph.graphml` | Open in [Gephi](https://gephi.org) for advanced analysis, community detection, layout algorithms |
+| **Cytoscape / Neo4j JSON** | `knowledge-graph.json` | Load into a Cytoscape.js web app or import nodes/edges into [Neo4j](https://neo4j.com) |
+
+#### Gephi workflow
+
+1. Export `knowledge-graph.graphml` from the app
+2. In Gephi: **File → Open** → select the `.graphml` file
+3. Use **Force Atlas 2** or **OpenOrd** for large graphs
+4. The `strength` attribute (node) and `weight` attribute (edge) are imported as numeric properties for ranking and filtering
+
+#### Future web explorer (Mac Mini)
+
+The exported JSON uses the same `elements.nodes` / `elements.edges` Cytoscape.js shape, so a future Mac Mini web app can load the file directly with:
+```js
+cy.json(JSON.parse(graphmlContent).elements);
+```
+
 ---
 
 ## Memory system
@@ -208,10 +255,13 @@ negative cases, plus end-to-end pipeline tests:
 
 - **Unit** — safety detection, knowledge-graph extraction/edges, memory keywording,
   global-memory promotion tiers, provider/model resolution, PIN brute-force lockout,
-  voice transcript stitching, and persona resolution / system-prompt selection
+  voice transcript stitching, persona resolution / system-prompt selection,
+  dream cue detection, symbol/feeling extraction, summary-note upsert idempotency,
+  cross-session graph aggregation, GraphML/Cytoscape JSON shape + XML well-formedness
 - **End-to-end** — `ChatService.processMessage` exercised with an in-memory SwiftData
   store and a mock LLM: normal turns (bubbles, memory, graph, badges), crisis routing,
-  history ordering, boundary replacement, and the no-API-key / no-model guidance paths
+  history ordering, boundary replacement, the no-API-key / no-model guidance paths,
+  dream creation + dream badge, and note upsert idempotency
 - **Concurrency** — `LocalLLMEngine` load serialization and graceful failure
 
 Run them with:

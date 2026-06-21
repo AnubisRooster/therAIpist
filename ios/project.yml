@@ -43,6 +43,9 @@ targets:
       - path: Therapist
         excludes:
           - "Resources/AppIcon.png"
+    resources:
+      - path: Therapist/Resources/Graph
+        buildPhase: resources
     dependencies:
       - package: LLM
     settings:

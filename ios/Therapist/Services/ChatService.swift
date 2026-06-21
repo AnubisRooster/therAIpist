@@ -199,6 +199,33 @@ final class ChatService {
             context: context
         )
 
+        // Dream capture: detect dream language in user message.
+        if let dream = InsightCaptureService.detectDream(in: userMessage) {
+            DreamService.shared.recordDream(
+                session: session,
+                narrative: dream.narrative,
+                feelings: dream.feelings,
+                symbols: dream.symbols,
+                context: context
+            )
+            assistantMsg.capturedDream = true
+        }
+
+        // Note capture: upsert one auto summary note per session.
+        if let summary = InsightCaptureService.summaryNote(for: session) {
+            if let existing = InsightCaptureService.existingSummaryNote(for: session) {
+                existing.title = summary.title
+                existing.content = summary.content
+                existing.updatedAt = Date()
+            } else {
+                let note = NoteModel(session: session, type: "reflection",
+                                     title: summary.title, content: summary.content)
+                note.structuredData = InsightCaptureService.summaryNoteMarker
+                context.insert(note)
+                assistantMsg.capturedNote = true
+            }
+        }
+
         // Stamp the assistant message with how much was captured this turn.
         assistantMsg.capturedNodeCount   = session.graphNodes.filter { !nodeIDsBefore.contains($0.id) }.count
         assistantMsg.capturedEdgeCount   = session.graphNodes.flatMap(\.outgoingEdges).filter { !edgeIDsBefore.contains($0.id) }.count

@@ -92,6 +92,8 @@ final class MessageModel {
     var capturedEdgeCount: Int = 0
     var capturedMemoryCount: Int = 0
     var capturedGlobalMemory: Bool = false
+    var capturedDream: Bool = false
+    var capturedNote: Bool = false
 
     init(session: SessionModel, role: String, content: String, tokenCount: Int = 0) {
         self.id = UUID().uuidString

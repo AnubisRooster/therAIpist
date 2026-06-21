@@ -10,6 +10,18 @@ class DreamService {
         return dream
     }
 
+    /// Records a dream and immediately stores extracted symbols so they appear
+    /// in DreamsListView without requiring a separate `extractSymbols` call.
+    @discardableResult
+    func recordDream(session: SessionModel, narrative: String,
+                     feelings: [String], symbols: [String],
+                     context: ModelContext) -> DreamModel {
+        let dream = DreamModel(session: session, narrative: narrative,
+                               feelings: feelings, symbols: symbols)
+        context.insert(dream)
+        return dream
+    }
+
     func analyzeDream(session: SessionModel, dream: DreamModel, provider: String, model: String) async throws -> String {
         let prompt = """
         You are a Jungian dream analyst. Analyze this dream narrative and provide:

@@ -406,7 +406,9 @@ struct MessageBubble: View {
             message.capturedNodeCount > 0 ||
             message.capturedEdgeCount > 0 ||
             message.capturedMemoryCount > 0 ||
-            message.capturedGlobalMemory
+            message.capturedGlobalMemory ||
+            message.capturedDream ||
+            message.capturedNote
         )
     }
 
@@ -464,6 +466,12 @@ private struct CapturedBadgeRow: View {
                     label: "\(message.capturedEdgeCount) \(message.capturedEdgeCount == 1 ? "edge" : "edges")",
                     color: .indigo
                 )
+            }
+            if message.capturedDream {
+                BadgePill(icon: "moon.zzz", label: "dream logged", color: .purple)
+            }
+            if message.capturedNote {
+                BadgePill(icon: "note.text", label: "note", color: .green)
             }
             if message.capturedGlobalMemory {
                 BadgePill(

@@ -12,7 +12,7 @@ struct DashboardView: View {
     @State private var sheet: DashboardSheet?
 
     private enum DashboardSheet: Identifiable {
-        case nodes, edges, notes, dreams, memories, globalMemories
+        case nodes, edges, notes, dreams, memories, globalMemories, graphMap
         var id: Int { hashValue }
     }
 
@@ -60,6 +60,10 @@ struct DashboardView: View {
                                    icon: "arrow.triangle.branch") {
                         sheet = .edges
                     }
+                    TappableStatRow(label: "Graph Map", value: "",
+                                   icon: "point.3.connected.trianglepath.dotted") {
+                        sheet = .graphMap
+                    }
                 }
 
                 // MARK: Content
@@ -105,6 +109,7 @@ struct DashboardView: View {
             case .dreams:         DreamsListView(dreams: allDreams, sessions: sessions)
             case .memories:       MemoriesListView(memories: allMemories, sessions: sessions)
             case .globalMemories: GlobalMemoriesListView(memories: globalMemories)
+            case .graphMap:       GraphVisualizationSheet(sessions: sessions)
             }
         }
     }

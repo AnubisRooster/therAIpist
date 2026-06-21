@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Knowledge Graph</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; background: transparent; }
+    #cy {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+    #info {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      right: 10px;
+      background: rgba(0,0,0,0.65);
+      color: #fff;
+      font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+      font-size: 13px;
+      padding: 8px 12px;
+      border-radius: 10px;
+      display: none;
+      max-width: 320px;
+      word-break: break-word;
+    }
+    #empty {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+      font-size: 15px;
+      color: #888;
+      text-align: center;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="cy"></div>
+  <div id="info"></div>
+  <div id="empty">No graph data yet.<br>Start a conversation to build your knowledge graph.</div>
+  <script src="cytoscape.min.js"></script>
+  <script>
+    var cy = null;
+
+    var typeColors = {
+      "person":  "#4A90D9",
+      "event":   "#F5A623",
+      "emotion": "#D0021B",
+      "belief":  "#7ED321",
+      "theme":   "#9B59B6",
+      "default": "#999999"
+    };
+
+    function colorFor(type) {
+      return typeColors[type] || typeColors["default"];
+    }
+
+    window.renderGraph = function(jsonStr) {
+      var data;
+      try { data = JSON.parse(jsonStr); } catch(e) { return; }
+
+      var nodes = (data.elements && data.elements.nodes) ? data.elements.nodes : [];
+      var edges = (data.elements && data.elements.edges) ? data.elements.edges : [];
+
+      var emptyEl = document.getElementById("empty");
+      if (nodes.length === 0) {
+        emptyEl.style.display = "block";
+        return;
+      }
+      emptyEl.style.display = "none";
+
+      var cyNodes = nodes.map(function(n) {
+        var d = n.data;
+        return {
+          data: {
+            id: d.id,
+            label: d.label,
+            type: d.type,
+            strength: d.strength || 1,
+            sessions: d.sessions || 1
+          }
+        };
+      });
+
+      var cyEdges = edges.map(function(e) {
+        var d = e.data;
+        return {
+          data: {
+            id: d.id,
+            source: d.source,
+            target: d.target,
+            type: d.type,
+            weight: d.weight || 1
+          }
+        };
+      });
+
+      if (cy) { cy.destroy(); }
+
+      cy = cytoscape({
+        container: document.getElementById("cy"),
+        elements: { nodes: cyNodes, edges: cyEdges },
+        style: [
+          {
+            selector: "node",
+            style: {
+              "label": "data(label)",
+              "background-color": function(ele) { return colorFor(ele.data("type")); },
+              "width": function(ele) { return Math.max(30, Math.min(60, ele.data("strength") * 14)); },
+              "height": function(ele) { return Math.max(30, Math.min(60, ele.data("strength") * 14)); },
+              "font-size": "11px",
+              "text-valign": "bottom",
+              "text-halign": "center",
+              "text-margin-y": 4,
+              "color": "#ffffff",
+              "text-background-color": "#000000",
+              "text-background-opacity": 0.5,
+              "text-background-padding": "2px",
+              "text-background-shape": "roundrectangle",
+              "border-width": 0
+            }
+          },
+          {
+            selector: "node:selected",
+            style: {
+              "border-width": 3,
+              "border-color": "#ffffff",
+              "overlay-opacity": 0.15
+            }
+          },
+          {
+            selector: "edge",
+            style: {
+              "line-color": "#555",
+              "target-arrow-color": "#555",
+              "target-arrow-shape": "triangle",
+              "curve-style": "bezier",
+              "width": function(ele) { return Math.max(1, ele.data("weight") * 1.5); },
+              "opacity": 0.6,
+              "font-size": "9px",
+              "label": "data(type)",
+              "color": "#aaa",
+              "text-rotation": "autorotate",
+              "text-background-color": "#000",
+              "text-background-opacity": 0.4,
+              "text-background-padding": "1px"
+            }
+          },
+          {
+            selector: "edge:selected",
+            style: { "opacity": 1, "line-color": "#ffffff", "target-arrow-color": "#ffffff" }
+          }
+        ],
+        layout: {
+          name: "cose",
+          animate: false,
+          nodeRepulsion: 800000,
+          idealEdgeLength: 120,
+          edgeElasticity: 0.1,
+          gravity: 0.25,
+          numIter: 2000,
+          coolingFactor: 0.95
+        },
+        userZoomingEnabled: true,
+        userPanningEnabled: true,
+        minZoom: 0.2,
+        maxZoom: 5
+      });
+
+      var infoEl = document.getElementById("info");
+
+      cy.on("tap", "node", function(evt) {
+        var node = evt.target;
+        var d = node.data();
+        var nbCount = node.neighborhood("node").length;
+        infoEl.textContent =
+          d.label + " (" + d.type + ")" +
+          " · strength " + parseFloat(d.strength).toFixed(1) +
+          " · " + d.sessions + " session(s)" +
+          " · " + nbCount + " connection(s)";
+        infoEl.style.display = "block";
+      });
+
+      cy.on("tap", "edge", function(evt) {
+        var edge = evt.target;
+        var d = edge.data();
+        var srcLabel = cy.getElementById(d.source).data("label") || d.source;
+        var tgtLabel = cy.getElementById(d.target).data("label") || d.target;
+        infoEl.textContent =
+          srcLabel + " → " + d.type + " → " + tgtLabel +
+          " (weight " + parseFloat(d.weight).toFixed(1) + ")";
+        infoEl.style.display = "block";
+      });
+
+      cy.on("tap", function(evt) {
+        if (evt.target === cy) { infoEl.style.display = "none"; }
+      });
+
+      // Fit the graph with a small padding.
+      cy.fit(undefined, 24);
+    };
+  </script>
+</body>
+</html>

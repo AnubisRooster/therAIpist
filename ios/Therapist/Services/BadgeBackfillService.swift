@@ -5,38 +5,35 @@ import SwiftData
 /// and creates the knowledge-graph edges + global memories that older builds
 /// never generated.
 ///
-/// Older conversations have:
-///   - graph **nodes** (created at the time, deduped by label)
-///   - episodic **memories** (one per exchange via recordExchange)
-/// but were missing:
-///   - graph **edges** (edge wiring was added later)
-///   - **global memories** (the old promotion threshold almost never fired)
-/// and none of their messages carry per-turn badge counts.
+/// v1 additions:
+///   - graph edges (edge wiring was added later)
+///   - global memories (the old promotion threshold almost never fired)
+///   - per-turn badge counts on assistant messages
 ///
-/// This pass walks every session chronologically and, for each user→assistant
-/// exchange, attributes node "first sightings", creates the missing edges, runs
-/// global-memory promotion, and stamps the assistant message so the chat bubbles
-/// show the same badges new messages get.
+/// v2 additions (bumped flag):
+///   - auto-detected dreams from historical user messages
+///   - one auto "Session Summary" reflection note per session
+///   - capturedDream / capturedNote flags on assistant messages
 enum BadgeBackfillService {
-    /// Bump this suffix if the backfill logic changes and needs to re-run.
-    private static let flagKey = "badge_backfill_v1_done"
+    /// Bump this suffix when the backfill logic changes and needs to re-run.
+    private static let flagKey = "badge_backfill_v2_done"
 
     static func runIfNeeded(context: ModelContext) {
         let defaults = UserDefaults.standard
         guard !defaults.bool(forKey: flagKey) else { return }
 
-        let graph  = GraphService.shared
-        let global = GlobalMemoryService.shared
+        let graph   = GraphService.shared
+        let global  = GlobalMemoryService.shared
+        let dreams  = DreamService.shared
 
-        // Include archived sessions too.
         let fetch = FetchDescriptor<SessionModel>()
         guard let sessions = try? context.fetch(fetch) else { return }
 
         for session in sessions {
             let ordered = session.messages.sorted { $0.createdAt < $1.createdAt }
 
-            // Labels already attributed to an earlier message in this session,
-            // so each node is credited to the first turn that introduced it.
+            // Labels already credited to an earlier turn so each node is
+            // attributed to the first turn that introduced it.
             var attributedLabels = Set<String>()
 
             var i = 0
@@ -57,13 +54,33 @@ enum BadgeBackfillService {
                     }
                 }
 
-                // ── Edge creation (missing on old data) + count newly created
+                // ── Edge creation (missing on old data)
                 let edgesBefore = Set(session.graphNodes.flatMap(\.outgoingEdges).map(\.id))
                 graph.extractEntitiesFromMessage(session: session, message: userText, context: context)
                 let newEdgeCount = session.graphNodes
                     .flatMap(\.outgoingEdges)
                     .filter { !edgesBefore.contains($0.id) }
                     .count
+
+                // ── Dream detection (new in v2)
+                var dreamCaptured = false
+                if let dreamCandidate = InsightCaptureService.detectDream(in: userText) {
+                    // Only create a dream if one with the same narrative doesn't
+                    // already exist (the user may have manually added it before).
+                    let alreadyExists = session.dreams.contains {
+                        $0.narrative.prefix(100) == dreamCandidate.narrative.prefix(100)
+                    }
+                    if !alreadyExists {
+                        dreams.recordDream(
+                            session: session,
+                            narrative: dreamCandidate.narrative,
+                            feelings: dreamCandidate.feelings,
+                            symbols: dreamCandidate.symbols,
+                            context: context
+                        )
+                        dreamCaptured = true
+                    }
+                }
 
                 // ── Pair with the following assistant message (if any)
                 if i + 1 < ordered.count && ordered[i + 1].role == "assistant" {
@@ -82,10 +99,25 @@ enum BadgeBackfillService {
                     // memory per completed exchange.
                     assistant.capturedMemoryCount  = 1
                     assistant.capturedGlobalMemory = promoted != nil
+                    if dreamCaptured { assistant.capturedDream = true }
 
                     i += 2
                 } else {
                     i += 1
+                }
+            }
+
+            // ── Summary note (one per session, new in v2)
+            if InsightCaptureService.existingSummaryNote(for: session) == nil,
+               let summary = InsightCaptureService.summaryNote(for: session) {
+                let note = NoteModel(session: session, type: "reflection",
+                                     title: summary.title, content: summary.content)
+                note.structuredData = InsightCaptureService.summaryNoteMarker
+                context.insert(note)
+
+                // Badge the last assistant message with capturedNote.
+                if let lastAssistant = ordered.last(where: { $0.role == "assistant" }) {
+                    lastAssistant.capturedNote = true
                 }
             }
         }
