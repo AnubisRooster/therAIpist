@@ -6,6 +6,30 @@
 
 An AI-assisted self-reflection companion: a native **SwiftUI** iOS app that blends multiple therapeutic traditions, builds a personal knowledge graph across sessions, and can run entirely on-device with no internet connection.
 
+---
+
+## Screenshots
+
+<table>
+  <tr>
+    <td align="center"><strong>Therapist chat + insight badges</strong><br/><img src="docs/screenshots/chat-therapist.png" width="220"/></td>
+    <td align="center"><strong>Companion Mode</strong><br/><img src="docs/screenshots/chat-companion.png" width="220"/></td>
+    <td align="center"><strong>Hands-free voice mode</strong><br/><img src="docs/screenshots/voice-mode.png" width="220"/></td>
+  </tr>
+  <tr>
+    <td align="center"><strong>Dashboard — Your Patterns</strong><br/><img src="docs/screenshots/dashboard.png" width="220"/></td>
+    <td align="center"><strong>Inner Map (knowledge graph)</strong><br/><img src="docs/screenshots/inner-map.png" width="220"/></td>
+    <td align="center"><strong>Pattern connections sheet</strong><br/><img src="docs/screenshots/node-connections.png" width="220"/></td>
+  </tr>
+  <tr>
+    <td align="center"><strong>Session insights</strong><br/><img src="docs/screenshots/insights.png" width="220"/></td>
+    <td align="center"><strong>Persona settings</strong><br/><img src="docs/screenshots/settings-personas.png" width="220"/></td>
+    <td align="center"><strong>On-device model setup</strong><br/><img src="docs/screenshots/onboarding-models.png" width="220"/></td>
+  </tr>
+</table>
+
+---
+
 > **Important disclaimer**
 > therAIpist is **not** a licensed therapist, psychologist, or medical provider. It is a journaling and self-reflection tool only. It cannot diagnose, treat, or manage any mental health condition.
 >
@@ -53,7 +77,7 @@ An AI-assisted self-reflection companion: a native **SwiftUI** iOS app that blen
 - **Auto dream capture** — when you describe a dream in chat (cues: "I had a dream", "I dreamt", "nightmare", etc.), the app automatically creates a `DreamModel` with extracted feelings and Jungian symbols; a `moon.zzz` badge appears on the assistant reply
 - **Auto session summary note** — after the second user message in a session, a heuristic "Session Summary" reflection note is upserted (never duplicated), listing top emotions, people, themes, and beliefs from the current graph
 - **Dashboard** — aggregated stats across all sessions; tap any stat (nodes, edges, memories, notes, dreams, global memories) to drill into the full list
-- **Knowledge Graph Map** — tap "Graph Map" on the Dashboard to open an offline Cytoscape.js graph visualisation of the entire aggregated cross-session knowledge graph; nodes are sized by strength and coloured by type
+- **Inner Map** — tap "Inner Map" on the Dashboard to open an offline Cytoscape.js visualisation of your entire cross-session knowledge graph; nodes are sized by strength and colour-coded by type; tap any node to open a native connections sheet listing every linked pattern with plain-language relationship sentences and co-occurrence counts
 
 ### Safety
 - **Crisis detection** — every user message is checked with keyword matching that errs toward caution; crisis resources are surfaced automatically and persisted into the conversation
@@ -185,13 +209,14 @@ Edges are wired between co-occurring entities in the same message:
 
 View the graph any time via **Graph** in the chat toolbar.
 
-### Knowledge Graph Map (Dashboard)
+### Inner Map (Dashboard)
 
-The **Graph Map** on the Dashboard visualises your *entire* knowledge graph merged across all sessions:
+The **Inner Map** on the Dashboard visualises your *entire* knowledge graph merged across all sessions:
 
 - Nodes are sized by cumulative strength and coloured by type (blue = person, red = emotion, green = belief, orange = event, purple = theme)
-- Edges carry their relationship type as a label
-- Tap any node or edge for a detail tooltip; pinch to zoom, drag to pan
+- Edges carry plain-language relationship labels (e.g. "brings up", "leads to", "goes with")
+- **Tap any node** to open a native connections sheet — a table of every linked pattern with the relationship sentence and how many times the two appeared together, sorted by strength
+- Tap an edge for a tooltip showing the relationship in plain language; pinch to zoom, drag to pan
 
 #### Export for analysis
 
