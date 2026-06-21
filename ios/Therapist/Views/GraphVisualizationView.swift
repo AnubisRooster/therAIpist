@@ -9,20 +9,21 @@ struct GraphVisualizationView: UIViewRepresentable {
     let cytoscapeJSON: String
 
     func makeUIView(context: Context) -> WKWebView {
-        let config = WKWebViewConfiguration()
-        // Allow local file access so cytoscape.min.js loads from the bundle.
-        config.preferences.setValue(true, forKey: "allowFileAccessFromFileURLs")
-
-        let webView = WKWebView(frame: .zero, configuration: config)
+        let webView = WKWebView(frame: .zero)
         webView.isOpaque = false
         webView.backgroundColor = .clear
         webView.scrollView.isScrollEnabled = false
         webView.navigationDelegate = context.coordinator
         context.coordinator.pendingJSON = cytoscapeJSON
 
-        // Load graph.html from the main bundle (copied by the Graph resource group).
-        if let htmlURL = Bundle.main.url(forResource: "graph", withExtension: "html",
-                                          subdirectory: "Graph") {
+        // graph.html may be bundled either inside a "Graph" folder reference or
+        // flattened into the resources root (xcodegen copies the files
+        // individually), so try the subdirectory first and fall back to root.
+        // `loadFileURL(allowingReadAccessTo:)` grants the WebView read access to
+        // the containing directory so the sibling cytoscape.min.js loads too.
+        let htmlURL = Bundle.main.url(forResource: "graph", withExtension: "html", subdirectory: "Graph")
+            ?? Bundle.main.url(forResource: "graph", withExtension: "html")
+        if let htmlURL {
             webView.loadFileURL(htmlURL, allowingReadAccessTo: htmlURL.deletingLastPathComponent())
         }
         return webView
@@ -70,19 +71,14 @@ struct GraphVisualizationSheet: View {
 
     @State private var shareItems: [Any] = []
     @State private var showShare = false
-    @State private var showExportMenu = false
-
-    private var graph: AggregatedGraph {
-        GraphExportService.aggregate(sessions: sessions)
-    }
-
-    private var cytoscapeJSON: String {
-        GraphExportService.cytoscapeJSON(graph: graph)
-    }
 
     var body: some View {
+        // Aggregate once per render rather than recomputing for the web view,
+        // the count badge, and the export action separately.
+        let graph = GraphExportService.aggregate(sessions: sessions)
+        let json = GraphExportService.cytoscapeJSON(graph: graph)
         NavigationStack {
-            GraphVisualizationView(cytoscapeJSON: cytoscapeJSON)
+            GraphVisualizationView(cytoscapeJSON: json)
                 .ignoresSafeArea()
                 .navigationTitle("Knowledge Graph")
                 .navigationBarTitleDisplayMode(.inline)
@@ -92,7 +88,7 @@ struct GraphVisualizationSheet: View {
                     }
                     ToolbarItem(placement: .confirmationAction) {
                         Button("Export", systemImage: "square.and.arrow.up") {
-                            prepareExport()
+                            prepareExport(graph: graph, json: json)
                         }
                     }
                 }
@@ -118,14 +114,13 @@ struct GraphVisualizationSheet: View {
         }
     }
 
-    private func prepareExport() {
+    private func prepareExport(graph: AggregatedGraph, json: String) {
         var items: [Any] = []
         let graphMLContent = GraphExportService.graphML(graph: graph)
         if let url = GraphExportService.writeGraphML(graphMLContent) {
             items.append(url)
         }
-        let jsonContent = cytoscapeJSON
-        if let url = GraphExportService.writeCytoscapeJSON(jsonContent) {
+        if let url = GraphExportService.writeCytoscapeJSON(json) {
             items.append(url)
         }
         shareItems = items
