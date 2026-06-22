@@ -269,24 +269,7 @@ struct NodeConnectionsSheet: View {
 
     @ViewBuilder
     private func typeCapsule(_ type: String) -> some View {
-        Text(type.capitalized)
-            .font(.caption2.weight(.medium))
-            .padding(.horizontal, 8)
-            .padding(.vertical, 3)
-            .background(color(for: type).opacity(0.18), in: Capsule())
-            .foregroundStyle(color(for: type))
-    }
-
-    /// Mirrors the legend colours in graph.html.
-    private func color(for type: String) -> Color {
-        switch type {
-        case "person":  return Color(red: 0.29, green: 0.56, blue: 0.85)
-        case "event":   return Color(red: 0.96, green: 0.65, blue: 0.14)
-        case "emotion": return Color(red: 0.82, green: 0.01, blue: 0.11)
-        case "belief":  return Color(red: 0.49, green: 0.83, blue: 0.13)
-        case "theme":   return Color(red: 0.61, green: 0.35, blue: 0.71)
-        default:        return .gray
-        }
+        TagCapsule(label: type.capitalized, color: Theme.nodeColor(type), prominent: true)
     }
 }
 

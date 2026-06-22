@@ -18,9 +18,49 @@ struct TherapistApp: App {
             VoiceRecordingModel.self,
             SafetyEventModel.self,
             GlobalMemoryModel.self,
+            NarrativeChapter.self,
         ])
     }
 }
+
+// MARK: - Root tab view
+
+/// Four-tab shell presented after the PIN gate.
+struct RootTabView: View {
+    @EnvironmentObject private var modelService:      ModelService
+    @EnvironmentObject private var speechService:     SpeechService
+    @EnvironmentObject private var localModelService: LocalModelService
+
+    var body: some View {
+        TabView {
+            ContentView()
+                .tabItem {
+                    Label("Chats", systemImage: "bubble.left.and.bubble.right")
+                }
+
+            NarrativeView()
+                .tabItem {
+                    Label("Narrative", systemImage: "book.pages")
+                }
+
+            DashboardTabView()
+                .tabItem {
+                    Label("Insights", systemImage: "chart.bar")
+                }
+
+            SettingsTabView()
+                .environmentObject(modelService)
+                .environmentObject(speechService)
+                .environmentObject(localModelService)
+                .tabItem {
+                    Label("Settings", systemImage: "gear")
+                }
+        }
+        .tint(Theme.accent)
+    }
+}
+
+// MARK: -
 
 /// Root routing: onboarding (first launch) → PIN → main app.
 struct AppRootView: View {
@@ -42,14 +82,16 @@ struct AppRootView: View {
             } else if !isUnlocked {
                 PINView(onSuccess: { isUnlocked = true })
             } else {
-                ContentView()
+                RootTabView()
                     .environmentObject(modelService)
                     .environmentObject(speechService)
                     .environmentObject(localModelService)
                     .task {
                         BadgeBackfillService.runIfNeeded(context: modelContext)
+                        // Migrate legacy plaintext key to Keychain on first launch.
                         await LLMService.shared.configure(apiKey: openrouterKey, defaultModel: defaultModel)
-                        await modelService.refreshIfNeeded(apiKey: openrouterKey)
+                        let orKey = KeychainService.shared.get(for: .openrouter) ?? openrouterKey
+                        await modelService.refreshIfNeeded(apiKey: orKey)
                         localModelService.refreshDownloadedStatus()
                     }
                     .onChange(of: openrouterKey) { _, newKey in

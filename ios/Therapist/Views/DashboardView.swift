@@ -3,10 +3,22 @@ import SwiftData
 
 // MARK: - DashboardView
 
+/// Top-level host for the Dashboard inside the Insights tab.
+/// Wraps `DashboardView` (the list content) in a plain `NavigationStack`
+/// without a Done button — the tab bar itself serves as navigation.
+struct DashboardTabView: View {
+    var body: some View {
+        NavigationStack {
+            DashboardView()
+        }
+    }
+}
+
+// MARK: -
+
 struct DashboardView: View {
     @Environment(\.modelContext) private var context
     @Query private var sessions: [SessionModel]
-    @Environment(\.dismiss) var dismiss
 
     // Sheet routing
     @State private var sheet: DashboardSheet?
@@ -46,7 +58,7 @@ struct DashboardView: View {
                     ForEach(Array(counts.keys.sorted()), id: \.self) { modality in
                         StatRow(label: modality.replacingOccurrences(of: "_", with: " ").capitalized,
                                 value: "\(counts[modality] ?? 0)",
-                                color: modalityColor(modality))
+                                color: Theme.modalityColor(modality))
                     }
                 }
 
@@ -98,12 +110,6 @@ struct DashboardView: View {
                 }
             }
             .navigationTitle("Dashboard")
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
-                }
-            }
-        }
         // Drill-down sheets
         .sheet(item: $sheet) { destination in
             switch destination {
@@ -128,25 +134,6 @@ struct DashboardView: View {
             .map { $0 }
     }
 
-    private func modalityColor(_ modality: String) -> Color {
-        switch modality {
-        case "adlerian": return .blue
-        case "jungian":  return .purple
-        case "dbt":      return .green
-        case "integrated": return .orange
-        case "free_form": return .teal
-        case "cbt":      return .indigo
-        case "humanistic": return .pink
-        case "existential": return .gray
-        case "gestalt":  return .yellow
-        case "somatic":  return .mint
-        case "narrative": return .brown
-        case "act":      return .cyan
-        case "psychodynamic": return .red
-        case "ifs":      return .primary
-        default:         return .secondary
-        }
-    }
 }
 
 // MARK: - Stat row helpers
@@ -218,8 +205,8 @@ struct NodesListView: View {
                             Text(node.type.capitalized)
                                 .font(.caption2)
                                 .padding(.horizontal, 6).padding(.vertical, 2)
-                                .background(nodeColor(node.type).opacity(0.15))
-                                .foregroundStyle(nodeColor(node.type))
+                                .background(Theme.nodeColor(node.type).opacity(0.15))
+                                .foregroundStyle(Theme.nodeColor(node.type))
                                 .clipShape(Capsule())
                         }
                         HStack {
@@ -252,16 +239,6 @@ struct NodesListView: View {
         }
     }
 
-    private func nodeColor(_ type: String) -> Color {
-        switch type {
-        case "person":  return .blue
-        case "event":   return .orange
-        case "emotion": return .pink
-        case "belief":  return .purple
-        case "theme":   return .teal
-        default:        return .secondary
-        }
-    }
 }
 
 struct NodeDetailView: View {

@@ -259,6 +259,39 @@ final class GlobalMemoryModel {
     }
 }
 
+// MARK: - NarrativeChapter
+
+/// A single chapter of the incrementally-built life narrative.
+/// Ordered chronologically by `createdAt`. The `sourceWatermark` records the
+/// latest source-event timestamp that was incorporated into this chapter — the
+/// next build will only process material newer than that watermark.
+@Model
+final class NarrativeChapter {
+    var id: String
+    /// Which persona authored this chapter (e.g. "Therapist", "Companion", "Sage").
+    var personaLabel: String
+    /// Optional chapter heading extracted from the generated text.
+    var title: String
+    /// The generated prose content.
+    var content: String
+    /// The creation time of the latest source event incorporated here.
+    var sourceWatermark: Date
+    var createdAt: Date
+    var updatedAt: Date
+
+    init(personaLabel: String, title: String = "", content: String, sourceWatermark: Date = Date()) {
+        self.id = UUID().uuidString
+        self.personaLabel = personaLabel
+        self.title = title
+        self.content = content
+        self.sourceWatermark = sourceWatermark
+        self.createdAt = Date()
+        self.updatedAt = Date()
+    }
+}
+
+// MARK: -
+
 @Model
 final class SafetyEventModel {
     var id: String

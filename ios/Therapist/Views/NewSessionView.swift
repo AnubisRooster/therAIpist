@@ -13,16 +13,25 @@ struct NewSessionView: View {
     @AppStorage("companion_name")        private var companionName        = "Kai"
     @AppStorage("companion_gender")      private var companionGender      = CompanionGender.unspecified.rawValue
     @AppStorage("companion_personality") private var companionPersonality = CompanionPersonality.warm.rawValue
+    @AppStorage("spiritual_name")        private var spiritualName        = "Sage"
+    @AppStorage("spiritual_tradition")   private var spiritualTradition   = SpiritualTradition.interfaith.rawValue
 
     private var personaName: String {
-        let raw = (persona == .therapist ? therapistName : companionName)
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        return raw.isEmpty ? persona.defaultName : raw
+        let raw: String
+        switch persona {
+        case .therapist: raw = therapistName
+        case .companion: raw = companionName
+        case .spiritual: raw = spiritualName
+        }
+        return raw.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            ? persona.defaultName
+            : raw.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     var body: some View {
         NavigationStack {
             Form {
+                // MARK: Persona picker
                 Section {
                     Picker("Talk with", selection: $persona) {
                         ForEach(PersonaKind.allCases) { kind in
@@ -38,11 +47,12 @@ struct NewSessionView: View {
                     Text("Who do you want to talk with?")
                 } footer: {
                     if !personaName.isEmpty {
-                        Text("You'll be chatting with \(personaName). Change names and voices in Settings.")
+                        Text("You'll be chatting with \(personaName). Change names and voices in Settings → Personas.")
                             .font(.caption)
                     }
                 }
 
+                // MARK: Companion inline customisation
                 if persona == .companion {
                     Section {
                         TextField("Name", text: $companionName)
@@ -59,22 +69,41 @@ struct NewSessionView: View {
                     } header: {
                         Text("Your companion")
                     } footer: {
-                        Text("These apply to all your companion chats and can be changed anytime in Settings. Pick a voice in Settings too.")
+                        Text("These settings apply to all companion chats. Adjust voice in Settings → Personas.")
                             .font(.caption)
                     }
                 }
 
+                // MARK: Spiritual inline customisation
+                if persona == .spiritual {
+                    Section {
+                        TextField("Name", text: $spiritualName)
+                        Picker("Tradition", selection: $spiritualTradition) {
+                            ForEach(SpiritualTradition.allCases) { t in
+                                Text(t.label).tag(t.rawValue)
+                            }
+                        }
+                    } header: {
+                        Text("Your spiritual advisor")
+                    } footer: {
+                        Text("The advisor draws on this tradition's wisdom. They will never proselytise or judge your beliefs. Adjust voice in Settings → Personas.")
+                            .font(.caption)
+                    }
+                }
+
+                // MARK: Session title
                 Section("Session") {
                     TextField("Title (optional)", text: $title)
                 }
 
+                // MARK: Therapy modality
                 if persona == .therapist {
                     Section("Therapy Modality") {
                         Picker("Modality", selection: $modality) {
                             ForEach(allModalities, id: \.self) { m in
                                 HStack {
                                     Image(systemName: modalityIcons[m] ?? "sparkles")
-                                        .foregroundColor(modalityColor(m))
+                                        .foregroundColor(Theme.modalityColor(m))
                                     Text(m.replacingOccurrences(of: "_", with: " ").capitalized)
                                 }.tag(m)
                             }
@@ -110,36 +139,24 @@ struct NewSessionView: View {
 
     private func createSession() {
         let dateLabel = DateFormatter.localizedString(from: Date(), dateStyle: .short, timeStyle: .none)
-        let defaultTitle = persona == .companion
-            ? "\(personaName) · \(dateLabel)"
-            : "Session \(dateLabel)"
+        let defaultTitle: String
+        switch persona {
+        case .companion: defaultTitle = "\(personaName) · \(dateLabel)"
+        case .spiritual: defaultTitle = "\(personaName) · \(dateLabel)"
+        case .therapist: defaultTitle = "Session \(dateLabel)"
+        }
+        let sessionModality: String
+        switch persona {
+        case .therapist: sessionModality = modality
+        case .companion, .spiritual: sessionModality = "free_form"
+        }
         let session = SessionModel(
             title: title.isEmpty ? defaultTitle : title,
             provider: "openrouter",
-            modality: persona == .companion ? "free_form" : modality
+            modality: sessionModality
         )
         session.persona = persona.rawValue
         context.insert(session)
         try? context.save()
-    }
-
-    private func modalityColor(_ modality: String) -> Color {
-        switch modality {
-        case "adlerian": return .blue
-        case "jungian": return .purple
-        case "dbt": return .green
-        case "integrated": return .orange
-        case "free_form": return .teal
-        case "cbt": return .indigo
-        case "humanistic": return .pink
-        case "existential": return .gray
-        case "gestalt": return .yellow
-        case "somatic": return .mint
-        case "narrative": return .brown
-        case "act": return .cyan
-        case "psychodynamic": return .red
-        case "ifs": return .primary
-        default: return .secondary
-        }
     }
 }

@@ -1,12 +1,15 @@
 import Foundation
 
-/// The two interaction identities the app supports. A `therapist` follows a
-/// chosen modality; a `companion` is a warm, chatty friend. Both read the same
-/// memory, graph, and global-memory data — only the system prompt, name, and
-/// voice differ.
+/// The three interaction identities the app supports.
+/// - `therapist`: follows a chosen therapeutic modality.
+/// - `companion`: a warm, chatty non-sycophantic friend.
+/// - `spiritual`: a non-denominational spiritual advisor drawing on multiple traditions.
+/// All three share the same memory, graph, and global-memory data — only the
+/// system prompt, name, and voice differ.
 enum PersonaKind: String, CaseIterable, Identifiable {
     case therapist
     case companion
+    case spiritual
 
     var id: String { rawValue }
 
@@ -15,16 +18,17 @@ enum PersonaKind: String, CaseIterable, Identifiable {
         switch self {
         case .therapist: return "Therapist"
         case .companion: return "Companion"
+        case .spiritual: return "Spiritual Advisor"
         }
     }
 
     /// A sensible default name. The therapist is intentionally unnamed by
-    /// default (it keeps the original clinical framing); the companion ships
-    /// with a friendly name so it always has a personality.
+    /// default (clinical framing); companions and advisors ship with names.
     var defaultName: String {
         switch self {
         case .therapist: return ""
         case .companion: return "Kai"
+        case .spiritual: return "Sage"
         }
     }
 
@@ -32,6 +36,7 @@ enum PersonaKind: String, CaseIterable, Identifiable {
         switch self {
         case .therapist: return "brain.head.profile"
         case .companion: return "heart.fill"
+        case .spiritual: return "sparkles"
         }
     }
 
@@ -41,6 +46,8 @@ enum PersonaKind: String, CaseIterable, Identifiable {
             return "A reflective guide that follows a therapeutic approach you choose."
         case .companion:
             return "A warm, chatty friend who wants to know you, encourage you, and grow with you across sessions."
+        case .spiritual:
+            return "A wise, non-denominational guide drawing on philosophy and wisdom traditions to help you find meaning and peace."
         }
     }
 
@@ -49,6 +56,7 @@ enum PersonaKind: String, CaseIterable, Identifiable {
         switch self {
         case .therapist: return "therapist_name"
         case .companion: return "companion_name"
+        case .spiritual: return "spiritual_name"
         }
     }
 
@@ -57,9 +65,61 @@ enum PersonaKind: String, CaseIterable, Identifiable {
         switch self {
         case .therapist: return "therapist_voice_id"
         case .companion: return "companion_voice_id"
+        case .spiritual: return "spiritual_voice_id"
         }
     }
 }
+
+// MARK: - Spiritual tradition
+
+/// The wisdom tradition the Spiritual Advisor draws from.
+/// `interfaith` (the default) blends insights from multiple traditions without
+/// privileging any one.
+enum SpiritualTradition: String, CaseIterable, Identifiable {
+    case interfaith, stoic, buddhist, christian, jewish, islamic, hindu, taoist, secular
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .interfaith: return "Interfaith & Comparative"
+        case .stoic:      return "Stoic / Greco-Roman"
+        case .buddhist:   return "Buddhist"
+        case .christian:  return "Christian"
+        case .jewish:     return "Jewish / Kabbalistic"
+        case .islamic:    return "Islamic / Sufi"
+        case .hindu:      return "Hindu / Vedantic"
+        case .taoist:     return "Taoist"
+        case .secular:    return "Secular Humanism"
+        }
+    }
+
+    /// Brief description of the tradition's lens for the system prompt.
+    var promptLine: String {
+        switch self {
+        case .interfaith:
+            return "You draw equally from Stoic, Buddhist, Abrahamic, Hindu, and Taoist wisdom, choosing what serves the person best."
+        case .stoic:
+            return "You speak from the Stoic tradition — Epictetus, Marcus Aurelius, Seneca — focusing on virtue, reason, and what lies within our control."
+        case .buddhist:
+            return "You speak from Buddhist wisdom — the Dharma, the Four Noble Truths, impermanence, compassion, and the Middle Way."
+        case .christian:
+            return "You draw on Christian spiritual wisdom — grace, forgiveness, love, prayer, scripture, and the mystic tradition."
+        case .jewish:
+            return "You draw on Jewish spiritual wisdom — Torah, Talmudic reasoning, Kabbalah, teshuvah, and the pursuit of justice and meaning."
+        case .islamic:
+            return "You draw on Islamic spiritual wisdom — the Quran, Hadith, Sufi mysticism, dhikr, and concepts of tawakkul (trust in God)."
+        case .hindu:
+            return "You draw on Hindu wisdom — the Bhagavad Gita, the Upanishads, dharma, karma, the paths of yoga, and Advaita Vedanta."
+        case .taoist:
+            return "You speak from Taoist wisdom — the Tao Te Ching, wu wei, harmony with nature, the balance of yin and yang."
+        case .secular:
+            return "You draw on secular humanist philosophy — reason, ethics, existentialist thought, and the search for meaning without religious framing."
+        }
+    }
+}
+
+// MARK: - Companion gender / personality
 
 /// The companion's gender presentation. Shapes how it refers to itself and the
 /// pronouns it uses. (The actual spoken voice is chosen separately.)
@@ -157,18 +217,28 @@ enum PersonaService {
         let globalVoice = defaults.string(forKey: "tts_voice_id") ?? ""
         let voiceID = personaVoice.isEmpty ? globalVoice : personaVoice
 
-        let traits = kind == .companion ? companionTraits(defaults: defaults) : ""
+        let traits: String
+        switch kind {
+        case .companion: traits = companionTraits(defaults: defaults)
+        case .spiritual: traits = spiritualTraits(defaults: defaults)
+        case .therapist: traits = ""
+        }
 
         return Persona(kind: kind, name: name, voiceID: voiceID, traits: traits)
     }
 
-    /// Builds the companion's personality + gender descriptor block from the
-    /// user's choices.
+    /// Builds the companion's personality + gender descriptor block.
     static func companionTraits(defaults: UserDefaults = .standard) -> String {
         let personality = CompanionPersonality(rawValue: defaults.string(forKey: "companion_personality") ?? "") ?? .warm
         let gender = CompanionGender(rawValue: defaults.string(forKey: "companion_gender") ?? "") ?? .unspecified
         return [personality.promptLine, gender.promptLine]
             .filter { !$0.isEmpty }
             .joined(separator: "\n")
+    }
+
+    /// Returns the spiritual advisor's tradition descriptor line.
+    static func spiritualTraits(defaults: UserDefaults = .standard) -> String {
+        let tradition = SpiritualTradition(rawValue: defaults.string(forKey: "spiritual_tradition") ?? "") ?? .interfaith
+        return tradition.promptLine
     }
 }

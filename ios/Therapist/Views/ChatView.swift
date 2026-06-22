@@ -143,6 +143,7 @@ struct ChatView: View {
                         .foregroundColor(voice.isActive ? .teal : .secondary)
                         .symbolEffect(.pulse, isActive: voice.phase == .listening)
                 }
+                .accessibilityLabel(voice.isActive ? "Stop hands-free mode" : "Start hands-free mode")
 
                 TextField("Type a message...", text: $messageText, axis: .vertical)
                     .textFieldStyle(.roundedBorder)
@@ -156,6 +157,7 @@ struct ChatView: View {
                         .font(.title2)
                 }
                 .disabled(messageText.trimmingCharacters(in: .whitespaces).isEmpty || isBusy || voice.isActive)
+                .accessibilityLabel("Send message")
             }
             .padding()
             .background(.bar)
@@ -167,7 +169,7 @@ struct ChatView: View {
                 HStack(spacing: 6) {
                     Image(systemName: persona.kind.icon)
                         .font(.caption2)
-                        .foregroundColor(persona.kind == .companion ? .pink : modalityColor(session.modality))
+                        .foregroundColor(Theme.personaColor(persona.kind))
                     Text(persona.displayName)
                         .font(.caption2.weight(.semibold))
                         .foregroundColor(.secondary)
@@ -206,6 +208,7 @@ struct ChatView: View {
                           : "speaker.slash")
                     .foregroundColor(ttsEnabled ? .teal : .secondary)
                 }
+                .accessibilityLabel(ttsEnabled ? "Mute spoken replies" : "Enable spoken replies")
             }
             ToolbarItemGroup(placement: .bottomBar) {
                 Button("Insights", systemImage: "lightbulb") { showInsights = true }
@@ -231,26 +234,6 @@ struct ChatView: View {
             handleVoiceUtterance(newValue.text)
         }
         .onDisappear { voice.stop() }
-    }
-
-    private func modalityColor(_ modality: String) -> Color {
-        switch modality {
-        case "adlerian": return .blue
-        case "jungian": return .purple
-        case "dbt": return .green
-        case "integrated": return .orange
-        case "free_form": return .teal
-        case "cbt": return .indigo
-        case "humanistic": return .pink
-        case "existential": return .gray
-        case "gestalt": return .yellow
-        case "somatic": return .mint
-        case "narrative": return .brown
-        case "act": return .cyan
-        case "psychodynamic": return .red
-        case "ifs": return .primary
-        default: return .secondary
-        }
     }
 
     private func toggleVoiceMode() {
@@ -419,12 +402,12 @@ struct MessageBubble: View {
                     Spacer(minLength: 60)
                     Text(message.content)
                         .padding(12)
-                        .background(Color.blue.opacity(0.2))
+                        .background(Theme.userBubbleBackground)
                         .cornerRadius(16, corners: [.topLeft, .topRight, .bottomLeft])
                 } else {
-                    Text(message.content)
+                    MarkdownText(message.content)
                         .padding(12)
-                        .background(Color.green.opacity(0.15))
+                        .background(Theme.assistantBubbleBackground)
                         .cornerRadius(16, corners: [.topLeft, .topRight, .bottomRight])
                     Spacer(minLength: 60)
                 }
@@ -484,42 +467,3 @@ private struct CapturedBadgeRow: View {
     }
 }
 
-private struct BadgePill: View {
-    let icon: String
-    let label: String
-    let color: Color
-
-    var body: some View {
-        HStack(spacing: 3) {
-            Image(systemName: icon)
-                .font(.system(size: 9, weight: .semibold))
-            Text(label)
-                .font(.system(size: 10, weight: .medium))
-        }
-        .foregroundColor(color)
-        .padding(.horizontal, 7)
-        .padding(.vertical, 3)
-        .background(color.opacity(0.12))
-        .clipShape(Capsule())
-    }
-}
-
-extension View {
-    func cornerRadius(_ radius: CGFloat, corners: UIRectCorner) -> some View {
-        clipShape(RoundedCorner(radius: radius, corners: corners))
-    }
-}
-
-struct RoundedCorner: Shape {
-    var radius: CGFloat = .infinity
-    var corners: UIRectCorner = .allCorners
-
-    func path(in rect: CGRect) -> Path {
-        let path = UIBezierPath(
-            roundedRect: rect,
-            byRoundingCorners: corners,
-            cornerRadii: CGSize(width: radius, height: radius)
-        )
-        return Path(path.cgPath)
-    }
-}

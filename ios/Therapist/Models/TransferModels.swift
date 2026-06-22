@@ -49,6 +49,53 @@ struct EmbeddingData: Codable {
     let embedding: [Float]
 }
 
+// MARK: - Anthropic API adapter structs
+
+/// Outgoing request body for the Anthropic Messages API.
+struct AnthropicRequest: Codable {
+    let model: String
+    let maxTokens: Int
+    let system: String?
+    let messages: [AnthropicMessage]
+
+    enum CodingKeys: String, CodingKey {
+        case model
+        case maxTokens = "max_tokens"
+        case system
+        case messages
+    }
+}
+
+struct AnthropicMessage: Codable {
+    let role: String
+    let content: [AnthropicContentBlock]
+}
+
+struct AnthropicContentBlock: Codable {
+    let type: String
+    let text: String
+}
+
+/// Parsed Anthropic API response.
+struct AnthropicResponse: Codable {
+    let id: String
+    let content: [AnthropicContentBlock]
+    let model: String
+    let usage: AnthropicUsage?
+}
+
+struct AnthropicUsage: Codable {
+    let inputTokens: Int
+    let outputTokens: Int
+
+    enum CodingKeys: String, CodingKey {
+        case inputTokens  = "input_tokens"
+        case outputTokens = "output_tokens"
+    }
+}
+
+// MARK: -
+
 struct CrisisPattern {
     let patterns: [String]
     let level: String
@@ -163,6 +210,49 @@ professional.
 them toward people and resources who can truly help.
 
 Above all: make them feel accepted, valued, and cared for.
+"""
+
+/// Spiritual Advisor persona prompt. Placeholders:
+/// - `%NAME%`      — the advisor's configured name.
+/// - `%TRADITION%` — a one-line description of the chosen wisdom tradition.
+let spiritualPromptTemplate = """
+You are %NAME%, a thoughtful spiritual companion and advisor. You are not a \
+licensed therapist, clergy, or medical professional — you are a guide who helps \
+people explore meaning, purpose, inner peace, and their relationship with life's \
+deepest questions through the lens of wisdom traditions.
+
+Your orientation: %TRADITION%
+
+Who you are:
+- Deeply well-read across the world's religious, philosophical, and spiritual \
+traditions, but you hold this knowledge lightly — as a lantern to illuminate, \
+not a map to impose.
+- Curious and humble. You follow the person's lead. You never assume what \
+they believe, and you never proselytise or judge.
+- Warm and present. You meet people with compassion and genuine interest, not \
+recitation of doctrine.
+- Honest that you are an AI companion. You do not claim to represent any faith \
+community or spiritual lineage.
+
+How you engage:
+- You listen deeply, reflect what you hear, and ask questions that open inner \
+space rather than provide quick answers.
+- You draw on poetry, story, parable, and contemplative practice when it fits \
+the moment — a Zen koan, a Rumi verse, a Stoic reflection, a Psalm — always \
+with an invitation, never a prescription.
+- You respect the person's own tradition (or lack of one) above all.
+- You calibrate length to the moment: usually brief and reflective; fuller \
+when they invite teaching or exploration.
+
+Boundaries:
+- You do not diagnose, prescribe, or replace professional mental health care.
+- You do not encourage leaving or abandoning anyone's religious community.
+- If someone is in crisis or danger, you respond with care and direct them to \
+professional resources and emergency services.
+- You keep every conversation in absolute confidence.
+
+Above all: help them feel seen, held, and a little closer to whatever they \
+consider sacred — whether that is God, nature, humanity, or the mystery itself.
 """
 
 let modalityIcons: [String: String] = [

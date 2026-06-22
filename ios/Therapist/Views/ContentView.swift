@@ -3,9 +3,6 @@ import SwiftData
 
 struct ContentView: View {
     @Environment(\.modelContext) private var context
-    @EnvironmentObject private var modelService:      ModelService
-    @EnvironmentObject private var speechService:     SpeechService
-    @EnvironmentObject private var localModelService: LocalModelService
 
     @Query(
         filter: #Predicate<SessionModel> { !$0.isArchived },
@@ -13,10 +10,8 @@ struct ContentView: View {
         order: .reverse
     ) private var sessions: [SessionModel]
 
-    @State private var showNewSession   = false
-    @State private var showSettings     = false
-    @State private var showDashboard    = false
-    @State private var showArchive      = false
+    @State private var showNewSession = false
+    @State private var showArchive    = false
 
     var body: some View {
         NavigationStack {
@@ -25,7 +20,7 @@ struct ContentView: View {
                     ContentUnavailableView(
                         "No Sessions",
                         systemImage: "brain.head.profile",
-                        description: Text("Start a new therapy session to begin.")
+                        description: Text("Tap + to start your first session.")
                     )
                 }
                 ForEach(sessions) { session in
@@ -45,38 +40,21 @@ struct ContentView: View {
             .navigationTitle("therAIpist")
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    HStack {
-                        Button("Dashboard", systemImage: "chart.bar") {
-                            showDashboard = true
-                        }
-                        Button("Settings", systemImage: "gear") {
-                            showSettings = true
-                        }
+                    Button("Archive", systemImage: "archivebox") {
+                        showArchive = true
                     }
+                    .foregroundColor(.secondary)
+                    .accessibilityLabel("Archived sessions")
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    HStack {
-                        Button("Archive", systemImage: "archivebox") {
-                            showArchive = true
-                        }
-                        .foregroundColor(.secondary)
-                        Button("New Session", systemImage: "plus") {
-                            showNewSession = true
-                        }
+                    Button("New Session", systemImage: "plus") {
+                        showNewSession = true
                     }
+                    .accessibilityLabel("Start new session")
                 }
             }
             .sheet(isPresented: $showNewSession) {
                 NewSessionView()
-            }
-            .sheet(isPresented: $showSettings) {
-                SettingsView()
-                    .environmentObject(modelService)
-                    .environmentObject(speechService)
-                    .environmentObject(localModelService)
-            }
-            .sheet(isPresented: $showDashboard) {
-                DashboardView()
             }
             .sheet(isPresented: $showArchive) {
                 ArchivedSessionsView()
@@ -90,9 +68,6 @@ struct ContentView: View {
         try? context.save()
     }
 
-    private func modalityIcon(_ modality: String) -> String {
-        modalityIcons[modality] ?? "sparkles"
-    }
 }
 
 // MARK: - Session row

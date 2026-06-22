@@ -1,256 +1,242 @@
 import SwiftUI
 
+// MARK: - Settings tab wrapper
+
+/// Hosts SettingsView inside the Settings tab with its own NavigationStack.
+struct SettingsTabView: View {
+    @EnvironmentObject private var modelService:      ModelService
+    @EnvironmentObject private var speechService:     SpeechService
+    @EnvironmentObject private var localModelService: LocalModelService
+
+    var body: some View {
+        NavigationStack {
+            SettingsView()
+                .environmentObject(modelService)
+                .environmentObject(speechService)
+                .environmentObject(localModelService)
+        }
+    }
+}
+
+// MARK: - Root settings list
+
 struct SettingsView: View {
     @EnvironmentObject private var modelService:      ModelService
     @EnvironmentObject private var speechService:     SpeechService
     @EnvironmentObject private var localModelService: LocalModelService
 
-    @AppStorage("openrouter_key")      private var openrouterKey    = ""
-    @AppStorage("default_model")       private var defaultModel     = "meta-llama/llama-3.2-1b-instruct:free"
-    @AppStorage("default_provider")    private var defaultProvider  = "openrouter"
-    @AppStorage("default_local_model") private var defaultLocalModel = "llama-3.2-3b"
-
-    // TTS
-    @AppStorage("tts_enabled")     private var ttsEnabled    = false
-    @AppStorage("tts_rate")        private var ttsRate: Double  = 0.5
-    @AppStorage("tts_pitch")       private var ttsPitch: Double = 1.0
-    @AppStorage("tts_voice_id")    private var ttsVoiceID     = ""
-
-    @AppStorage("voice_silence_seconds") private var voiceSilenceSeconds: Double = 5.0
-
-    @AppStorage("therapist_name")     private var therapistName     = ""
-    @AppStorage("therapist_voice_id") private var therapistVoiceID  = ""
-    @AppStorage("companion_name")        private var companionName        = "Kai"
-    @AppStorage("companion_voice_id")    private var companionVoiceID     = ""
-    @AppStorage("companion_gender")      private var companionGender      = CompanionGender.unspecified.rawValue
-    @AppStorage("companion_personality") private var companionPersonality = CompanionPersonality.warm.rawValue
-
-    // Intake profile (editable after onboarding)
-    @AppStorage("user_name")       private var userName       = ""
-    @AppStorage("user_pronouns")   private var userPronouns   = ""
-    @AppStorage("user_age")        private var userAge        = ""
-    @AppStorage("intake_concerns") private var intakeConcerns = ""
-    @AppStorage("intake_history")  private var intakeHistory  = ""
-    @AppStorage("intake_goals")    private var intakeGoals    = ""
-
-    @State private var showKey       = false
     @State private var showChangePIN = false
 
     var body: some View {
-        NavigationStack {
-            Form {
-                Section("OpenRouter") {
-                    HStack {
-                        if showKey {
-                            TextField("API Key", text: $openrouterKey)
-                                .autocapitalization(.none)
-                                .disableAutocorrection(true)
-                        } else {
-                            SecureField("API Key", text: $openrouterKey)
-                        }
-                        Button(action: { showKey.toggle() }) {
-                            Image(systemName: showKey ? "eye.slash" : "eye")
-                        }
-                    }
-                    Text("Get your key at openrouter.ai/keys")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+        Form {
+            Section("AI & Models") {
+                NavigationLink {
+                    KeysAndProvidersSettingsView()
+                        .environmentObject(modelService)
+                } label: {
+                    Label("Keys & Providers", systemImage: "key")
                 }
-
-                Section("Default Model") {
-                    TextField("Default Model", text: $defaultModel)
-                        .autocapitalization(.none)
-                        .disableAutocorrection(true)
-
-                    if modelService.isLoading {
-                        HStack {
-                            ProgressView()
-                            Text("Loading models…").font(.caption).foregroundColor(.secondary)
-                        }
-                    } else if !modelService.freeModels.isEmpty {
-                        Text("\(modelService.freeModels.count) free models available")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    } else if let error = modelService.lastError {
-                        Text(error).font(.caption).foregroundColor(.red)
-                    }
-
-                    Button("Refresh model list") {
-                        Task { await modelService.refresh(apiKey: openrouterKey) }
-                    }
-                    .disabled(modelService.isLoading)
-
-                    Text("Pick a model per session from the chat screen.")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-
-                Section {
-                    Toggle("Speak responses aloud", isOn: $ttsEnabled)
-
-                    if ttsEnabled {
-                        NavigationLink {
-                            VoicePickerView().environmentObject(speechService)
-                        } label: {
-                            LabeledContent("Voice", value: SpeechService.voiceName(for: ttsVoiceID))
-                        }
-
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Speed: \(String(format: "%.2f", ttsRate))")
-                                .font(.caption).foregroundColor(.secondary)
-                            Slider(value: $ttsRate, in: 0.2...0.7, step: 0.025)
-                        }
-
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Pitch: \(String(format: "%.1f", ttsPitch))")
-                                .font(.caption).foregroundColor(.secondary)
-                            Slider(value: $ttsPitch, in: 0.75...1.25, step: 0.05)
-                        }
-
-                        Button("Preview") {
-                            speechService.speak("Hello. How are you feeling today?",
-                                                rate: Float(ttsRate), pitch: Float(ttsPitch),
-                                                voiceID: ttsVoiceID)
-                        }
-                    }
-                } header: {
-                    Text("Voice")
-                } footer: {
-                    Text("Uses on-device text-to-speech. No audio leaves the device. Download more voices in iOS Settings → Accessibility → Spoken Content → Voices.")
-                        .font(.caption)
-                }
-
-                Section {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Pause before sending: \(String(format: "%.1f", voiceSilenceSeconds))s")
-                            .font(.caption).foregroundColor(.secondary)
-                        Slider(value: $voiceSilenceSeconds, in: 2...12, step: 0.5)
-                    }
-                } header: {
-                    Text("Hands-free mode")
-                } footer: {
-                    Text("How long to wait after you stop speaking before your turn is sent. Increase this if you take longer pauses between sentences. You can also say “send” to send immediately.")
-                        .font(.caption)
-                }
-
-                Section {
-                    TextField("Name (optional)", text: $therapistName)
-                    NavigationLink {
-                        VoicePickerView(storageKey: "therapist_voice_id")
-                            .environmentObject(speechService)
-                    } label: {
-                        LabeledContent("Voice", value: SpeechService.voiceName(for: therapistVoiceID))
-                    }
-                } header: {
-                    Label("Therapist persona", systemImage: "brain.head.profile")
-                } footer: {
-                    Text("Give your therapist a name and a voice. The therapeutic approach is chosen per session when you start a new one.")
-                        .font(.caption)
-                }
-
-                Section {
-                    TextField("Name", text: $companionName)
-
-                    Picker("Gender", selection: $companionGender) {
-                        ForEach(CompanionGender.allCases) { g in
-                            Text(g.label).tag(g.rawValue)
-                        }
-                    }
-
-                    Picker("Personality", selection: $companionPersonality) {
-                        ForEach(CompanionPersonality.allCases) { p in
-                            Text(p.label).tag(p.rawValue)
-                        }
-                    }
-
-                    NavigationLink {
-                        VoicePickerView(storageKey: "companion_voice_id")
-                            .environmentObject(speechService)
-                    } label: {
-                        LabeledContent("Voice", value: SpeechService.voiceName(for: companionVoiceID))
-                    }
-                } header: {
-                    Label("Companion persona", systemImage: "heart.fill")
-                } footer: {
-                    Text("Choose your companion's name, gender, personality, and voice. Companion Mode is a warm, chatty friend who wants to know you, encourage you, and grow with you — and shares the same memories as your therapist sessions. Start a Companion chat from the “+” on the sessions screen.")
-                        .font(.caption)
-                }
-
-                Section("About You") {
-                    TextField("Name", text: $userName)
-                    TextField("Pronouns", text: $userPronouns)
-                    TextField("Age", text: $userAge).keyboardType(.numberPad)
-                    TextField("What brings you here?", text: $intakeConcerns, axis: .vertical)
-                        .lineLimit(2...4)
-                    TextField("Therapy background", text: $intakeHistory, axis: .vertical)
-                        .lineLimit(2...4)
-                    TextField("Goals", text: $intakeGoals, axis: .vertical)
-                        .lineLimit(2...4)
-                }
-
-                Section("Security") {
-                    Button("Change PIN…") { showChangePIN = true }
-                    Text("Your PIN is stored only in this device's Keychain.")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-
-                Section {
-                    Picker("Default provider", selection: $defaultProvider) {
-                        Text("OpenRouter (cloud)").tag("openrouter")
-                        Text("On-Device").tag("local")
-                    }
-                    .pickerStyle(.segmented)
-
-                    if defaultProvider == "local" {
-                        Picker("Default local model", selection: $defaultLocalModel) {
-                            ForEach(localModelService.catalog.filter { localModelService.isDownloaded($0.id) }) { m in
-                                Text(m.name).tag(m.id)
-                            }
-                        }
-                        if localModelService.catalog.filter({ localModelService.isDownloaded($0.id) }).isEmpty {
-                            Text("No local models downloaded yet.")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
-                    }
-                } header: {
-                    Text("Default Provider")
-                } footer: {
-                    Text(defaultProvider == "local"
-                         ? "New sessions will use the selected on-device model by default."
-                         : "New sessions will use OpenRouter by default.")
-                        .font(.caption)
-                }
-
-                Section {
-                    ForEach(localModelService.catalog) { model in
-                        localModelCard(model)
-                    }
-                } header: {
-                    Text("On-Device Models")
-                } footer: {
-                    Text("Models are stored in the app's Documents folder. Requires Wi-Fi for download. Inference runs fully on-device via Metal.")
-                        .font(.caption)
-                }
-
-                Section("Data & Privacy") {
-                    Text("Conversations are stored locally on this device.")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    Text("Memories use on-device embeddings — no extra network calls.")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                NavigationLink {
+                    ModelsSettingsView()
+                        .environmentObject(modelService)
+                        .environmentObject(localModelService)
+                } label: {
+                    Label("Models", systemImage: "cpu")
                 }
             }
-            .navigationTitle("Settings")
+
+            Section("Experience") {
+                NavigationLink {
+                    VoiceSettingsView()
+                        .environmentObject(speechService)
+                } label: {
+                    Label("Voice & Speech", systemImage: "speaker.wave.2")
+                }
+                NavigationLink {
+                    PersonasSettingsView()
+                        .environmentObject(speechService)
+                } label: {
+                    Label("Personas", systemImage: "person.2")
+                }
+            }
+
+            Section("About You") {
+                NavigationLink {
+                    AboutYouSettingsView()
+                } label: {
+                    Label("Profile & Intake", systemImage: "person.crop.circle")
+                }
+            }
+
+            Section("Security & Privacy") {
+                Button("Change PIN…") { showChangePIN = true }
+                    .foregroundStyle(.primary)
+                Text("Your PIN is stored only in this device's Keychain.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                NavigationLink {
+                    PrivacySettingsView()
+                } label: {
+                    Label("Privacy", systemImage: "lock.shield")
+                }
+            }
         }
+        .navigationTitle("Settings")
         .sheet(isPresented: $showChangePIN) {
             PINView(onSuccess: { showChangePIN = false }, forceSetup: true)
         }
     }
+}
 
-    // MARK: - On-Device Model Card
+// MARK: - Keys & Providers sub-screen
+
+struct KeysAndProvidersSettingsView: View {
+    @EnvironmentObject private var modelService: ModelService
+
+    @AppStorage("default_provider") private var defaultProvider = "openrouter"
+
+    var body: some View {
+        Form {
+            Section {
+                Picker("Default provider", selection: $defaultProvider) {
+                    ForEach(LLMProvider.allCases.filter { $0 != .local }) { p in
+                        Text(p.displayName).tag(p.rawValue)
+                    }
+                    Text("On-Device").tag(LLMProvider.local.rawValue)
+                }
+            } header: {
+                Text("Default Provider")
+            } footer: {
+                Text("This sets the default for new sessions. You can switch per-session from the chat screen.")
+                    .font(.caption)
+            }
+
+            // Per-provider key rows for every cloud provider
+            ForEach(LLMProvider.allCases.filter { $0.baseURL != nil }) { provider in
+                ProviderKeySection(provider: provider)
+            }
+
+            Section("Privacy") {
+                Text("API keys are stored in the system Keychain — they never leave this device unencrypted.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Text("When using a cloud provider, your messages are sent to that provider's servers to generate a response.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .navigationTitle("Keys & Providers")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+/// Inline key-entry row for a single provider.
+private struct ProviderKeySection: View {
+    let provider: LLMProvider
+    private let keychain = KeychainService.shared
+
+    @State private var keyText  = ""
+    @State private var revealed = false
+    @State private var saved    = false
+
+    var body: some View {
+        Section {
+            HStack {
+                Group {
+                    if revealed {
+                        TextField("API Key", text: $keyText)
+                    } else {
+                        SecureField("API Key", text: $keyText)
+                    }
+                }
+                .autocapitalization(.none)
+                .disableAutocorrection(true)
+                .onChange(of: keyText) { _, _ in saved = false }
+
+                Button { revealed.toggle() } label: {
+                    Image(systemName: revealed ? "eye.slash" : "eye")
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(revealed ? "Hide key" : "Show key")
+            }
+            Button(saved ? "Saved ✓" : "Save") {
+                keychain.set(keyText, for: provider)
+                saved = true
+            }
+            .disabled(keyText.trimmingCharacters(in: .whitespaces).isEmpty || saved)
+            if !provider.keyHint.isEmpty {
+                Text("Get your key at \(provider.keyHint)")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+        } header: {
+            Label(provider.displayName, systemImage: "key")
+        }
+        .onAppear { keyText = keychain.get(for: provider) ?? "" }
+    }
+}
+
+// MARK: - Models sub-screen
+
+struct ModelsSettingsView: View {
+    @EnvironmentObject private var modelService:      ModelService
+    @EnvironmentObject private var localModelService: LocalModelService
+
+    @AppStorage("openrouter_key")      private var openrouterKey      = ""
+    @AppStorage("default_model")       private var defaultModel        = "meta-llama/llama-3.2-1b-instruct:free"
+    @AppStorage("default_local_model") private var defaultLocalModel   = "llama-3.2-3b"
+    @AppStorage("default_provider")    private var defaultProvider     = "openrouter"
+
+    var body: some View {
+        Form {
+            Section {
+                TextField("Default Model ID", text: $defaultModel)
+                    .autocapitalization(.none)
+                    .disableAutocorrection(true)
+                if modelService.isLoading {
+                    HStack {
+                        ProgressView()
+                        Text("Loading models…").font(.caption).foregroundColor(.secondary)
+                    }
+                } else if !modelService.freeModels.isEmpty {
+                    Text("\(modelService.freeModels.count) free models available")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                } else if let error = modelService.lastError {
+                    Text(error).font(.caption).foregroundColor(.red)
+                }
+                Button("Refresh model list") {
+                    Task { await modelService.refresh(apiKey: openrouterKey) }
+                }
+                .disabled(modelService.isLoading)
+            } header: {
+                Label("Cloud (OpenRouter)", systemImage: "cloud")
+            } footer: {
+                Text("Pick a specific model per session from the chat screen.")
+                    .font(.caption)
+            }
+
+            Section {
+                ForEach(localModelService.catalog) { model in
+                    localModelCard(model)
+                }
+                if defaultProvider == "local" {
+                    Picker("Default local model", selection: $defaultLocalModel) {
+                        ForEach(localModelService.catalog.filter { localModelService.isDownloaded($0.id) }) { m in
+                            Text(m.name).tag(m.id)
+                        }
+                    }
+                }
+            } header: {
+                Label("On-Device Models", systemImage: "cpu")
+            } footer: {
+                Text("Models are stored in the app's Documents folder. Requires Wi-Fi for download. Inference runs fully on-device via Metal.")
+                    .font(.caption)
+            }
+        }
+        .navigationTitle("Models")
+        .navigationBarTitleDisplayMode(.inline)
+    }
 
     @ViewBuilder
     private func localModelCard(_ model: LocalModel) -> some View {
@@ -260,13 +246,7 @@ struct SettingsView: View {
                     HStack(spacing: 6) {
                         Text(model.name).font(.headline)
                         if model.isRecommended {
-                            Text("Recommended")
-                                .font(.caption2.bold())
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 2)
-                                .background(.blue.opacity(0.12))
-                                .foregroundStyle(.blue)
-                                .clipShape(Capsule())
+                            TagCapsule(label: "Recommended", color: .blue)
                         }
                     }
                     Text(localModelService.sizeLabel(model))
@@ -274,8 +254,6 @@ struct SettingsView: View {
                         .foregroundColor(.secondary)
                 }
                 Spacer()
-
-                // Download / Cancel / Delete button
                 if localModelService.isDownloading(model.id) {
                     Button(role: .destructive) {
                         localModelService.cancelDownload(model.id)
@@ -301,16 +279,11 @@ struct SettingsView: View {
                     .buttonStyle(.bordered)
                 }
             }
-
-            // Description
             Text(model.description)
                 .font(.caption)
                 .foregroundColor(.secondary)
-
-            // Progress bar while downloading
             if let progress = localModelService.downloadProgress[model.id] {
-                ProgressView(value: progress)
-                    .tint(.blue)
+                ProgressView(value: progress).tint(.blue)
                 Text(String(format: "%.0f%%", progress * 100))
                     .font(.caption2)
                     .foregroundColor(.secondary)
@@ -321,5 +294,219 @@ struct SettingsView: View {
             }
         }
         .padding(.vertical, 4)
+    }
+}
+
+// MARK: - Voice & Speech sub-screen
+
+struct VoiceSettingsView: View {
+    @EnvironmentObject private var speechService: SpeechService
+
+    @AppStorage("tts_enabled")           private var ttsEnabled   = false
+    @AppStorage("tts_rate")              private var ttsRate: Double  = 0.5
+    @AppStorage("tts_pitch")             private var ttsPitch: Double = 1.0
+    @AppStorage("tts_voice_id")          private var ttsVoiceID   = ""
+    @AppStorage("voice_silence_seconds") private var voiceSilenceSeconds: Double = 5.0
+
+    var body: some View {
+        Form {
+            Section {
+                Toggle("Speak responses aloud", isOn: $ttsEnabled)
+                if ttsEnabled {
+                    NavigationLink {
+                        VoicePickerView().environmentObject(speechService)
+                    } label: {
+                        LabeledContent("Default Voice", value: SpeechService.voiceName(for: ttsVoiceID))
+                    }
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Speed: \(String(format: "%.2f", ttsRate))")
+                            .font(.caption).foregroundColor(.secondary)
+                        Slider(value: $ttsRate, in: 0.2...0.7, step: 0.025)
+                    }
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Pitch: \(String(format: "%.1f", ttsPitch))")
+                            .font(.caption).foregroundColor(.secondary)
+                        Slider(value: $ttsPitch, in: 0.75...1.25, step: 0.05)
+                    }
+                    Button("Preview") {
+                        speechService.speak("Hello. How are you feeling today?",
+                                            rate: Float(ttsRate), pitch: Float(ttsPitch),
+                                            voiceID: ttsVoiceID)
+                    }
+                }
+            } header: {
+                Text("Text-to-Speech")
+            } footer: {
+                Text("Uses on-device TTS. No audio leaves the device. Download more voices in iOS Settings → Accessibility → Spoken Content → Voices.")
+                    .font(.caption)
+            }
+
+            Section {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Pause before sending: \(String(format: "%.1f", voiceSilenceSeconds))s")
+                        .font(.caption).foregroundColor(.secondary)
+                    Slider(value: $voiceSilenceSeconds, in: 2...12, step: 0.5)
+                }
+            } header: {
+                Text("Hands-Free Mode")
+            } footer: {
+                Text("How long to wait after you stop speaking before your turn is sent. You can also say "send" to send immediately.")
+                    .font(.caption)
+            }
+        }
+        .navigationTitle("Voice & Speech")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+// MARK: - Personas sub-screen
+
+struct PersonasSettingsView: View {
+    @EnvironmentObject private var speechService: SpeechService
+
+    @AppStorage("therapist_name")        private var therapistName        = ""
+    @AppStorage("therapist_voice_id")    private var therapistVoiceID     = ""
+    @AppStorage("companion_name")        private var companionName        = "Kai"
+    @AppStorage("companion_voice_id")    private var companionVoiceID     = ""
+    @AppStorage("companion_gender")      private var companionGender      = CompanionGender.unspecified.rawValue
+    @AppStorage("companion_personality") private var companionPersonality = CompanionPersonality.warm.rawValue
+    @AppStorage("spiritual_name")        private var spiritualName        = "Sage"
+    @AppStorage("spiritual_voice_id")    private var spiritualVoiceID     = ""
+    @AppStorage("spiritual_tradition")   private var spiritualTradition   = SpiritualTradition.interfaith.rawValue
+
+    var body: some View {
+        Form {
+            Section {
+                TextField("Name (optional)", text: $therapistName)
+                NavigationLink {
+                    VoicePickerView(storageKey: "therapist_voice_id")
+                        .environmentObject(speechService)
+                } label: {
+                    LabeledContent("Voice", value: SpeechService.voiceName(for: therapistVoiceID))
+                }
+            } header: {
+                Label("Therapist", systemImage: PersonaKind.therapist.icon)
+            } footer: {
+                Text("The therapeutic approach is chosen per session. All personas share the same memories and knowledge graph.")
+                    .font(.caption)
+            }
+
+            Section {
+                TextField("Name", text: $companionName)
+                Picker("Gender", selection: $companionGender) {
+                    ForEach(CompanionGender.allCases) { g in
+                        Text(g.label).tag(g.rawValue)
+                    }
+                }
+                Picker("Personality", selection: $companionPersonality) {
+                    ForEach(CompanionPersonality.allCases) { p in
+                        Text(p.label).tag(p.rawValue)
+                    }
+                }
+                NavigationLink {
+                    VoicePickerView(storageKey: "companion_voice_id")
+                        .environmentObject(speechService)
+                } label: {
+                    LabeledContent("Voice", value: SpeechService.voiceName(for: companionVoiceID))
+                }
+            } header: {
+                Label("Companion", systemImage: PersonaKind.companion.icon)
+            } footer: {
+                Text("A warm, chatty friend who grows with you across every session.")
+                    .font(.caption)
+            }
+
+            Section {
+                TextField("Name", text: $spiritualName)
+                Picker("Tradition", selection: $spiritualTradition) {
+                    ForEach(SpiritualTradition.allCases) { t in
+                        Text(t.label).tag(t.rawValue)
+                    }
+                }
+                NavigationLink {
+                    VoicePickerView(storageKey: "spiritual_voice_id")
+                        .environmentObject(speechService)
+                } label: {
+                    LabeledContent("Voice", value: SpeechService.voiceName(for: spiritualVoiceID))
+                }
+            } header: {
+                Label("Spiritual Advisor", systemImage: PersonaKind.spiritual.icon)
+            } footer: {
+                Text("Draws on wisdom from across religious and philosophical traditions. Will not proselytise or judge.")
+                    .font(.caption)
+            }
+        }
+        .navigationTitle("Personas")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+// MARK: - About You sub-screen
+
+struct AboutYouSettingsView: View {
+    @AppStorage("user_name")       private var userName       = ""
+    @AppStorage("user_pronouns")   private var userPronouns   = ""
+    @AppStorage("user_age")        private var userAge        = ""
+    @AppStorage("intake_concerns") private var intakeConcerns = ""
+    @AppStorage("intake_history")  private var intakeHistory  = ""
+    @AppStorage("intake_goals")    private var intakeGoals    = ""
+
+    var body: some View {
+        Form {
+            Section("Identity") {
+                TextField("Name", text: $userName)
+                TextField("Pronouns", text: $userPronouns)
+                TextField("Age", text: $userAge).keyboardType(.numberPad)
+            }
+            Section {
+                TextField("What brings you here?", text: $intakeConcerns, axis: .vertical)
+                    .lineLimit(2...4)
+            } header: {
+                Text("Presenting Concerns")
+            }
+            Section {
+                TextField("Any prior therapy or counselling?", text: $intakeHistory, axis: .vertical)
+                    .lineLimit(2...4)
+            } header: {
+                Text("Background")
+            }
+            Section {
+                TextField("What would you like to work toward?", text: $intakeGoals, axis: .vertical)
+                    .lineLimit(2...4)
+            } header: {
+                Text("Goals")
+            }
+        }
+        .navigationTitle("Profile & Intake")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+// MARK: - Privacy sub-screen
+
+struct PrivacySettingsView: View {
+    var body: some View {
+        Form {
+            Section("Data Storage") {
+                Text("Conversations, memories, notes, and dreams are stored locally on this device only.")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                Text("Memory embeddings are computed on-device by Apple's NLEmbedding framework — no embedding calls leave the device.")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+            }
+            Section("Cloud Providers") {
+                Text("When you use a cloud model (OpenRouter or BYOK), your messages are sent to that provider's servers to generate a response. Review the provider's privacy policy for how they handle data.")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+            }
+            Section("On-Device Models") {
+                Text("When using an on-device model, no messages leave this device. All inference is performed locally via llama.cpp / Metal.")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+            }
+        }
+        .navigationTitle("Privacy")
+        .navigationBarTitleDisplayMode(.inline)
     }
 }

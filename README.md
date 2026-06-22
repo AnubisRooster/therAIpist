@@ -4,7 +4,9 @@
   <img src="docs/icon.png" alt="therAIpist app icon" width="160" />
 </p>
 
-An AI-assisted self-reflection companion: a native **SwiftUI** iOS app that blends multiple therapeutic traditions, builds a personal knowledge graph across sessions, and can run entirely on-device with no internet connection.
+A private, on-device iOS therapy companion — named personas, hands-free voice, knowledge graph, and 13 therapeutic modalities. No data leaves your phone.
+
+Now with a **Narrative page** that writes your life story from your sessions, **Bring-Your-Own-Key** multi-provider support (OpenAI, Anthropic, DeepSeek, Groq, Together AI), a **Spiritual Advisor** persona drawing on wisdom traditions worldwide, and a redesigned **TabView** navigation.
 
 ---
 
@@ -46,9 +48,24 @@ An AI-assisted self-reflection companion: a native **SwiftUI** iOS app that blen
 ## Features
 
 ### Personas
-- **Therapist & Companion modes** — choose per session who you talk with. The **Therapist** is a reflective guide that follows a therapeutic modality you pick; **Companion Mode** is a warm, chatty, non-sycophantic friend who wants to know you, encourage you, learn alongside you, and build a trusting rapport that persists across sessions.
-- **Named, voiced personalities** — give each persona its own name and its own text-to-speech voice in Settings, so it feels like a consistent presence rather than a generic assistant. The companion also has a configurable **gender** (pronouns) and **personality** (warm, playful, calm, cheerful, deep, or bold/flirty).
-- **Shared memory across personas** — both personas read and write the same episodic/semantic memory, knowledge graph, and global memories, so context and continuity carry over no matter which one you're talking to.
+- **Therapist, Companion & Spiritual Advisor** — three distinct voices, all sharing the same memory and knowledge graph.
+  - **Therapist** — follows one of 13 evidence-based therapeutic modalities.
+  - **Companion** — a warm, chatty, non-sycophantic friend with configurable name, gender, and personality.
+  - **Spiritual Advisor** — a wise, non-denominational guide drawing from Interfaith, Stoic, Buddhist, Christian, Jewish, Islamic, Hindu, Taoist, or Secular-Humanist traditions. Never proselytises or judges.
+- **Named, voiced personalities** — each persona gets its own name and TTS voice in Settings → Personas.
+- **Shared memory across personas** — all three read and write the same episodic/semantic memory, knowledge graph, and global memories.
+
+### Narrative page
+- An AI-written, chronological **life story** assembled from session notes, dream analyses, and global memories. Updates automatically on each launch/foreground when more than one hour has elapsed since the last generation, and refreshes manually on demand. Written from the perspective of whichever persona authored the most recent session.
+
+### Bring Your Own Key (BYOK)
+- Enter API keys for **OpenAI**, **Anthropic** (Claude), **DeepSeek**, **Groq**, **Together AI**, or **OpenRouter** in Settings → Keys & Providers. All keys are stored in the system **Keychain**, never in plaintext `UserDefaults`. The per-session model picker lets you choose any provider and model ID.
+
+### Navigation & UI
+- **Tab bar** — four top-level tabs: Chats · Narrative · Insights · Settings.
+- **Settings sub-screens** — split into: Keys & Providers, Models, Voice & Speech, Personas, Profile & Intake, Privacy.
+- **Markdown rendering** — assistant replies render bold, italic, code, and list formatting in chat bubbles.
+- **Design tokens** — consistent colour system (`Theme.swift`) used across modality colours, node-type colours, and persona tints.
 
 ### Therapy & conversation
 - **13 modalities** — Integrated, Adlerian, Jungian, DBT, CBT, Humanistic, Existential, Gestalt, Somatic, Narrative, ACT, Psychodynamic, and IFS — selectable per session (Therapist persona)
