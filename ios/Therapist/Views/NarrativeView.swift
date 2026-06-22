@@ -64,7 +64,17 @@ struct NarrativeView: View {
     }
 
     private var resolvedLocalModel: String {
-        defaultLocalModel.isEmpty ? "llama-3.2-3b" : defaultLocalModel
+        // Prefer the user's chosen default when it's actually available…
+        if !defaultLocalModel.isEmpty, localModelService.isDownloaded(defaultLocalModel) {
+            return defaultLocalModel
+        }
+        // …otherwise fall back to any available on-device model (a downloaded
+        // GGUF or the built-in Apple model) so we never try to load a model
+        // that isn't present.
+        if let available = localModelService.catalog.first(where: { localModelService.isDownloaded($0.id) }) {
+            return available.id
+        }
+        return defaultLocalModel.isEmpty ? "llama-3.2-3b" : defaultLocalModel
     }
 
     private func resolvedCloudModel(for provider: LLMProvider) -> String {
@@ -334,10 +344,13 @@ struct NarrativeView: View {
 
     private func prepareExport(_ doc: NarrativeDocument) async {
         let service = NarrativeExportService()
-        let md  = service.writeMarkdown(document: doc)
-        let pdf = service.writePDF(document: doc)
-        var items: [Any] = [md as Any]
-        if let pdf { items.append(pdf) }
+        var items: [Any] = []
+        if let md  = service.writeMarkdown(document: doc) { items.append(md) }
+        if let pdf = service.writePDF(document: doc)      { items.append(pdf) }
+        guard !items.isEmpty else {
+            errorMessage = "Couldn't prepare the export files. Please try again."
+            return
+        }
         exportItems = items
         showExport  = true
     }

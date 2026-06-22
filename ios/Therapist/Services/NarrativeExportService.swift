@@ -110,19 +110,36 @@ struct NarrativeExportService {
                     }
                 }
 
-                var origin = textRect.origin
-                var remainingAttr = attrBody
-                while remainingAttr.length > 0 {
+                // Paginate with CoreText so measurement and drawing always agree
+                // (drawing and the advance use the same visible range, so no line
+                // is ever clipped-but-skipped, and pages break cleanly).
+                let framesetter = CTFramesetterCreateWithAttributedString(attrBody)
+                let totalLength = attrBody.length
+                var location = 0
+                while location < totalLength {
                     ctx.beginPage()
-                    let available = CGRect(origin: origin, size: textRect.size)
-                    let fitted = fittedText(remainingAttr, in: available)
-                    fitted.string.draw(in: available)
-                    let drawnLength = fitted.length
-                    if drawnLength >= remainingAttr.length { break }
-                    remainingAttr = remainingAttr.attributedSubstring(
-                        from: NSRange(location: drawnLength, length: remainingAttr.length - drawnLength)
-                    ) as! NSMutableAttributedString
-                    origin = textRect.origin
+                    let cg = ctx.cgContext
+                    cg.saveGState()
+                    // CoreText uses a bottom-left origin, so flip the context.
+                    cg.textMatrix = .identity
+                    cg.translateBy(x: 0, y: pageSize.height)
+                    cg.scaleBy(x: 1, y: -1)
+
+                    let path = CGPath(rect: textRect, transform: nil)
+                    let frame = CTFramesetterCreateFrame(
+                        framesetter,
+                        CFRange(location: location, length: 0),
+                        path,
+                        nil
+                    )
+                    CTFrameDraw(frame, cg)
+                    cg.restoreGState()
+
+                    let visible = CTFrameGetVisibleStringRange(frame)
+                    // Guard against zero progress (e.g. a glyph too tall to fit)
+                    // so we never loop forever.
+                    if visible.length <= 0 { break }
+                    location += visible.length
                 }
             }
             return dest
@@ -138,15 +155,5 @@ struct NarrativeExportService {
         style.lineSpacing = 4
         style.paragraphSpacing = 8
         return style
-    }
-
-    /// Returns the portion of `attrStr` that fits within `rect` and its rendered length.
-    private func fittedText(_ attrStr: NSAttributedString, in rect: CGRect) -> (string: NSAttributedString, length: Int) {
-        let setter = CTFramesetterCreateWithAttributedString(attrStr)
-        var fitRange = CFRange()
-        CTFramesetterSuggestFrameSizeWithConstraints(setter, CFRange(), nil, rect.size, &fitRange)
-        let length = min(fitRange.length, attrStr.length)
-        let fitted = attrStr.attributedSubstring(from: NSRange(location: 0, length: length))
-        return (fitted, length)
     }
 }

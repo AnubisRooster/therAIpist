@@ -35,17 +35,12 @@ actor NarrativeService {
     ///   new material to incorporate.
     @discardableResult
     func buildIncremental(context: ModelContext, provider: String, model: String) async throws -> Bool {
-        // 1. Fetch or create the single document.
+        // 1. Fetch the existing document (if any) to read its watermark, but
+        //    don't create one yet — we only persist a document once we actually
+        //    have material to narrate.
         let existing = try context.fetch(FetchDescriptor<NarrativeDocument>())
-        let document: NarrativeDocument
-        if let first = existing.first {
-            document = first
-        } else {
-            document = NarrativeDocument()
-            context.insert(document)
-        }
-
-        let watermark = document.sourceWatermark
+        let existingDocument = existing.first
+        let watermark = existingDocument?.sourceWatermark ?? .distantPast
 
         // 2. Collect sources newer than the watermark.
         let sessions = try context.fetch(FetchDescriptor<SessionModel>())
@@ -55,6 +50,15 @@ actor NarrativeService {
         }
 
         guard !sources.isEmpty else { return false }
+
+        // Now that we have material, fetch-or-create the single document.
+        let document: NarrativeDocument
+        if let existingDocument {
+            document = existingDocument
+        } else {
+            document = NarrativeDocument()
+            context.insert(document)
+        }
 
         let latestSourceDate = sources.map(\.date).max() ?? Date()
 

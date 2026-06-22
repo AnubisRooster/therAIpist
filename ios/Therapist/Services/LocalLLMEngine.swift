@@ -220,18 +220,18 @@ final class LocalLLMEngine: ObservableObject {
             )
         } else if modelID.hasPrefix("gemma") {
             // Gemma 2 instruct format uses <start_of_turn> / <end_of_turn>.
-            // Gemma does not support a dedicated system role — inject the system
-            // prompt as a leading user turn so it is still honoured.
-            var userPrefix = "<start_of_turn>user\n"
-            if let sys = sysOrNil {
-                userPrefix = "<start_of_turn>user\n\(sys)\n\n"
-            }
+            // Gemma has no dedicated system role, so the system prompt is emitted
+            // ONCE as a leading user turn via the `system` slot (LLM.swift renders
+            // system.prefix + systemPrompt + system.suffix a single time). We must
+            // NOT bake the system prompt into `user.prefix`, because that prefix is
+            // re-applied to every user turn and would repeat the whole prompt each
+            // round.
             return Template(
-                system: ("", ""),
-                user: (userPrefix, "<end_of_turn>\n"),
+                system: ("<start_of_turn>user\n", "<end_of_turn>\n"),
+                user: ("<start_of_turn>user\n", "<end_of_turn>\n"),
                 bot: ("<start_of_turn>model\n", "<end_of_turn>\n"),
                 stopSequence: "<end_of_turn>",
-                systemPrompt: nil
+                systemPrompt: sysOrNil
             )
         }
         // chatML fallback — Qwen 2.5, SmolLM2, and anything else using
