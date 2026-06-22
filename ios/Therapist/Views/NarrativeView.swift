@@ -63,7 +63,7 @@ struct NarrativeView: View {
                         Toggle("Generate with cloud model", isOn: $useCloud)
                             .disabled(!cloudAvailable)
                         Button {
-                            Task { await generate() }
+                            Task { await generate(manual: true) }
                         } label: {
                             Label("Refresh now", systemImage: "arrow.clockwise")
                         }
@@ -92,19 +92,27 @@ struct NarrativeView: View {
 
     private var emptyState: some View {
         ContentUnavailableView {
-            Label("No Narrative Yet", systemImage: "book.pages")
+            Label(isGenerating ? "Writing Your Story…" : "No Narrative Yet",
+                  systemImage: "book.pages")
         } description: {
-            if effectiveUseCloud == nil {
+            if let errorMessage {
+                Text(errorMessage)
+                    .foregroundStyle(.red)
+            } else if effectiveUseCloud == nil {
                 Text("Add an API key in Settings → Keys & Providers or download an on-device model, then generate your story here.")
             } else {
                 Text("Your story will appear here after your first session. It updates automatically and grows with you over time.")
             }
         } actions: {
-            Button("Generate Now") {
-                Task { await generate() }
+            if isGenerating {
+                ProgressView()
+            } else {
+                Button("Generate Now") {
+                    Task { await generate(manual: true) }
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(effectiveUseCloud == nil)
             }
-            .buttonStyle(.borderedProminent)
-            .disabled(isGenerating || effectiveUseCloud == nil)
         }
     }
 
@@ -138,10 +146,12 @@ struct NarrativeView: View {
 
     // MARK: - Generation
 
-    private func generate() async {
+    private func generate(manual: Bool = false) async {
         guard !isGenerating else { return }
         guard let useCloudEffective = effectiveUseCloud else {
-            errorMessage = "No generation method is configured. Add an API key in Settings → Keys & Providers, or download an on-device model."
+            if manual {
+                errorMessage = "No generation method is configured. Add an API key in Settings → Keys & Providers, or download an on-device model."
+            }
             return
         }
         isGenerating = true
@@ -149,8 +159,11 @@ struct NarrativeView: View {
         defer { isGenerating = false }
 
         do {
-            try await NarrativeService.shared.buildIncremental(context: context, useCloud: useCloudEffective)
+            let produced = try await NarrativeService.shared.buildIncremental(context: context, useCloud: useCloudEffective)
             lastBuildTimestamp = Date().timeIntervalSince1970
+            if !produced && manual && chapters.isEmpty {
+                errorMessage = "There's nothing to narrate yet. Have a conversation in the Chats tab first, then come back."
+            }
         } catch {
             errorMessage = error.localizedDescription
         }

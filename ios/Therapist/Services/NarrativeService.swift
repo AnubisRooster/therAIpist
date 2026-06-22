@@ -19,18 +19,26 @@ actor NarrativeService {
     /// - Parameters:
     ///   - context: The SwiftData `ModelContext` to read sessions from and insert the new chapter into.
     ///   - useCloud: When `true`, routes through the configured cloud provider. When `false`, uses the local on-device model.
-    func buildIncremental(context: ModelContext, useCloud: Bool) async throws {
+    /// - Returns: `true` if a new chapter was generated, `false` if there was
+    ///   nothing new to narrate.
+    @discardableResult
+    func buildIncremental(context: ModelContext, useCloud: Bool) async throws -> Bool {
         // 1. Determine the watermark — the latest source timestamp already covered.
         let existingChapters = try context.fetch(
             FetchDescriptor<NarrativeChapter>(sortBy: [SortDescriptor(\.sourceWatermark, order: .reverse)])
         )
         let watermark: Date = existingChapters.first?.sourceWatermark ?? .distantPast
 
-        // 2. Collect sources newer than the watermark.
+        // 2. Collect sources newer than the watermark. Prefer high-signal
+        //    artifacts (notes/dreams/insights); if none exist yet, fall back to
+        //    the raw conversation transcript so any chat history can be narrated.
         let sessions = try context.fetch(FetchDescriptor<SessionModel>())
-        let sources = collectSources(sessions: sessions, after: watermark, context: context)
+        var sources = collectSources(sessions: sessions, after: watermark, context: context)
+        if sources.isEmpty {
+            sources = collectConversationSources(sessions: sessions, after: watermark)
+        }
 
-        guard !sources.isEmpty else { return } // Nothing new to narrate.
+        guard !sources.isEmpty else { return false } // Nothing new to narrate.
 
         let latestSourceDate = sources.map(\.date).max() ?? Date()
 
@@ -84,6 +92,7 @@ actor NarrativeService {
         )
         context.insert(chapter)
         try context.save()
+        return true
     }
 
     // MARK: - Source gathering
@@ -122,6 +131,31 @@ actor NarrativeService {
         }
 
         return sources.sorted { $0.date < $1.date }
+    }
+
+    /// Fallback: gather raw conversation turns newer than the watermark so a
+    /// narrative can be produced from chat history alone. Capped to the most
+    /// recent turns to keep the prompt (and cost) bounded.
+    private func collectConversationSources(sessions: [SessionModel], after watermark: Date) -> [Source] {
+        let maxTurns = 60
+        let maxChars = 600
+
+        var turns: [Source] = []
+        for session in sessions {
+            for message in session.messages where message.createdAt > watermark {
+                let trimmed = message.content.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !trimmed.isEmpty else { continue }
+                let snippet = trimmed.count > maxChars ? String(trimmed.prefix(maxChars)) + "…" : trimmed
+                let kind = message.role == "user" ? "You said" : "Reflection"
+                turns.append(Source(date: message.createdAt, kind: kind, text: snippet))
+            }
+        }
+
+        // Keep the most recent turns, then restore chronological order.
+        return turns
+            .sorted { $0.date < $1.date }
+            .suffix(maxTurns)
+            .map { $0 }
     }
 
     // MARK: - Prompt
