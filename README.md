@@ -46,7 +46,7 @@ An AI-assisted self-reflection companion: a native **SwiftUI** iOS app that blen
 ## Features
 
 ### Personas
-- **Therapist & Companion modes** — choose per session who you talk with. The **Therapist** is a reflective guide that follows a therapeutic modality you pick; **Companion Mode** is a warm, chatty, non-sycophantic friend who wants to know you, encourage you, learn alongside you, and build a loving, trusting rapport that persists across sessions.
+- **Therapist & Companion modes** — choose per session who you talk with. The **Therapist** is a reflective guide that follows a therapeutic modality you pick; **Companion Mode** is a warm, chatty, non-sycophantic friend who wants to know you, encourage you, learn alongside you, and build a trusting rapport that persists across sessions.
 - **Named, voiced personalities** — give each persona its own name and its own text-to-speech voice in Settings, so it feels like a consistent presence rather than a generic assistant. The companion also has a configurable **gender** (pronouns) and **personality** (warm, playful, calm, cheerful, deep, or bold/flirty).
 - **Shared memory across personas** — both personas read and write the same episodic/semantic memory, knowledge graph, and global memories, so context and continuity carry over no matter which one you're talking to.
 
