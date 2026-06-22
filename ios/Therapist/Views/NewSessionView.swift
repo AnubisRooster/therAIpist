@@ -15,6 +15,11 @@ struct NewSessionView: View {
     @AppStorage("companion_personality") private var companionPersonality = CompanionPersonality.warm.rawValue
     @AppStorage("spiritual_name")        private var spiritualName        = "Sage"
     @AppStorage("spiritual_tradition")   private var spiritualTradition   = SpiritualTradition.interfaith.rawValue
+    @AppStorage("default_provider")      private var defaultProvider      = "openrouter"
+
+    private var defaultProviderLabel: String {
+        LLMProvider(rawValue: defaultProvider)?.displayName ?? "On-Device"
+    }
 
     private var personaName: String {
         let raw: String
@@ -117,7 +122,7 @@ struct NewSessionView: View {
                 }
 
                 Section("Model") {
-                    Text("Choose your model from the chat screen after starting.")
+                    Text("Starts with your default provider (\(defaultProviderLabel)). Change the model anytime from the chat screen.")
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
@@ -152,9 +157,12 @@ struct NewSessionView: View {
         }
         let session = SessionModel(
             title: title.isEmpty ? defaultTitle : title,
-            provider: "openrouter",
+            provider: defaultProvider,
             modality: sessionModality
         )
+        if defaultProvider == "local" {
+            session.localModel = UserDefaults.standard.string(forKey: "default_local_model") ?? ""
+        }
         session.persona = persona.rawValue
         context.insert(session)
         try? context.save()

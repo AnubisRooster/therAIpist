@@ -110,16 +110,17 @@ struct DashboardView: View {
                 }
             }
             .navigationTitle("Dashboard")
-        // Drill-down sheets
-        .sheet(item: $sheet) { destination in
-            switch destination {
-            case .nodes:          NodesListView(nodes: allNodes, sessions: sessions)
-            case .edges:          EdgesListView(edges: allEdges, sessions: sessions)
-            case .notes:          NotesListView(notes: allNotes, sessions: sessions)
-            case .dreams:         DreamsListView(dreams: allDreams, sessions: sessions)
-            case .memories:       MemoriesListView(memories: allMemories, sessions: sessions)
-            case .globalMemories: GlobalMemoriesListView(memories: globalMemories)
-            case .graphMap:       GraphVisualizationSheet(sessions: sessions)
+            // Drill-down sheets
+            .sheet(item: $sheet) { destination in
+                switch destination {
+                case .nodes:          NodesListView(nodes: allNodes, sessions: sessions)
+                case .edges:          EdgesListView(edges: allEdges, sessions: sessions)
+                case .notes:          NotesListView(notes: allNotes, sessions: sessions)
+                case .dreams:         DreamsListView(dreams: allDreams, sessions: sessions)
+                case .memories:       MemoriesListView(memories: allMemories, sessions: sessions)
+                case .globalMemories: GlobalMemoriesListView(memories: globalMemories)
+                case .graphMap:       GraphVisualizationSheet(sessions: sessions)
+                }
             }
         }
     }

@@ -12,6 +12,7 @@ import SwiftData
 /// elapsed since the last generation, and the user can also refresh manually.
 struct NarrativeView: View {
     @Environment(\.modelContext) private var context
+    @EnvironmentObject private var localModelService: LocalModelService
     @Query(sort: \NarrativeChapter.createdAt, order: .forward)
     private var chapters: [NarrativeChapter]
 
@@ -23,6 +24,27 @@ struct NarrativeView: View {
     private var needsRefresh: Bool {
         let elapsed = Date().timeIntervalSince1970 - lastBuildTimestamp
         return elapsed > 3600 // 1 hour
+    }
+
+    /// Whether at least one on-device model is downloaded.
+    private var localAvailable: Bool {
+        localModelService.catalog.contains { localModelService.isDownloaded($0.id) }
+    }
+
+    /// Whether at least one cloud provider has a key configured.
+    private var cloudAvailable: Bool {
+        LLMProvider.allCases.contains { $0.baseURL != nil && KeychainService.shared.hasKey(for: $0) }
+    }
+
+    /// The generation method to actually use, honoring the toggle but falling
+    /// back to whichever is available. `nil` means neither is configured.
+    private var effectiveUseCloud: Bool? {
+        switch (localAvailable, cloudAvailable) {
+        case (true, true):   return useCloud
+        case (true, false):  return false
+        case (false, true):  return true
+        case (false, false): return nil
+        }
     }
 
     var body: some View {
@@ -37,21 +59,29 @@ struct NarrativeView: View {
             .navigationTitle("Narrative")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        Task { await generate() }
+                    Menu {
+                        Toggle("Generate with cloud model", isOn: $useCloud)
+                            .disabled(!cloudAvailable)
+                        Button {
+                            Task { await generate() }
+                        } label: {
+                            Label("Refresh now", systemImage: "arrow.clockwise")
+                        }
+                        .disabled(isGenerating)
                     } label: {
                         if isGenerating {
                             ProgressView()
                         } else {
-                            Image(systemName: "arrow.clockwise")
-                                .accessibilityLabel("Refresh narrative")
+                            Image(systemName: "ellipsis.circle")
+                                .accessibilityLabel("Narrative options")
                         }
                     }
-                    .disabled(isGenerating)
                 }
             }
             .task {
-                if needsRefresh {
+                // Only auto-build when a generation method is configured, so a
+                // cloud-only or fresh user isn't hit with errors on every launch.
+                if needsRefresh, effectiveUseCloud != nil {
                     await generate()
                 }
             }
@@ -64,19 +94,31 @@ struct NarrativeView: View {
         ContentUnavailableView {
             Label("No Narrative Yet", systemImage: "book.pages")
         } description: {
-            Text("Your story will appear here after your first session. It updates automatically and grows with you over time.")
+            if effectiveUseCloud == nil {
+                Text("Add an API key in Settings → Keys & Providers or download an on-device model, then generate your story here.")
+            } else {
+                Text("Your story will appear here after your first session. It updates automatically and grows with you over time.")
+            }
         } actions: {
             Button("Generate Now") {
                 Task { await generate() }
             }
             .buttonStyle(.borderedProminent)
-            .disabled(isGenerating)
+            .disabled(isGenerating || effectiveUseCloud == nil)
         }
     }
 
     private var chapterList: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 24) {
+                if let errorMessage {
+                    Label(errorMessage, systemImage: "exclamationmark.triangle")
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding()
+                        .background(.red.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
+                }
                 if isGenerating {
                     HStack(spacing: 8) {
                         ProgressView()
@@ -98,12 +140,16 @@ struct NarrativeView: View {
 
     private func generate() async {
         guard !isGenerating else { return }
+        guard let useCloudEffective = effectiveUseCloud else {
+            errorMessage = "No generation method is configured. Add an API key in Settings → Keys & Providers, or download an on-device model."
+            return
+        }
         isGenerating = true
         errorMessage = nil
         defer { isGenerating = false }
 
         do {
-            try await NarrativeService.shared.buildIncremental(context: context, useCloud: useCloud)
+            try await NarrativeService.shared.buildIncremental(context: context, useCloud: useCloudEffective)
             lastBuildTimestamp = Date().timeIntervalSince1970
         } catch {
             errorMessage = error.localizedDescription

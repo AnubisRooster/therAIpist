@@ -4,11 +4,12 @@ struct ModelPickerView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var modelService: ModelService
     @EnvironmentObject private var localModelService: LocalModelService
-    @AppStorage("openrouter_key") private var apiKey = ""
 
     let session: SessionModel
 
     @State private var query = ""
+    /// Free-text model IDs entered for each BYOK provider (keyed by rawValue).
+    @State private var byokModelIDs: [String: String] = [:]
 
     // MARK: - Filtered cloud lists
 
@@ -17,6 +18,14 @@ struct ModelPickerView: View {
 
     private var downloadedLocalModels: [LocalModel] {
         localModelService.catalog.filter { localModelService.isDownloaded($0.id) }
+    }
+
+    /// Cloud providers (other than OpenRouter) that have a key set — these are
+    /// offered as "bring your own key" options with a free-text model field.
+    private var byokProviders: [LLMProvider] {
+        LLMProvider.allCases.filter {
+            $0.baseURL != nil && $0 != .openrouter && KeychainService.shared.hasKey(for: $0)
+        }
     }
 
     // MARK: - Body
@@ -43,7 +52,21 @@ struct ModelPickerView: View {
                             }
                         }
 
-                        // Cloud models
+                        // Bring-your-own-key providers
+                        if !byokProviders.isEmpty {
+                            Section {
+                                ForEach(byokProviders) { provider in
+                                    byokRow(provider)
+                                }
+                            } header: {
+                                Label("Bring Your Own Key", systemImage: "key")
+                            } footer: {
+                                Text("Uses your own API key for these providers. Enter the exact model ID (e.g. \(LLMProvider.anthropic.exampleModelID)). Add keys in Settings → Keys & Providers.")
+                                    .font(.caption)
+                            }
+                        }
+
+                        // Cloud models (OpenRouter catalogue)
                         if !freeSorted.isEmpty {
                             Section {
                                 ForEach(freeSorted) { model in cloudModelRow(model) }
@@ -57,12 +80,12 @@ struct ModelPickerView: View {
                             }
                         }
 
-                        if modelService.models.isEmpty && downloadedLocalModels.isEmpty {
+                        if modelService.models.isEmpty && downloadedLocalModels.isEmpty && byokProviders.isEmpty {
                             ContentUnavailableView(
                                 "No Models",
                                 systemImage: "antenna.radiowaves.left.and.right.slash",
                                 description: Text(modelService.lastError
-                                    ?? "Add your OpenRouter API key in Settings or download a local model.")
+                                    ?? "Add an API key in Settings → Keys & Providers or download a local model.")
                             )
                         }
                     }
@@ -80,15 +103,16 @@ struct ModelPickerView: View {
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
-                        Task { await modelService.refresh(apiKey: apiKey) }
+                        Task { await modelService.refresh() }
                     } label: {
                         Image(systemName: "arrow.clockwise")
                     }
                     .disabled(modelService.isLoading)
+                    .accessibilityLabel("Refresh model list")
                 }
             }
         }
-        .task { await modelService.refreshIfNeeded(apiKey: apiKey) }
+        .task { await modelService.refreshIfNeeded() }
     }
 
     // MARK: - Local model row
@@ -121,13 +145,7 @@ struct ModelPickerView: View {
                 Spacer()
 
                 if model.isRecommended {
-                    Text("Recommended")
-                        .font(.caption2.bold())
-                        .padding(.horizontal, 7)
-                        .padding(.vertical, 3)
-                        .background(.blue.opacity(0.12))
-                        .foregroundStyle(.blue)
-                        .clipShape(Capsule())
+                    TagCapsule(label: "Recommended", color: .blue)
                 }
 
                 if isSelected {
@@ -139,7 +157,51 @@ struct ModelPickerView: View {
         .buttonStyle(.plain)
     }
 
-    // MARK: - Cloud model row
+    // MARK: - BYOK provider row
+
+    @ViewBuilder
+    private func byokRow(_ provider: LLMProvider) -> some View {
+        let isSelected = session.resolvedProvider == provider.rawValue
+        let binding = Binding(
+            get: { byokModelIDs[provider.rawValue] ?? (isSelected ? session.model : "") },
+            set: { byokModelIDs[provider.rawValue] = $0 }
+        )
+        let trimmed = binding.wrappedValue.trimmingCharacters(in: .whitespaces)
+
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Image(systemName: "cloud")
+                    .foregroundStyle(isSelected ? Color.accentColor : Color.secondary)
+                    .frame(width: 24)
+                Text(provider.displayName)
+                    .font(.body)
+                    .foregroundStyle(.primary)
+                Spacer()
+                if isSelected {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundStyle(.tint)
+                }
+            }
+            HStack {
+                TextField(provider.exampleModelID, text: binding)
+                    .textFieldStyle(.roundedBorder)
+                    .autocapitalization(.none)
+                    .disableAutocorrection(true)
+                Button("Use") {
+                    session.provider = provider.rawValue
+                    session.model = trimmed
+                    session.localModel = ""
+                    session.updatedAt = Date()
+                    dismiss()
+                }
+                .buttonStyle(.bordered)
+                .disabled(trimmed.isEmpty)
+            }
+        }
+        .padding(.vertical, 2)
+    }
+
+    // MARK: - Cloud model row (OpenRouter)
 
     @ViewBuilder
     private func cloudModelRow(_ model: OpenRouterModel) -> some View {
@@ -166,13 +228,7 @@ struct ModelPickerView: View {
                 Spacer()
 
                 if model.isFree {
-                    Text("FREE")
-                        .font(.caption2.bold())
-                        .padding(.horizontal, 7)
-                        .padding(.vertical, 3)
-                        .background(.green.opacity(0.15))
-                        .foregroundStyle(.green)
-                        .clipShape(Capsule())
+                    TagCapsule(label: "FREE", color: .green)
                 }
 
                 if isSelected {

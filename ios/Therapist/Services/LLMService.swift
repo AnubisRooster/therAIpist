@@ -48,6 +48,19 @@ enum LLMProvider: String, CaseIterable, Identifiable {
     /// The Keychain service identifier for this provider's API key.
     var keychainKey: String { "llm_key_\(rawValue)" }
 
+    /// An example model identifier shown as a placeholder in the BYOK field.
+    var exampleModelID: String {
+        switch self {
+        case .openrouter: return "openai/gpt-4o-mini"
+        case .openai:     return "gpt-4o-mini"
+        case .anthropic:  return "claude-3-5-sonnet-20241022"
+        case .deepseek:   return "deepseek-chat"
+        case .groq:       return "llama-3.3-70b-versatile"
+        case .together:   return "meta-llama/Llama-3.3-70B-Instruct-Turbo"
+        case .local:      return ""
+        }
+    }
+
     /// Help text shown under the key field.
     var keyHint: String {
         switch self {

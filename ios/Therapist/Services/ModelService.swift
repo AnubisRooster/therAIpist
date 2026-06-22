@@ -64,6 +64,17 @@ final class ModelService: ObservableObject {
 
     // MARK: Fetch
 
+    /// Resolves the OpenRouter key from the Keychain (the single source of
+    /// truth) and refreshes if the cache is stale.
+    func refreshIfNeeded() async {
+        await refreshIfNeeded(apiKey: KeychainService.shared.openRouterKey())
+    }
+
+    /// Resolves the OpenRouter key from the Keychain and forces a refresh.
+    func refresh() async {
+        await refresh(apiKey: KeychainService.shared.openRouterKey())
+    }
+
     /// Refresh only when the cache is empty or older than `maxAge`.
     func refreshIfNeeded(apiKey: String) async {
         let age = Date().timeIntervalSince1970 - UserDefaults.standard.double(forKey: timestampKey)

@@ -111,7 +111,7 @@ final class ChatService {
         if provider == "local" {
             guard localModelFileExists(model) else {
                 return configError(
-                    "No on-device model is downloaded yet. Open Settings → On-Device Models to download one, or switch this session to OpenRouter using the model chip at the top.",
+                    "No on-device model is downloaded yet. Open Settings → Models to download one, or switch this session to a cloud model using the model chip at the top.",
                     session: session, context: context
                 )
             }
@@ -146,12 +146,12 @@ final class ChatService {
             )
         } catch LLMError.noAPIKey {
             return configError(
-                "No OpenRouter API key is set, so cloud replies aren't available. Add your key in Settings, or switch this session to an on-device model using the model chip at the top.",
+                "No API key is set for this provider, so cloud replies aren't available. Add your key in Settings → Keys & Providers, or switch this session to an on-device model using the model chip at the top.",
                 session: session, context: context
             )
         } catch LocalLLMError.notLoaded, LLMError.localModelNotDownloaded {
             return configError(
-                "The on-device model couldn't be loaded. Try re-downloading it in Settings → On-Device Models, or switch to OpenRouter for this session.",
+                "The on-device model couldn't be loaded. Try re-downloading it in Settings → Models, or switch to a cloud model for this session.",
                 session: session, context: context
             )
         } catch {
@@ -159,7 +159,7 @@ final class ChatService {
             tokenCount = 0
         }
 
-        let boundaryCheck = safety.checkBoundaryViolation(assistantResponse)
+        let boundaryCheck = safety.checkBoundaryViolation(assistantResponse, persona: persona.kind)
         let finalResponse = boundaryCheck.isViolation
             ? "I want to be honest with you — that's beyond what I can safely help with, and I'm not able to give medical or diagnostic advice. But I'm right here with you. Want to tell me more about what's going on?"
             : assistantResponse

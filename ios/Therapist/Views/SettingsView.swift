@@ -113,7 +113,13 @@ struct KeysAndProvidersSettingsView: View {
 
             // Per-provider key rows for every cloud provider
             ForEach(LLMProvider.allCases.filter { $0.baseURL != nil }) { provider in
-                ProviderKeySection(provider: provider)
+                ProviderKeySection(provider: provider) {
+                    // Refresh the OpenRouter catalogue as soon as its key changes
+                    // so the model list and inference stay in sync.
+                    if provider == .openrouter {
+                        Task { await modelService.refresh() }
+                    }
+                }
             }
 
             Section("Privacy") {
@@ -133,6 +139,7 @@ struct KeysAndProvidersSettingsView: View {
 /// Inline key-entry row for a single provider.
 private struct ProviderKeySection: View {
     let provider: LLMProvider
+    var onSaved: () -> Void = {}
     private let keychain = KeychainService.shared
 
     @State private var keyText  = ""
@@ -162,6 +169,7 @@ private struct ProviderKeySection: View {
             Button(saved ? "Saved ✓" : "Save") {
                 keychain.set(keyText, for: provider)
                 saved = true
+                onSaved()
             }
             .disabled(keyText.trimmingCharacters(in: .whitespaces).isEmpty || saved)
             if !provider.keyHint.isEmpty {
@@ -182,7 +190,6 @@ struct ModelsSettingsView: View {
     @EnvironmentObject private var modelService:      ModelService
     @EnvironmentObject private var localModelService: LocalModelService
 
-    @AppStorage("openrouter_key")      private var openrouterKey      = ""
     @AppStorage("default_model")       private var defaultModel        = "meta-llama/llama-3.2-1b-instruct:free"
     @AppStorage("default_local_model") private var defaultLocalModel   = "llama-3.2-3b"
     @AppStorage("default_provider")    private var defaultProvider     = "openrouter"
@@ -206,7 +213,7 @@ struct ModelsSettingsView: View {
                     Text(error).font(.caption).foregroundColor(.red)
                 }
                 Button("Refresh model list") {
-                    Task { await modelService.refresh(apiKey: openrouterKey) }
+                    Task { await modelService.refresh() }
                 }
                 .disabled(modelService.isLoading)
             } header: {
@@ -350,7 +357,7 @@ struct VoiceSettingsView: View {
             } header: {
                 Text("Hands-Free Mode")
             } footer: {
-                Text("How long to wait after you stop speaking before your turn is sent. You can also say "send" to send immediately.")
+                Text("How long to wait after you stop speaking before your turn is sent. You can also say \"send\" to send immediately.")
                     .font(.caption)
             }
         }

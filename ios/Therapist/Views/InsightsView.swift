@@ -261,7 +261,7 @@ struct GraphView: View {
                                 ForEach(nodes) { node in
                                     HStack {
                                         Circle()
-                                            .fill(Color(nodeColor(node.type)))
+                                            .fill(Theme.nodeColor(node.type))
                                             .frame(width: 8, height: 8)
                                         Text(node.label)
                                         Spacer()
@@ -313,7 +313,4 @@ struct GraphView: View {
         }
     }
 
-    private func nodeColor(_ type: String) -> String {
-        GraphService.shared.getNodeTypeColor(type)
-    }
 }

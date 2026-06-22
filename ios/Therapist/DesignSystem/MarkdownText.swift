@@ -21,7 +21,7 @@ struct MarkdownText: View {
         (try? AttributedString(
             markdown: raw,
             options: AttributedString.MarkdownParsingOptions(
-                interpretedSyntax: .inlinesOnlyPreservingWhitespace
+                interpretedSyntax: .inlineOnlyPreservingWhitespace
             )
         )) ?? AttributedString(raw)
     }

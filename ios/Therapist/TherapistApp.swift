@@ -88,16 +88,20 @@ struct AppRootView: View {
                     .environmentObject(localModelService)
                     .task {
                         BadgeBackfillService.runIfNeeded(context: modelContext)
-                        // Migrate legacy plaintext key to Keychain on first launch.
-                        await LLMService.shared.configure(apiKey: openrouterKey, defaultModel: defaultModel)
-                        let orKey = KeychainService.shared.get(for: .openrouter) ?? openrouterKey
+                        // Resolve (and migrate any legacy plaintext) OpenRouter key.
+                        let orKey = KeychainService.shared.openRouterKey()
+                        await LLMService.shared.configure(apiKey: orKey, defaultModel: defaultModel)
                         await modelService.refreshIfNeeded(apiKey: orKey)
                         localModelService.refreshDownloadedStatus()
                     }
                     .onChange(of: openrouterKey) { _, newKey in
+                        // Onboarding still writes the legacy default; migrate it
+                        // immediately so inference + the model list stay in sync.
                         Task {
-                            await LLMService.shared.configure(apiKey: newKey, defaultModel: defaultModel)
-                            await modelService.refresh(apiKey: newKey)
+                            let resolved = KeychainService.shared.openRouterKey()
+                            await LLMService.shared.configure(apiKey: resolved.isEmpty ? newKey : resolved,
+                                                              defaultModel: defaultModel)
+                            await modelService.refresh()
                         }
                     }
             }
