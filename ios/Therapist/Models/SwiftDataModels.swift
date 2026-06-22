@@ -259,31 +259,31 @@ final class GlobalMemoryModel {
     }
 }
 
-// MARK: - NarrativeChapter
+// MARK: - NarrativeDocument
 
-/// A single chapter of the incrementally-built life narrative.
-/// Ordered chronologically by `createdAt`. The `sourceWatermark` records the
-/// latest source-event timestamp that was incorporated into this chapter — the
-/// next build will only process material newer than that watermark.
+/// A single, evolving document that holds the user's entire life narrative.
+///
+/// There is always at most one `NarrativeDocument` in the store. The
+/// `NarrativeService` fetches this record (creating it on first run) and
+/// overwrites `content` with a freshly-revised comprehensive narrative on
+/// every generation. `sourceWatermark` advances to the newest source event
+/// incorporated, so incremental updates only re-read new material.
 @Model
-final class NarrativeChapter {
+final class NarrativeDocument {
     var id: String
-    /// Which persona authored this chapter (e.g. "Therapist", "Companion", "Sage").
-    var personaLabel: String
-    /// Optional chapter heading extracted from the generated text.
-    var title: String
-    /// The generated prose content.
+    /// The full narrative prose in Markdown, rewritten as one cohesive story.
     var content: String
-    /// The creation time of the latest source event incorporated here.
+    /// How many sessions have been included so far.
+    var sessionCount: Int
+    /// The creation time of the latest source event incorporated so far.
     var sourceWatermark: Date
     var createdAt: Date
     var updatedAt: Date
 
-    init(personaLabel: String, title: String = "", content: String, sourceWatermark: Date = Date()) {
+    init(content: String = "", sessionCount: Int = 0, sourceWatermark: Date = .distantPast) {
         self.id = UUID().uuidString
-        self.personaLabel = personaLabel
-        self.title = title
         self.content = content
+        self.sessionCount = sessionCount
         self.sourceWatermark = sourceWatermark
         self.createdAt = Date()
         self.updatedAt = Date()

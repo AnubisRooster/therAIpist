@@ -167,9 +167,7 @@ struct ChatView: View {
         .toolbar {
             ToolbarItem(placement: .principal) {
                 HStack(spacing: 6) {
-                    Image(systemName: persona.kind.icon)
-                        .font(.caption2)
-                        .foregroundColor(Theme.personaColor(persona.kind))
+                    PersonaAvatar(kind: persona.kind, size: 26)
                     Text(persona.displayName)
                         .font(.caption2.weight(.semibold))
                         .foregroundColor(.secondary)
@@ -273,6 +271,7 @@ struct ChatView: View {
     private func sendMessage() {
         let text = messageText.trimmingCharacters(in: .whitespaces)
         guard !text.isEmpty else { return }
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
         messageText = ""
         isLoading = true
         errorMessage = nil

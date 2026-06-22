@@ -108,6 +108,15 @@ actor LLMService: LLMSending {
         let providerEnum = LLMProvider(rawValue: provider) ?? .openrouter
 
         if providerEnum == .local {
+            // Route to Apple Foundation Models when the model ID is "apple-foundation".
+            if model == "apple-foundation" {
+                if #available(iOS 26, *) {
+                    let sysPrompt = messages.first(where: { $0.role == "system" })?.content ?? ""
+                    return try await AppleFoundationEngine.generate(systemPrompt: sysPrompt,
+                                                                    messages: messages)
+                }
+                throw AppleFoundationError.unavailable("iOS 26 or later required")
+            }
             return try await LocalLLMEngine.shared.generate(modelID: model, messages: messages)
         }
 

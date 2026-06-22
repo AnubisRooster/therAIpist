@@ -236,81 +236,69 @@ final class NarrativeTests: XCTestCase {
         container = TestSupport.makeInMemoryContainer()
     }
 
-    func testNoChapterIsCreatedWhenNoSources() async throws {
+    func testNoBuildWhenNoSources() async throws {
         let ctx = container.mainContext
-        let chaptersBefore = try ctx.fetch(FetchDescriptor<NarrativeChapter>())
-        XCTAssertEqual(chaptersBefore.count, 0)
-
-        // No sessions → no sources → service should bail before inserting.
-        // We override the LLM to confirm it is never called.
-        // (NarrativeService is an actor that calls LLMService internally;
-        //  a real network call would fail without a key, but bailing early
-        //  means the fetch count stays 0 without any network call.)
-        // Since we can't intercept the actor without refactoring the service,
-        // we just verify the guard at the boundary: an empty context produces
-        // no chapters after the call succeeds gracefully.
-        try? await NarrativeService.shared.buildIncremental(context: ctx, useCloud: false)
-        let chaptersAfter = try ctx.fetch(FetchDescriptor<NarrativeChapter>())
-        // The local model path will throw (no model downloaded in test env),
-        // caught by try?. Either way no chapters should be inserted.
-        XCTAssertEqual(chaptersAfter.count, 0)
+        // No sessions → no sources → service returns false without touching the store.
+        let produced = try? await NarrativeService.shared.buildIncremental(context: ctx, useCloud: false)
+        // Returns false (no sources) or nil (LLM threw on missing model); either
+        // way the document should remain absent.
+        let docs = try ctx.fetch(FetchDescriptor<NarrativeDocument>())
+        XCTAssertTrue(docs.isEmpty || docs.first?.content.isEmpty == true)
+        XCTAssertNotEqual(produced, true)
     }
 
-    func testWatermarkAdvancesAfterChapterInsertion() throws {
+    func testDocumentIsCreatedAndUpdatedInPlace() throws {
         let ctx = container.mainContext
         let t1 = Date(timeIntervalSinceNow: -3600)
         let t2 = Date(timeIntervalSinceNow: -1800)
 
-        let chapter1 = NarrativeChapter(personaLabel: "Therapist",
-                                        title: "Chapter One",
-                                        content: "First prose.",
-                                        sourceWatermark: t1)
-        ctx.insert(chapter1)
+        // Insert a document simulating an earlier generation.
+        let doc = NarrativeDocument(content: "Initial narrative.", sessionCount: 1, sourceWatermark: t1)
+        ctx.insert(doc)
         try ctx.save()
 
-        let chapter2 = NarrativeChapter(personaLabel: "Therapist",
-                                        title: "Chapter Two",
-                                        content: "Second prose.",
-                                        sourceWatermark: t2)
-        ctx.insert(chapter2)
+        // Simulate a later update — advance the watermark.
+        doc.content = "Revised narrative with new session."
+        doc.sourceWatermark = t2
+        doc.updatedAt = Date()
         try ctx.save()
 
-        let chapters = try ctx.fetch(
-            FetchDescriptor<NarrativeChapter>(sortBy: [SortDescriptor(\.sourceWatermark, order: .reverse)])
+        // There must still be exactly ONE document (revise-in-place, not append).
+        let docs = try ctx.fetch(FetchDescriptor<NarrativeDocument>())
+        XCTAssertEqual(docs.count, 1)
+        XCTAssertGreaterThan(docs.first!.sourceWatermark, t1)
+        XCTAssertTrue(docs.first!.content.contains("Revised"))
+    }
+
+    func testWatermarkAdvancesMonotonically() throws {
+        let ctx = container.mainContext
+        let earlier = Date(timeIntervalSinceNow: -7200)
+        let later   = Date(timeIntervalSinceNow: -3600)
+
+        let doc = NarrativeDocument(content: "Draft", sessionCount: 1, sourceWatermark: earlier)
+        ctx.insert(doc)
+        try ctx.save()
+
+        doc.sourceWatermark = later
+        doc.updatedAt = Date()
+        try ctx.save()
+
+        let fetched = try ctx.fetch(FetchDescriptor<NarrativeDocument>())
+        XCTAssertEqual(fetched.count, 1)
+        XCTAssertGreaterThan(fetched.first!.sourceWatermark, earlier)
+    }
+
+    func testIdempotency_noNewSources_returnsFalse() async throws {
+        let ctx = container.mainContext
+        // A document whose watermark is far future means nothing will ever be "new".
+        let doc = NarrativeDocument(content: "Final.", sessionCount: 1, sourceWatermark: Date(timeIntervalSinceNow: 3600))
+        ctx.insert(doc)
+        try ctx.save()
+
+        let produced = try await NarrativeService.shared.buildIncremental(
+            context: ctx, provider: "local", model: "llama-3.2-3b"
         )
-        XCTAssertEqual(chapters.count, 2)
-        XCTAssertGreaterThan(chapters.first!.sourceWatermark, chapters.last!.sourceWatermark)
-    }
-
-    func testChapterPersonaLabelIsPreserved() throws {
-        let ctx = container.mainContext
-        let chapter = NarrativeChapter(personaLabel: "Sage",
-                                        title: "A Quiet Moment",
-                                        content: "Life moved quietly forward.",
-                                        sourceWatermark: Date())
-        ctx.insert(chapter)
-        try ctx.save()
-
-        let fetched = try ctx.fetch(FetchDescriptor<NarrativeChapter>())
-        XCTAssertEqual(fetched.first?.personaLabel, "Sage")
-        XCTAssertEqual(fetched.first?.title, "A Quiet Moment")
-    }
-
-    func testDuplicateInsertionDoesNotProduceExtraChapters() throws {
-        let ctx = container.mainContext
-        let watermark = Date()
-
-        // Simulating what would happen if the service were called twice with
-        // the same watermark (idempotency guard).
-        let c1 = NarrativeChapter(personaLabel: "Therapist", title: "T", content: "X", sourceWatermark: watermark)
-        ctx.insert(c1)
-        try ctx.save()
-
-        // The second call to buildIncremental would see watermark == latestSourceDate
-        // and find no sources newer than that watermark, so it would skip insertion.
-        // We verify the chapter count remains 1.
-        let chapters = try ctx.fetch(FetchDescriptor<NarrativeChapter>())
-        XCTAssertEqual(chapters.count, 1)
+        XCTAssertFalse(produced, "Nothing newer than a future watermark should produce no update")
     }
 }
 

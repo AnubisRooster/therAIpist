@@ -1,43 +1,45 @@
 import SwiftUI
 import SwiftData
+import UIKit
 
 // MARK: - NarrativeView
 
-/// Displays an AI-generated, chronological story of the user's life as
-/// understood across all sessions and personas.
+/// Displays the user's single, evolving life narrative as a continuous journal
+/// page. The narrative is an AI-generated, holistic account of all sessions that
+/// grows and is revised in place over time — not a list of per-session chapters.
 ///
-/// Chapters are written incrementally — only new material since the last
-/// build is processed — so regeneration is cheap even with a large history.
-/// The view refreshes on launch/foreground when more than one hour has
-/// elapsed since the last generation, and the user can also refresh manually.
+/// Visual design: warm parchment tones, serif body text, a decorative chapter
+/// ornament, and a "Last written …" footer — evoking an old-fashioned journal.
 struct NarrativeView: View {
     @Environment(\.modelContext) private var context
+    @Environment(\.colorScheme)  private var colorScheme
     @EnvironmentObject private var localModelService: LocalModelService
-    @Query(sort: \NarrativeChapter.createdAt, order: .forward)
-    private var chapters: [NarrativeChapter]
+
+    @Query private var documents: [NarrativeDocument]
+    private var document: NarrativeDocument? { documents.first }
 
     @State private var isGenerating = false
     @State private var errorMessage: String?
     @State private var showSettings = false
+    @State private var showExport   = false
+    @State private var exportItems: [Any] = []
+
     @AppStorage("narrative_last_build")  private var lastBuildTimestamp: Double = 0
-    /// Generation source: "" = automatic, "local", or a cloud `LLMProvider.rawValue`.
-    @AppStorage("narrative_provider")    private var narrativeProvider = ""
-    /// Optional override model for cloud generation (blank = use default).
-    @AppStorage("narrative_cloud_model") private var narrativeCloudModel = ""
-    @AppStorage("default_model")         private var defaultCloudModel = "meta-llama/llama-3.2-1b-instruct:free"
-    @AppStorage("default_local_model")   private var defaultLocalModel = "llama-3.2-3b"
+    @AppStorage("narrative_provider")    private var narrativeProvider    = ""
+    @AppStorage("narrative_cloud_model") private var narrativeCloudModel  = ""
+    @AppStorage("default_model")         private var defaultCloudModel    = "meta-llama/llama-3.2-1b-instruct:free"
+    @AppStorage("default_local_model")   private var defaultLocalModel    = "llama-3.2-3b"
+
+    // MARK: - Helpers
 
     private var needsRefresh: Bool {
-        let elapsed = Date().timeIntervalSince1970 - lastBuildTimestamp
-        return elapsed > 3600 // 1 hour
+        Date().timeIntervalSince1970 - lastBuildTimestamp > 3600
     }
 
-    /// Whether at least one on-device model is downloaded.
     private var localAvailable: Bool {
         localModelService.catalog.contains { localModelService.isDownloaded($0.id) }
     }
 
-    /// Cloud providers (with a base URL) that have a key configured.
     private var cloudProvidersWithKeys: [LLMProvider] {
         LLMProvider.allCases.filter { $0.baseURL != nil && KeychainService.shared.hasKey(for: $0) }
     }
@@ -46,23 +48,18 @@ struct NarrativeView: View {
         cloudProvidersWithKeys.contains(.openrouter) ? .openrouter : cloudProvidersWithKeys.first
     }
 
-    /// The provider + model to actually generate with, honoring the user's
-    /// choice and falling back sensibly. `nil` means nothing is configured.
-    /// Automatic prefers a cloud model when a key is available.
     private var resolvedTarget: (provider: String, model: String)? {
         if narrativeProvider == "local", localAvailable {
             return ("local", resolvedLocalModel)
         }
-        if let p = LLMProvider(rawValue: narrativeProvider),
-           p != .local, cloudProvidersWithKeys.contains(p) {
+        if let p = LLMProvider(rawValue: narrativeProvider), p != .local,
+           cloudProvidersWithKeys.contains(p) {
             return (p.rawValue, resolvedCloudModel(for: p))
         }
         if let p = preferredCloudProvider {
             return (p.rawValue, resolvedCloudModel(for: p))
         }
-        if localAvailable {
-            return ("local", resolvedLocalModel)
-        }
+        if localAvailable { return ("local", resolvedLocalModel) }
         return nil
     }
 
@@ -77,7 +74,6 @@ struct NarrativeView: View {
         return provider.exampleModelID
     }
 
-    /// Human-readable description of the active generation source.
     private var resolvedLabel: String {
         guard let target = resolvedTarget else { return "Not configured" }
         if target.provider == "local" {
@@ -87,42 +83,27 @@ struct NarrativeView: View {
         return "\(name) · \(target.model)"
     }
 
+    // MARK: - Body
+
     var body: some View {
         NavigationStack {
-            Group {
-                if chapters.isEmpty && !isGenerating {
-                    emptyState
+            ZStack {
+                // Parchment background
+                if colorScheme == .dark {
+                    Theme.narrativeBackgroundDark.ignoresSafeArea()
                 } else {
-                    chapterList
+                    Theme.narrativeBackground.ignoresSafeArea()
+                }
+
+                if let doc = document, !doc.content.isEmpty {
+                    narrativePage(doc)
+                } else {
+                    emptyState
                 }
             }
-            .navigationTitle("Narrative")
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Menu {
-                        Section("Source: \(resolvedLabel)") {
-                            Button {
-                                showSettings = true
-                            } label: {
-                                Label("Generation settings…", systemImage: "slider.horizontal.3")
-                            }
-                            Button {
-                                Task { await generate(manual: true) }
-                            } label: {
-                                Label("Refresh now", systemImage: "arrow.clockwise")
-                            }
-                            .disabled(isGenerating)
-                        }
-                    } label: {
-                        if isGenerating {
-                            ProgressView()
-                        } else {
-                            Image(systemName: "ellipsis.circle")
-                                .accessibilityLabel("Narrative options")
-                        }
-                    }
-                }
-            }
+            .navigationTitle("My Story")
+            .navigationBarTitleDisplayMode(.large)
+            .toolbar { toolbarItems }
             .sheet(isPresented: $showSettings) {
                 NarrativeSettingsSheet(
                     narrativeProvider: $narrativeProvider,
@@ -133,9 +114,10 @@ struct NarrativeView: View {
                     defaultCloudModel: defaultCloudModel
                 )
             }
+            .sheet(isPresented: $showExport) {
+                ShareSheet(items: exportItems)
+            }
             .task {
-                // Only auto-build when a generation method is configured, so a
-                // cloud-only or fresh user isn't hit with errors on every launch.
                 if needsRefresh, resolvedTarget != nil {
                     await generate()
                 }
@@ -143,63 +125,176 @@ struct NarrativeView: View {
         }
     }
 
-    // MARK: - Sub-views
+    // MARK: - Narrative page
+
+    @ViewBuilder
+    private func narrativePage(_ doc: NarrativeDocument) -> some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 0) {
+
+                // Error banner
+                if let msg = errorMessage {
+                    HStack(spacing: 8) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                        Text(msg)
+                            .font(.caption)
+                    }
+                    .foregroundStyle(.red)
+                    .padding()
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(.red.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
+                    .padding(.horizontal)
+                    .padding(.top, 8)
+                }
+
+                // Generating spinner
+                if isGenerating {
+                    HStack(spacing: 10) {
+                        ProgressView()
+                        Text("Revising your story…")
+                            .font(Theme.narrativeFont(size: 14))
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding()
+                }
+
+                // Ornamental chapter rule
+                chapterOrnament
+
+                // Body text
+                MarkdownText(doc.content)
+                    .font(Theme.narrativeFont(size: 17))
+                    .foregroundStyle(colorScheme == .dark
+                                     ? Color(white: 0.9)
+                                     : Color(white: 0.15))
+                    .lineSpacing(5)
+                    .padding(.horizontal, 22)
+                    .padding(.bottom, 12)
+
+                Divider()
+                    .padding(.horizontal, 40)
+                    .padding(.vertical, 8)
+
+                // Footer
+                HStack {
+                    Spacer()
+                    VStack(spacing: 2) {
+                        Text("Last written \(doc.updatedAt.formatted(date: .long, time: .omitted))")
+                        Text("\(doc.sessionCount) session\(doc.sessionCount == 1 ? "" : "s") woven in")
+                    }
+                    .font(Theme.narrativeFont(size: 12))
+                    .foregroundStyle(.secondary)
+                    Spacer()
+                }
+                .padding(.bottom, 40)
+            }
+        }
+    }
+
+    private var chapterOrnament: some View {
+        HStack {
+            Spacer()
+            HStack(spacing: 12) {
+                line
+                Image(systemName: "leaf.fill")
+                    .font(.caption)
+                    .foregroundStyle(Theme.warmAccent.opacity(0.7))
+                line
+            }
+            .frame(width: 160)
+            Spacer()
+        }
+        .padding(.vertical, 20)
+    }
+
+    private var line: some View {
+        Rectangle()
+            .fill(Theme.warmAccent.opacity(0.4))
+            .frame(height: 0.5)
+    }
+
+    // MARK: - Empty state
 
     private var emptyState: some View {
-        ContentUnavailableView {
-            Label(isGenerating ? "Writing Your Story…" : "No Narrative Yet",
-                  systemImage: "book.pages")
-        } description: {
-            if let errorMessage {
-                Text(errorMessage)
-                    .foregroundStyle(.red)
-            } else if resolvedTarget == nil {
-                Text("Add an API key in Settings → Keys & Providers or download an on-device model, then generate your story here.")
-            } else {
-                Text("Your story will appear here after your first session. It updates automatically and grows with you over time.")
-            }
-        } actions: {
+        AnimatedEmptyState(
+            icon: "book.closed.fill",
+            title: isGenerating ? "Writing Your Story…" : "Your Story Begins Here",
+            description: emptyDescription,
+            iconColor: Theme.warmAccent
+        ) {
             if isGenerating {
                 ProgressView()
             } else if resolvedTarget == nil {
                 Button("Open Settings") { showSettings = true }
                     .buttonStyle(.borderedProminent)
+                    .tint(Theme.warmAccent)
             } else {
-                Button("Generate Now") {
-                    Task { await generate(manual: true) }
+                VStack(spacing: 12) {
+                    Button {
+                        Task { await generate(manual: true) }
+                    } label: {
+                        Label("Generate Now", systemImage: "sparkles")
+                            .font(Theme.roundedFont(size: 16))
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(Theme.warmAccent)
+
+                    Button("Generation settings…") { showSettings = true }
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
                 }
-                .buttonStyle(.borderedProminent)
-                Button("Generation settings…") { showSettings = true }
-                    .font(.footnote)
             }
         }
     }
 
-    private var chapterList: some View {
-        ScrollView {
-            LazyVStack(alignment: .leading, spacing: 24) {
-                if let errorMessage {
-                    Label(errorMessage, systemImage: "exclamationmark.triangle")
-                        .font(.caption)
-                        .foregroundStyle(.red)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding()
-                        .background(.red.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
-                }
-                if isGenerating {
-                    HStack(spacing: 8) {
-                        ProgressView()
-                        Text("Writing your story…")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+    private var emptyDescription: String {
+        if let msg = errorMessage { return msg }
+        if resolvedTarget == nil {
+            return "Add an API key in Settings → Keys & Providers or download an on-device model, then generate your story."
+        }
+        return "Your story will grow here, beautifully, with every session. It is written as a single, living account — not a list of notes."
+    }
+
+    // MARK: - Toolbar
+
+    @ToolbarContentBuilder
+    private var toolbarItems: some ToolbarContent {
+        ToolbarItem(placement: .topBarTrailing) {
+            HStack(spacing: 16) {
+                // Export button (only when content exists)
+                if let doc = document, !doc.content.isEmpty {
+                    Button {
+                        Task { await prepareExport(doc) }
+                    } label: {
+                        Image(systemName: "square.and.arrow.up")
+                            .accessibilityLabel("Export narrative")
                     }
-                    .padding()
                 }
-                ForEach(chapters) { chapter in
-                    ChapterCard(chapter: chapter)
+
+                // Options menu
+                Menu {
+                    Section("Source: \(resolvedLabel)") {
+                        Button {
+                            showSettings = true
+                        } label: {
+                            Label("Generation settings…", systemImage: "slider.horizontal.3")
+                        }
+                        Button {
+                            Task { await generate(manual: true) }
+                        } label: {
+                            Label("Refresh now", systemImage: "arrow.clockwise")
+                        }
+                        .disabled(isGenerating)
+                    }
+                } label: {
+                    if isGenerating {
+                        ProgressView()
+                    } else {
+                        Image(systemName: "ellipsis.circle")
+                            .accessibilityLabel("Narrative options")
+                    }
                 }
             }
-            .padding()
         }
     }
 
@@ -224,19 +319,32 @@ struct NarrativeView: View {
                 model: target.model
             )
             lastBuildTimestamp = Date().timeIntervalSince1970
-            if !produced && manual && chapters.isEmpty {
+            if produced {
+                UINotificationFeedbackGenerator().notificationOccurred(.success)
+            } else if manual && (document?.content.isEmpty ?? true) {
                 errorMessage = "There's nothing to narrate yet. Have a conversation in the Chats tab first, then come back."
             }
         } catch {
+            UINotificationFeedbackGenerator().notificationOccurred(.error)
             errorMessage = error.localizedDescription
         }
+    }
+
+    // MARK: - Export
+
+    private func prepareExport(_ doc: NarrativeDocument) async {
+        let service = NarrativeExportService()
+        let md  = service.writeMarkdown(document: doc)
+        let pdf = service.writePDF(document: doc)
+        var items: [Any] = [md as Any]
+        if let pdf { items.append(pdf) }
+        exportItems = items
+        showExport  = true
     }
 }
 
 // MARK: - Narrative settings sheet
 
-/// Lets the user choose which model writes their narrative (on-device or a
-/// specific cloud provider/model) directly from the Narrative tab.
 private struct NarrativeSettingsSheet: View {
     @Environment(\.dismiss) private var dismiss
 
@@ -247,11 +355,8 @@ private struct NarrativeSettingsSheet: View {
     let resolvedLabel: String
     let defaultCloudModel: String
 
-    /// Whether the current selection will use a cloud provider (so the model
-    /// field is relevant).
     private var usesCloud: Bool {
         if narrativeProvider == "local" { return false }
-        // Automatic or an explicit cloud provider both use cloud when keys exist.
         return !cloudProviders.isEmpty
     }
 
@@ -287,7 +392,7 @@ private struct NarrativeSettingsSheet: View {
                     } header: {
                         Text("Cloud Model")
                     } footer: {
-                        Text("Leave blank to use your default cloud model from Settings → Models. Add provider keys in Settings → Keys & Providers.")
+                        Text("Leave blank to use your default cloud model from Settings → Models.")
                     }
                 }
 
@@ -307,42 +412,5 @@ private struct NarrativeSettingsSheet: View {
                 }
             }
         }
-    }
-}
-
-// MARK: - Chapter card
-
-private struct ChapterCard: View {
-    let chapter: NarrativeChapter
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                if !chapter.personaLabel.isEmpty {
-                    TagCapsule(label: chapter.personaLabel,
-                               color: personaColor(chapter.personaLabel))
-                }
-                Spacer()
-                Text(chapter.createdAt.formatted(date: .abbreviated, time: .omitted))
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
-            }
-            if !chapter.title.isEmpty {
-                Text(chapter.title)
-                    .font(.headline)
-            }
-            MarkdownText(chapter.content)
-                .font(.body)
-                .foregroundStyle(.primary)
-        }
-        .padding()
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14))
-    }
-
-    private func personaColor(_ label: String) -> Color {
-        let l = label.lowercased()
-        if l.contains("spiritual") { return Theme.personaColor(.spiritual) }
-        if l.contains("companion") { return Theme.personaColor(.companion) }
-        return Theme.personaColor(.therapist)
     }
 }

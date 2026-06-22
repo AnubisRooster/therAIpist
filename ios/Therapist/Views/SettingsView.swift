@@ -255,13 +255,21 @@ struct ModelsSettingsView: View {
                         if model.isRecommended {
                             TagCapsule(label: "Recommended", color: .blue)
                         }
+                        if model.kind == .appleFoundation {
+                            TagCapsule(label: "Built-in", color: .indigo)
+                        }
                     }
-                    Text(localModelService.sizeLabel(model))
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                    if model.kind == .gguf {
+                        Text(localModelService.sizeLabel(model))
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
                 }
                 Spacer()
-                if localModelService.isDownloading(model.id) {
+                // Apple Foundation model — show status, no download/delete.
+                if model.kind == .appleFoundation {
+                    appleModelStatusBadge
+                } else if localModelService.isDownloading(model.id) {
                     Button(role: .destructive) {
                         localModelService.cancelDownload(model.id)
                     } label: {
@@ -294,13 +302,28 @@ struct ModelsSettingsView: View {
                 Text(String(format: "%.0f%%", progress * 100))
                     .font(.caption2)
                     .foregroundColor(.secondary)
-            } else if localModelService.isDownloaded(model.id) {
+            } else if localModelService.isDownloaded(model.id), model.kind == .gguf {
                 Label("Downloaded", systemImage: "checkmark.circle.fill")
                     .font(.caption)
                     .foregroundColor(.green)
             }
         }
         .padding(.vertical, 4)
+    }
+
+    @ViewBuilder
+    private var appleModelStatusBadge: some View {
+        if #available(iOS 26, *) {
+            let label = AppleFoundationEngine.statusLabel
+            let available = AppleFoundationEngine.isAvailable
+            Label(label, systemImage: available ? "checkmark.circle.fill" : "exclamationmark.circle")
+                .font(.caption)
+                .foregroundColor(available ? .green : .secondary)
+        } else {
+            Label("iOS 26+ required", systemImage: "exclamationmark.circle")
+                .font(.caption)
+                .foregroundColor(.secondary)
+        }
     }
 }
 

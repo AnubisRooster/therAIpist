@@ -218,14 +218,32 @@ final class LocalLLMEngine: ObservableObject {
                 stopSequence: "<|end|>",
                 systemPrompt: sysOrNil
             )
+        } else if modelID.hasPrefix("gemma") {
+            // Gemma 2 instruct format uses <start_of_turn> / <end_of_turn>.
+            // Gemma does not support a dedicated system role — inject the system
+            // prompt as a leading user turn so it is still honoured.
+            var userPrefix = "<start_of_turn>user\n"
+            if let sys = sysOrNil {
+                userPrefix = "<start_of_turn>user\n\(sys)\n\n"
+            }
+            return Template(
+                system: ("", ""),
+                user: (userPrefix, "<end_of_turn>\n"),
+                bot: ("<start_of_turn>model\n", "<end_of_turn>\n"),
+                stopSequence: "<end_of_turn>",
+                systemPrompt: nil
+            )
         }
+        // chatML fallback — Qwen 2.5, SmolLM2, and anything else using
+        // <|im_start|> / <|im_end|> markers.
         return .chatML(sysOrNil)
     }
 
     static func stopSequence(for modelID: String) -> String {
-        if modelID.hasPrefix("llama") { return "<|eot_id|>" }
-        if modelID.hasPrefix("phi")   { return "<|end|>" }
-        return "<|im_end|>"  // chatML fallback
+        if modelID.hasPrefix("llama")  { return "<|eot_id|>" }
+        if modelID.hasPrefix("phi")    { return "<|end|>" }
+        if modelID.hasPrefix("gemma")  { return "<end_of_turn>" }
+        return "<|im_end|>"  // chatML fallback (Qwen, SmolLM2, …)
     }
 }
 

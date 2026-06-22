@@ -18,7 +18,7 @@ struct TherapistApp: App {
             VoiceRecordingModel.self,
             SafetyEventModel.self,
             GlobalMemoryModel.self,
-            NarrativeChapter.self,
+            NarrativeDocument.self,
         ])
     }
 }

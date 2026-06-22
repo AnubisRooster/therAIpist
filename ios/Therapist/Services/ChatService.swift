@@ -106,9 +106,9 @@ final class ChatService {
 
         let model = session.resolvedModel
 
-        // Pre-warm the local engine if this session uses it. If no model file is
-        // present, give clear guidance instead of a confusing generic reply.
-        if provider == "local" {
+        // Pre-warm the local engine if this session uses a GGUF model.
+        // Apple Foundation Models are system-provided — no file to check or load.
+        if provider == "local" && model != "apple-foundation" {
             guard localModelFileExists(model) else {
                 return configError(
                     "No on-device model is downloaded yet. Open Settings → Models to download one, or switch this session to a cloud model using the model chip at the top.",

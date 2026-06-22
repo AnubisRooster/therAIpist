@@ -10,12 +10,20 @@ struct LocalModel: Identifiable, Hashable {
     let downloadURL: String
     let templateType: LocalModelTemplate
     let isRecommended: Bool
+    var kind: LocalModelKind = .gguf
 }
 
 enum LocalModelTemplate {
     case llama3   // Llama 3.x instruct format
     case phi3     // Phi-3.x instruct format
-    case chatML   // generic chatML
+    case chatML   // generic chatML  (<|im_start|> / <|im_end|>)
+    case gemma    // Gemma 2 format  (<start_of_turn> / <end_of_turn>)
+}
+
+/// Whether a catalog entry is a GGUF file to download or a system-provided model.
+enum LocalModelKind {
+    case gguf
+    case appleFoundation  // uses FoundationModels (iOS 26+, Apple Intelligence)
 }
 
 // MARK: - LocalModelService
@@ -29,6 +37,20 @@ final class LocalModelService: ObservableObject {
     // MARK: Catalog
 
     let catalog: [LocalModel] = [
+
+        // MARK: Apple built-in (no download, iOS 26 + Apple Intelligence only)
+        LocalModel(
+            id: "apple-foundation",
+            name: "Apple Intelligence",
+            description: "Built-in · No download · Requires Apple Intelligence",
+            sizeBytes: 0,
+            downloadURL: "",
+            templateType: .chatML,
+            isRecommended: false,
+            kind: .appleFoundation
+        ),
+
+        // MARK: Llama family
         LocalModel(
             id: "llama-3.2-1b",
             name: "Llama 3.2 1B",
@@ -48,12 +70,65 @@ final class LocalModelService: ObservableObject {
             isRecommended: true
         ),
         LocalModel(
+            id: "llama-3.1-8b",
+            name: "Llama 3.1 8B",
+            description: "Powerful · ~4.9 GB · Best quality on larger devices",
+            sizeBytes: 4_920_000_000,
+            downloadURL: "https://huggingface.co/bartowski/Meta-Llama-3.1-8B-Instruct-GGUF/resolve/main/Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf",
+            templateType: .llama3,
+            isRecommended: false
+        ),
+
+        // MARK: Microsoft Phi
+        LocalModel(
             id: "phi-3.5-mini",
             name: "Phi-3.5 Mini",
             description: "Smart · ~2.2 GB · Strong instruction following",
             sizeBytes: 2_200_000_000,
             downloadURL: "https://huggingface.co/bartowski/Phi-3.5-mini-instruct-GGUF/resolve/main/Phi-3.5-mini-instruct-Q4_K_M.gguf",
             templateType: .phi3,
+            isRecommended: false
+        ),
+
+        // MARK: Google Gemma
+        LocalModel(
+            id: "gemma-2-2b",
+            name: "Gemma 2 2B",
+            description: "Compact · ~1.6 GB · Fast, Google-quality output",
+            sizeBytes: 1_620_000_000,
+            downloadURL: "https://huggingface.co/bartowski/gemma-2-2b-it-GGUF/resolve/main/gemma-2-2b-it-Q4_K_M.gguf",
+            templateType: .gemma,
+            isRecommended: false
+        ),
+
+        // MARK: Alibaba Qwen
+        LocalModel(
+            id: "qwen2.5-1.5b",
+            name: "Qwen 2.5 1.5B",
+            description: "Tiny · ~1.0 GB · Multilingual, very fast",
+            sizeBytes: 1_000_000_000,
+            downloadURL: "https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF/resolve/main/qwen2.5-1.5b-instruct-q4_k_m.gguf",
+            templateType: .chatML,
+            isRecommended: false
+        ),
+        LocalModel(
+            id: "qwen2.5-3b",
+            name: "Qwen 2.5 3B",
+            description: "Compact · ~1.9 GB · Multilingual, strong reasoning",
+            sizeBytes: 1_940_000_000,
+            downloadURL: "https://huggingface.co/Qwen/Qwen2.5-3B-Instruct-GGUF/resolve/main/qwen2.5-3b-instruct-q4_k_m.gguf",
+            templateType: .chatML,
+            isRecommended: false
+        ),
+
+        // MARK: HuggingFace SmolLM
+        LocalModel(
+            id: "smollm2-1.7b",
+            name: "SmolLM2 1.7B",
+            description: "Efficient · ~1.1 GB · Built for on-device tasks",
+            sizeBytes: 1_100_000_000,
+            downloadURL: "https://huggingface.co/bartowski/SmolLM2-1.7B-Instruct-GGUF/resolve/main/SmolLM2-1.7B-Instruct-Q4_K_M.gguf",
+            templateType: .chatML,
             isRecommended: false
         ),
     ]
@@ -82,6 +157,7 @@ final class LocalModelService: ObservableObject {
     }
 
     func startDownload(_ model: LocalModel) {
+        guard model.kind == .gguf else { return }
         guard activeTasks[model.id] == nil, !isDownloaded(model.id) else { return }
         downloadProgress[model.id] = 0.001
         Task { await performDownload(model) }
@@ -96,6 +172,8 @@ final class LocalModelService: ObservableObject {
 
     func deleteModel(_ id: String) {
         guard activeTasks[id] == nil else { return }
+        // Apple Foundation model has no file to delete.
+        if let model = catalog.first(where: { $0.id == id }), model.kind == .appleFoundation { return }
         try? FileManager.default.removeItem(at: modelFilePath(id: id))
         downloadedIDs.remove(id)
 
@@ -110,8 +188,17 @@ final class LocalModelService: ObservableObject {
         try? fm.createDirectory(at: modelsDirectory, withIntermediateDirectories: true)
         var found = Set<String>()
         for model in catalog {
-            if fm.fileExists(atPath: modelFilePath(id: model.id).path) {
-                found.insert(model.id)
+            switch model.kind {
+            case .appleFoundation:
+                // Treated as "downloaded" when available; availability is checked
+                // at runtime by AppleFoundationEngine on iOS 26+ devices.
+                if #available(iOS 26, *) {
+                    found.insert(model.id)
+                }
+            case .gguf:
+                if fm.fileExists(atPath: modelFilePath(id: model.id).path) {
+                    found.insert(model.id)
+                }
             }
         }
         downloadedIDs = found

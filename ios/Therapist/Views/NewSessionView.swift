@@ -129,10 +129,10 @@ struct NewSessionView: View {
             }
             .navigationTitle("New Session")
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
+                ToolbarItemGroup(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
                 }
-                ToolbarItem(placement: .confirmationAction) {
+                ToolbarItemGroup(placement: .confirmationAction) {
                     Button("Create") {
                         createSession()
                         dismiss()

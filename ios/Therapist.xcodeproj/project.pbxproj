@@ -41,6 +41,7 @@
 		75F280F5076A64614E2E32E3 /* GraphServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4109CAA4F079EF7B7B0AAFD4 /* GraphServiceTests.swift */; };
 		7757CE1E9FF56CD14ED522FA /* PersonaService.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD807732B6AA596C62EAACAB /* PersonaService.swift */; };
 		7A17C9CAF5858F88081B5D61 /* DashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4F11D0EDFFD12098624E8C7 /* DashboardView.swift */; };
+		8158DAA8486D64955E24C4D1 /* AppleFoundationEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4184494FCA5D3B34D0D30CE8 /* AppleFoundationEngine.swift */; };
 		866FF2077F990F1222B47397 /* SafetyService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6EE6DE3CA5C6934F88E1DAA0 /* SafetyService.swift */; };
 		9B7F15BE23099C999028E58A /* LLMService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9CFA9D1088AE93C9537A8E18 /* LLMService.swift */; };
 		A25C7207CC752BE3D01E8016 /* KeychainService.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCAAE3FD3A43DD1765F04D8D /* KeychainService.swift */; };
@@ -57,6 +58,7 @@
 		C0A088D2F613DF67D4B552C9 /* GraphExportServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3F78329A560A0736BB4632B /* GraphExportServiceTests.swift */; };
 		C760C757D0C06DA0EDE1019E /* SpeechService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50509B03F33B1863EC8F3377 /* SpeechService.swift */; };
 		C83EADB53620A24DD5B2DF66 /* PersonaTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB7EE1C7C06B86E413ACD569 /* PersonaTests.swift */; };
+		CBBAD1C8359D4DD23E6B77CE /* NarrativeExportService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B50540229A3EFBF9E0546922 /* NarrativeExportService.swift */; };
 		CC39E622F47F9FD0B026F98C /* ChatService.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC490536A296899A16D06A8D /* ChatService.swift */; };
 		CEBD283D4A35FD7D470727BD /* MarkdownText.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27F4A18440F4CDD3C6339EB8 /* MarkdownText.swift */; };
 		D1554F68EB248BD21DD67147 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD46995D96416AD999A05710 /* OnboardingView.swift */; };
@@ -99,6 +101,7 @@
 		333E9AD680E34FD91F20E3F2 /* InsightService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsightService.swift; sourceTree = "<group>"; };
 		354679F376952EA2F614469A /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		4109CAA4F079EF7B7B0AAFD4 /* GraphServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraphServiceTests.swift; sourceTree = "<group>"; };
+		4184494FCA5D3B34D0D30CE8 /* AppleFoundationEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleFoundationEngine.swift; sourceTree = "<group>"; };
 		4290A23EA6EF05CF895B9B33 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		46312DB4CB2BDC8F00EF4D5E /* LocalModelService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalModelService.swift; sourceTree = "<group>"; };
 		488F642BC70DD8497D21A5E6 /* FeatureRoadmapTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeatureRoadmapTests.swift; sourceTree = "<group>"; };
@@ -117,7 +120,7 @@
 		7B66D9B0C478D8ADE380D64C /* NewSessionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewSessionView.swift; sourceTree = "<group>"; };
 		7C573E0E8397509037BC2ABE /* DreamService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DreamService.swift; sourceTree = "<group>"; };
 		8247533172B2362899FFBB29 /* AgentSystem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentSystem.swift; sourceTree = "<group>"; };
-		82F24F0752AA76B48E8788A6 /* Therapist.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Therapist.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		82F24F0752AA76B48E8788A6 /* Therapist.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Therapist.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		858F22BFF444241014953741 /* ChatServiceE2ETests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatServiceE2ETests.swift; sourceTree = "<group>"; };
 		8BB146387FA63BE78299C6DF /* VoiceTranscriptTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceTranscriptTests.swift; sourceTree = "<group>"; };
 		8CDAE0376C33CA89B735BD81 /* VoiceService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceService.swift; sourceTree = "<group>"; };
@@ -126,6 +129,7 @@
 		94C608044722DDB5FB714EA0 /* InsightCaptureServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsightCaptureServiceTests.swift; sourceTree = "<group>"; };
 		9CFA9D1088AE93C9537A8E18 /* LLMService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMService.swift; sourceTree = "<group>"; };
 		9EA4DA407B6AE1E32CF90DF3 /* GraphService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraphService.swift; sourceTree = "<group>"; };
+		B50540229A3EFBF9E0546922 /* NarrativeExportService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NarrativeExportService.swift; sourceTree = "<group>"; };
 		B5DA18D2A56B91B1073AD29A /* NarrativeService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NarrativeService.swift; sourceTree = "<group>"; };
 		B733E490095AF7D47DA8D2A1 /* EmbeddingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmbeddingService.swift; sourceTree = "<group>"; };
 		BB7EE1C7C06B86E413ACD569 /* PersonaTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersonaTests.swift; sourceTree = "<group>"; };
@@ -167,6 +171,7 @@
 		1784C5EF11CFA935A2988598 /* Services */ = {
 			isa = PBXGroup;
 			children = (
+				4184494FCA5D3B34D0D30CE8 /* AppleFoundationEngine.swift */,
 				C9C782A14A01E91D0A9918FA /* BadgeBackfillService.swift */,
 				FC490536A296899A16D06A8D /* ChatService.swift */,
 				C29C49EE4665A79130532A66 /* DashboardService.swift */,
@@ -183,6 +188,7 @@
 				46312DB4CB2BDC8F00EF4D5E /* LocalModelService.swift */,
 				D108D2FB690D2B875B45F2AA /* MemoryService.swift */,
 				CF4BE5016360D07B4A1B03F2 /* ModelService.swift */,
+				B50540229A3EFBF9E0546922 /* NarrativeExportService.swift */,
 				B5DA18D2A56B91B1073AD29A /* NarrativeService.swift */,
 				944F52374F3D256D87070F74 /* NoteService.swift */,
 				CD807732B6AA596C62EAACAB /* PersonaService.swift */,
@@ -371,6 +377,7 @@
 						ProvisioningStyle = Automatic;
 					};
 					CA9434505CC5FD52BDCAAE62 = {
+						DevelopmentTeam = "";
 						ProvisioningStyle = Automatic;
 					};
 				};
@@ -385,7 +392,7 @@
 			mainGroup = BCE7D8DA0AF02EA5DF8D9AD7;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				64B0224D0B94F9350F0890CE /* XCRemoteSwiftPackageReference "LLM" */,
+				64B0224D0B94F9350F0890CE /* XCRemoteSwiftPackageReference "LLM.swift" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 86EE4942D7C8B39A4FDDB403 /* Products */;
@@ -439,6 +446,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				EAA5D87F1FEB4F4E7834B770 /* AgentSystem.swift in Sources */,
+				8158DAA8486D64955E24C4D1 /* AppleFoundationEngine.swift in Sources */,
 				086B9765C623CFDCBD0F9055 /* BadgeBackfillService.swift in Sources */,
 				CC39E622F47F9FD0B026F98C /* ChatService.swift in Sources */,
 				BDE709FD95C3BB5817D82CBD /* ChatView.swift in Sources */,
@@ -463,6 +471,7 @@
 				B4A8CE777B1D60372DBE20DE /* MemoryService.swift in Sources */,
 				20E58309415D700134796E90 /* ModelPickerView.swift in Sources */,
 				4D3E9591534F521D7C217B91 /* ModelService.swift in Sources */,
+				CBBAD1C8359D4DD23E6B77CE /* NarrativeExportService.swift in Sources */,
 				E11D64B58D84E292AEB2D787 /* NarrativeService.swift in Sources */,
 				1C006DB6AE5407DC51E0B784 /* NarrativeView.swift in Sources */,
 				E6296B8840585FB0844E1956 /* NewSessionView.swift in Sources */,
@@ -587,7 +596,6 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				DEVELOPMENT_TEAM = H2545W6NGW;
 				ENABLE_PREVIEWS = YES;
 				INFOPLIST_FILE = Therapist/Resources/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
@@ -606,7 +614,6 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				DEVELOPMENT_TEAM = H2545W6NGW;
 				ENABLE_PREVIEWS = YES;
 				INFOPLIST_FILE = Therapist/Resources/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
@@ -731,7 +738,7 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
-		64B0224D0B94F9350F0890CE /* XCRemoteSwiftPackageReference "LLM" */ = {
+		64B0224D0B94F9350F0890CE /* XCRemoteSwiftPackageReference "LLM.swift" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/eastriverlee/LLM.swift";
 			requirement = {
@@ -744,7 +751,7 @@
 /* Begin XCSwiftPackageProductDependency section */
 		C21A0FFD4358DAFD86CCFFDF /* LLM */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 64B0224D0B94F9350F0890CE /* XCRemoteSwiftPackageReference "LLM" */;
+			package = 64B0224D0B94F9350F0890CE /* XCRemoteSwiftPackageReference "LLM.swift" */;
 			productName = LLM;
 		};
 /* End XCSwiftPackageProductDependency section */

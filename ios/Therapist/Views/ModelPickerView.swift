@@ -120,6 +120,7 @@ struct ModelPickerView: View {
     @ViewBuilder
     private func localModelRow(_ model: LocalModel) -> some View {
         let isSelected = session.resolvedProvider == "local" && session.localModel == model.id
+        let icon = model.kind == .appleFoundation ? "apple.logo" : "cpu"
 
         Button {
             session.provider = "local"
@@ -129,7 +130,7 @@ struct ModelPickerView: View {
             dismiss()
         } label: {
             HStack(alignment: .center, spacing: 12) {
-                Image(systemName: "cpu")
+                Image(systemName: icon)
                     .foregroundStyle(isSelected ? Color.accentColor : Color.secondary)
                     .frame(width: 24)
 
@@ -146,6 +147,9 @@ struct ModelPickerView: View {
 
                 if model.isRecommended {
                     TagCapsule(label: "Recommended", color: .blue)
+                }
+                if model.kind == .appleFoundation {
+                    TagCapsule(label: "Built-in", color: .indigo)
                 }
 
                 if isSelected {

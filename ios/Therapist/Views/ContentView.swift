@@ -75,34 +75,42 @@ struct ContentView: View {
 private struct SessionRow: View {
     let session: SessionModel
 
+    private var personaKind: PersonaKind {
+        PersonaKind(rawValue: session.persona) ?? .therapist
+    }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(session.title.isEmpty ? "Untitled Session" : session.title)
-                .font(.headline)
-            HStack(spacing: 8) {
-                Label(session.modality.capitalized,
-                      systemImage: modalityIcons[session.modality] ?? "sparkles")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                Label(session.modelLabel,
-                      systemImage: session.resolvedProvider == "local" ? "cpu" : "cloud")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                    .lineLimit(1)
-            }
-            HStack(spacing: 8) {
-                Text("\(session.messages.count) messages")
-                    .font(.caption2)
-                    .foregroundColor(.secondary)
-                if !session.graphNodes.isEmpty {
-                    Label("\(session.graphNodes.count)", systemImage: "circle.hexagongrid")
-                        .font(.caption2)
-                        .foregroundColor(.purple.opacity(0.7))
+        HStack(spacing: 12) {
+            PersonaAvatar(kind: personaKind, size: 42)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(session.title.isEmpty ? "Untitled Session" : session.title)
+                    .font(.headline)
+                HStack(spacing: 8) {
+                    Label(session.modality.capitalized,
+                          systemImage: modalityIcons[session.modality] ?? "sparkles")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    Label(session.modelLabel,
+                          systemImage: session.resolvedProvider == "local" ? "cpu" : "cloud")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .lineLimit(1)
                 }
-                if !session.memories.isEmpty {
-                    Label("\(session.memories.count)", systemImage: "brain")
+                HStack(spacing: 8) {
+                    Text("\(session.messages.count) messages")
                         .font(.caption2)
-                        .foregroundColor(.teal.opacity(0.7))
+                        .foregroundColor(.secondary)
+                    if !session.graphNodes.isEmpty {
+                        Label("\(session.graphNodes.count)", systemImage: "circle.hexagongrid")
+                            .font(.caption2)
+                            .foregroundColor(.purple.opacity(0.7))
+                    }
+                    if !session.memories.isEmpty {
+                        Label("\(session.memories.count)", systemImage: "brain")
+                            .font(.caption2)
+                            .foregroundColor(.teal.opacity(0.7))
+                    }
                 }
             }
         }
