@@ -14,19 +14,14 @@ Now with a **Narrative page** that writes your life story from your sessions, **
 
 <table>
   <tr>
-    <td align="center"><strong>Therapist chat + insight badges</strong><br/><img src="docs/screenshots/chat-therapist.png" width="220"/></td>
-    <td align="center"><strong>Companion Mode</strong><br/><img src="docs/screenshots/chat-companion.png" width="220"/></td>
-    <td align="center"><strong>Hands-free voice mode</strong><br/><img src="docs/screenshots/voice-mode.png" width="220"/></td>
+    <td align="center"><strong>Chats tab — all sessions</strong><br/><img src="docs/screenshots/chats-tab.png" width="220"/></td>
+    <td align="center"><strong>Chat — markdown rendering</strong><br/><img src="docs/screenshots/chat-markdown.png" width="220"/></td>
+    <td align="center"><strong>New Session — persona picker</strong><br/><img src="docs/screenshots/new-session.png" width="220"/></td>
   </tr>
   <tr>
-    <td align="center"><strong>Dashboard — Your Patterns</strong><br/><img src="docs/screenshots/dashboard.png" width="220"/></td>
-    <td align="center"><strong>Inner Map (knowledge graph)</strong><br/><img src="docs/screenshots/inner-map.png" width="220"/></td>
-    <td align="center"><strong>Pattern connections sheet</strong><br/><img src="docs/screenshots/node-connections.png" width="220"/></td>
-  </tr>
-  <tr>
-    <td align="center"><strong>Session insights</strong><br/><img src="docs/screenshots/insights.png" width="220"/></td>
-    <td align="center"><strong>Persona settings</strong><br/><img src="docs/screenshots/settings-personas.png" width="220"/></td>
-    <td align="center"><strong>On-device model setup</strong><br/><img src="docs/screenshots/onboarding-models.png" width="220"/></td>
+    <td align="center"><strong>Narrative — life story</strong><br/><img src="docs/screenshots/narrative.png" width="220"/></td>
+    <td align="center"><strong>Model Picker — BYOK</strong><br/><img src="docs/screenshots/model-picker-byok.png" width="220"/></td>
+    <td align="center"><strong>Settings — sub-screens</strong><br/><img src="docs/screenshots/settings.png" width="220"/></td>
   </tr>
 </table>
 
