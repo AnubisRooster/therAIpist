@@ -13,16 +13,26 @@ actor NarrativeService {
 
     // MARK: - Public API
 
+    /// Back-compat convenience that resolves the provider/model from the stored
+    /// defaults based on a simple cloud/local choice.
+    @discardableResult
+    func buildIncremental(context: ModelContext, useCloud: Bool) async throws -> Bool {
+        let provider = useCloud ? resolvedCloudProvider() : "local"
+        let model    = useCloud ? resolvedCloudModel()    : resolvedLocalModel()
+        return try await buildIncremental(context: context, provider: provider, model: model)
+    }
+
     /// Processes all material newer than the most-recent chapter's watermark
     /// and, if any exists, appends a new `NarrativeChapter` to the store.
     ///
     /// - Parameters:
     ///   - context: The SwiftData `ModelContext` to read sessions from and insert the new chapter into.
-    ///   - useCloud: When `true`, routes through the configured cloud provider. When `false`, uses the local on-device model.
+    ///   - provider: The LLM provider to use (`LLMProvider.rawValue`, e.g. "openrouter", "anthropic", or "local").
+    ///   - model: The model identifier to use for the chosen provider.
     /// - Returns: `true` if a new chapter was generated, `false` if there was
     ///   nothing new to narrate.
     @discardableResult
-    func buildIncremental(context: ModelContext, useCloud: Bool) async throws -> Bool {
+    func buildIncremental(context: ModelContext, provider: String, model: String) async throws -> Bool {
         // 1. Determine the watermark — the latest source timestamp already covered.
         let existingChapters = try context.fetch(
             FetchDescriptor<NarrativeChapter>(sortBy: [SortDescriptor(\.sourceWatermark, order: .reverse)])
@@ -65,10 +75,7 @@ actor NarrativeService {
         \(sourceText)
         """
 
-        // 5. Call the LLM.
-        let provider: String = useCloud ? resolvedCloudProvider() : "local"
-        let model: String = useCloud ? resolvedCloudModel() : resolvedLocalModel()
-
+        // 5. Call the LLM with the caller-chosen provider/model.
         let rawResponse = try await LLMService.shared.sendMessage(
             provider: provider,
             model: model,
