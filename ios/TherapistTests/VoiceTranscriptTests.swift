@@ -40,6 +40,51 @@ final class VoiceTranscriptTests: XCTestCase {
         XCTAssertEqual(committed, "first part second part third part")
     }
 
+    // MARK: - utterance rollover detection
+
+    func testRefinementGrowingIsContinuation() {
+        XCTAssertTrue(VoiceConversationController.isContinuation(
+            of: "I feel", by: "I feel anxious"))
+    }
+
+    func testSameLengthRefinementIsContinuation() {
+        XCTAssertTrue(VoiceConversationController.isContinuation(
+            of: "I am okay", by: "I am okey"))
+    }
+
+    func testShorterUnrelatedStringIsRollover() {
+        // Recognizer threw away the prior sentence and started a new, shorter one.
+        XCTAssertFalse(VoiceConversationController.isContinuation(
+            of: "I have been feeling overwhelmed lately", by: "My job"))
+    }
+
+    func testShorterButSameOpeningIsContinuation() {
+        // A transient shrink that keeps the opening is a refinement, not a rollover.
+        XCTAssertTrue(VoiceConversationController.isContinuation(
+            of: "I have been feeling", by: "I have"))
+    }
+
+    func testEmptyPreviousIsContinuation() {
+        XCTAssertTrue(VoiceConversationController.isContinuation(of: "", by: "hello"))
+    }
+
+    func testRolloverCommitsPriorSentenceSoTranscriptKeepsBoth() {
+        // Simulate the controller's stitching across a mid-request rollover:
+        // segment goes "S1." then rolls over to "S2" — both must be kept.
+        var committed = ""
+        var lastSegment = ""
+        let segments = ["I feel anxious.", "My work has been hard"]
+        for seg in segments {
+            if !lastSegment.isEmpty,
+               !VoiceConversationController.isContinuation(of: lastSegment, by: seg) {
+                committed = VoiceConversationController.combinedTranscript(committed: committed, segment: lastSegment)
+            }
+            lastSegment = seg
+        }
+        let full = VoiceConversationController.combinedTranscript(committed: committed, segment: lastSegment)
+        XCTAssertEqual(full, "I feel anxious. My work has been hard")
+    }
+
     // MARK: - "send" voice command
 
     func testDetectSendStripsTrailingCommand() {

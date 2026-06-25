@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 // MARK: - BadgePill
 
@@ -73,7 +74,8 @@ extension View {
 
 // MARK: - PersonaAvatar
 
-/// A circular avatar for an AI persona, using a gradient background and the
+/// A circular avatar for an AI persona. Prefers a bundled illustrated avatar
+/// image; if the asset is missing it falls back to a gradient circle with the
 /// persona's SF Symbol icon. Used in the Chats list, chat header, and anywhere
 /// a persona identity needs a visual anchor.
 struct PersonaAvatar: View {
@@ -81,13 +83,26 @@ struct PersonaAvatar: View {
     var size: CGFloat = 44
 
     var body: some View {
-        ZStack {
-            Circle()
-                .fill(Theme.personaGradient(kind))
-                .frame(width: size, height: size)
-            Image(systemName: kind.icon)
-                .font(.system(size: size * 0.42, weight: .semibold))
-                .foregroundStyle(.white)
+        Group {
+            if let image = UIImage(named: kind.avatarAssetName) {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: size, height: size)
+                    .clipShape(Circle())
+                    .overlay(
+                        Circle().stroke(Theme.personaColor(kind).opacity(0.25), lineWidth: 1)
+                    )
+            } else {
+                ZStack {
+                    Circle()
+                        .fill(Theme.personaGradient(kind))
+                        .frame(width: size, height: size)
+                    Image(systemName: kind.icon)
+                        .font(.system(size: size * 0.42, weight: .semibold))
+                        .foregroundStyle(.white)
+                }
+            }
         }
         .accessibilityHidden(true)
     }

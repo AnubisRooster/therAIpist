@@ -73,15 +73,31 @@ struct ChatView: View {
                             }
                             .padding()
                         }
+                        // Anchor used to reliably jump to the very bottom.
+                        Color.clear
+                            .frame(height: 1)
+                            .id(Self.bottomAnchorID)
                     }
                     .padding(.vertical)
                 }
+                // Start at the bottom (most recent message) when content grows or
+                // the keyboard appears, so the view never opens scrolled to the top.
+                .defaultScrollAnchor(.bottom)
                 .onChange(of: messages.count) { _, _ in
-                    if let last = messages.last {
-                        withAnimation {
-                            proxy.scrollTo(last.id, anchor: .bottom)
-                        }
+                    withAnimation {
+                        proxy.scrollTo(Self.bottomAnchorID, anchor: .bottom)
                     }
+                }
+                .onAppear {
+                    // Reopening an existing session should land on the last message
+                    // immediately, without animating through the whole history.
+                    scrollToBottom(proxy, animated: false)
+                }
+                .task(id: messages.isEmpty) {
+                    // @Query may populate after first layout; jump to bottom once
+                    // the messages actually arrive.
+                    guard !messages.isEmpty else { return }
+                    scrollToBottom(proxy, animated: false)
                 }
             }
 
@@ -232,6 +248,26 @@ struct ChatView: View {
             handleVoiceUtterance(newValue.text)
         }
         .onDisappear { voice.stop() }
+    }
+
+    /// Stable identity for the invisible element at the very bottom of the
+    /// transcript, used as a reliable scroll target.
+    private static let bottomAnchorID = "chat-bottom-anchor"
+
+    /// Scrolls the transcript to the latest message. A short delay lets the
+    /// LazyVStack finish laying out rows before we jump (otherwise the target
+    /// row may not exist yet on first appearance).
+    private func scrollToBottom(_ proxy: ScrollViewProxy, animated: Bool) {
+        let jump = {
+            if animated {
+                withAnimation { proxy.scrollTo(Self.bottomAnchorID, anchor: .bottom) }
+            } else {
+                proxy.scrollTo(Self.bottomAnchorID, anchor: .bottom)
+            }
+        }
+        jump()
+        // Re-run on the next runloop tick to catch async row layout.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { jump() }
     }
 
     private func toggleVoiceMode() {

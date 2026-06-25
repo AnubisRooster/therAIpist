@@ -13,6 +13,15 @@ enum PersonaKind: String, CaseIterable, Identifiable {
 
     var id: String { rawValue }
 
+    /// Name of the bundled avatar image asset for this persona (in Assets.xcassets).
+    var avatarAssetName: String {
+        switch self {
+        case .therapist: return "PersonaTherapist"
+        case .companion: return "PersonaCompanion"
+        case .spiritual: return "PersonaSpiritual"
+        }
+    }
+
     /// Generic label used when the persona hasn't been given a custom name.
     var fallbackLabel: String {
         switch self {

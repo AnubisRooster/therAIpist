@@ -105,6 +105,14 @@ final class VoiceConversationController: NSObject, ObservableObject {
     /// long monologue is captured as several segments stitched together here.
     private var committedText = ""
 
+    /// The raw recognizer `formattedString` from the most recent callback in the
+    /// current request. On-device recognition can roll its live transcription
+    /// over to a brand-new utterance mid-request (replacing the string with just
+    /// the newest sentence) WITHOUT sending `isFinal`. Tracking the previous raw
+    /// segment lets us detect that rollover and commit the prior sentence so the
+    /// running transcript keeps every sentence instead of only the latest one.
+    private var lastSegment = ""
+
     private let speech = SpeechService.shared
 
     /// Joins committed text from prior segments with the live segment. Pure and
@@ -113,6 +121,26 @@ final class VoiceConversationController: NSObject, ObservableObject {
         if committed.isEmpty { return segment }
         if segment.isEmpty { return committed }
         return committed + " " + segment
+    }
+
+    /// Whether `current` is a refinement/extension of `previous` (the recognizer
+    /// is still updating the SAME utterance) versus a rollover to a new utterance.
+    ///
+    /// Refinements and extensions keep the same opening (the recognizer revises
+    /// or appends words), so the two strings share a long common prefix. A
+    /// rollover replaces the text with an unrelated new sentence, so they share
+    /// little or nothing at the start. We compare the longest common prefix to
+    /// the shorter string's length rather than using raw length (a rollover can
+    /// be longer OR shorter than what it replaced). Pure/static for testing.
+    static func isContinuation(of previous: String, by current: String) -> Bool {
+        let prev = previous.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let cur  = current.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        if prev.isEmpty || cur.isEmpty { return true }
+        let common = zip(prev, cur).prefix(while: { $0.0 == $0.1 }).count
+        let minLen = min(prev.count, cur.count)
+        // Same utterance when they share at least half of the shorter string's
+        // opening (and at least a few characters, to ignore incidental matches).
+        return common >= max(3, minLen / 2)
     }
 
     /// Spoken phrases that mean "send what I've said so far".
@@ -182,6 +210,8 @@ final class VoiceConversationController: NSObject, ObservableObject {
         speech.stop()
         partialText = ""
         lastTranscript = ""
+        committedText = ""
+        lastSegment = ""
         phase = .idle
         deactivateSession()
     }
@@ -285,6 +315,11 @@ final class VoiceConversationController: NSObject, ObservableObject {
         }
 
         // ── Start a new recognition request (shared by both paths) ───────────
+        // The new request's formattedString starts fresh, so forget the previous
+        // request's raw segment — otherwise the first short partial would look
+        // like a rollover and re-commit text already captured.
+        lastSegment = ""
+
         let request = SFSpeechAudioBufferRecognitionRequest()
         request.shouldReportPartialResults = true
         if allowOnDevice && recognizer.supportsOnDeviceRecognition {
@@ -318,6 +353,18 @@ final class VoiceConversationController: NSObject, ObservableObject {
 
     private func handleTranscript(_ segment: String, isFinal: Bool) {
         guard running, phase == .listening else { return }
+
+        // Detect the recognizer rolling over to a new utterance mid-request: the
+        // live string stopped extending the previous one, so commit the prior
+        // segment before it's lost. This keeps multi-sentence turns intact even
+        // when the recognizer resets formattedString without an isFinal.
+        if !lastSegment.isEmpty,
+           !segment.isEmpty,
+           !Self.isContinuation(of: lastSegment, by: segment) {
+            committedText = Self.combinedTranscript(committed: committedText, segment: lastSegment)
+        }
+        lastSegment = segment
+
         let full = Self.combinedTranscript(committed: committedText, segment: segment)
 
         // "…send" voice command → finalize and send immediately.
@@ -327,6 +374,7 @@ final class VoiceConversationController: NSObject, ObservableObject {
                 // Only the word "send" was heard — nothing to send; keep listening.
                 lastTranscript = ""
                 committedText = ""
+                lastSegment = ""
                 partialText = ""
                 resetSilenceTimer()
                 return
@@ -436,6 +484,7 @@ final class VoiceConversationController: NSObject, ObservableObject {
 
         phase = .thinking
         committedText = ""
+        lastSegment = ""
         partialText = utterance
 
         // Hand the turn to the view layer; it will call deliverResponse(_:).
