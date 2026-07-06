@@ -75,6 +75,8 @@ enum LLMProvider: String, CaseIterable, Identifiable {
     }
 }
 
+extension LLMProvider: APIKeyProvider {}
+
 // MARK: - LLM sending protocol
 
 /// Abstraction over the inference backend so callers (e.g. ChatService) can be
@@ -98,7 +100,7 @@ actor LLMService: LLMSending {
         self.defaultModel = defaultModel
         // Migrate legacy plaintext openrouter key on first configure call.
         if !apiKey.isEmpty {
-            keychain.set(apiKey, for: .openrouter)
+            keychain.set(apiKey, for: LLMProvider.openrouter)
         }
     }
 
@@ -181,7 +183,7 @@ actor LLMService: LLMSending {
         guard let baseURL = LLMProvider.anthropic.baseURL else {
             throw LLMError.unsupportedProvider("anthropic")
         }
-        let apiKey = keychain.get(for: .anthropic) ?? ""
+        let apiKey = keychain.get(for: LLMProvider.anthropic) ?? ""
         guard !apiKey.isEmpty else { throw LLMError.noAPIKey }
 
         let url = URL(string: "\(baseURL)/messages")!

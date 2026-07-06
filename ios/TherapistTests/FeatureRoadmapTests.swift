@@ -217,12 +217,12 @@ final class ProviderRoutingTests: XCTestCase {
 
     func testKeychainDifferentProvidersStoreSeparately() {
         let kc = KeychainService.shared
-        kc.set("key-for-groq", for: .groq)
-        kc.set("key-for-deepseek", for: .deepseek)
-        XCTAssertEqual(kc.get(for: .groq), "key-for-groq")
-        XCTAssertEqual(kc.get(for: .deepseek), "key-for-deepseek")
-        kc.delete(for: .groq)
-        kc.delete(for: .deepseek)
+        kc.set("key-for-groq", for: LLMProvider.groq)
+        kc.set("key-for-deepseek", for: LLMProvider.deepseek)
+        XCTAssertEqual(kc.get(for: LLMProvider.groq), "key-for-groq")
+        XCTAssertEqual(kc.get(for: LLMProvider.deepseek), "key-for-deepseek")
+        kc.delete(for: LLMProvider.groq)
+        kc.delete(for: LLMProvider.deepseek)
     }
 }
 

@@ -4,8 +4,8 @@ import SwiftData
 struct ChatView: View {
     @Environment(\.modelContext) private var context
     @EnvironmentObject private var modelService:      ModelService
-    @EnvironmentObject private var speech:            SpeechService
     @EnvironmentObject private var localModelService: LocalModelService
+    @StateObject private var tts = TTSCoordinator.shared
     @ObservedObject private var localEngine = LocalLLMEngine.shared
     @StateObject private var voice = VoiceConversationController()
     let session: SessionModel
@@ -211,14 +211,14 @@ struct ChatView: View {
                         // In hands-free mode, skip the spoken reply and return to
                         // listening instead of stalling the loop in `.speaking`.
                         voice.skipSpeaking()
-                    } else if speech.isSpeaking {
-                        speech.stop()
+                    } else if tts.isSpeaking {
+                        tts.stop()
                     } else {
                         ttsEnabled.toggle()
                     }
                 } label: {
                     Image(systemName: ttsEnabled
-                          ? (speech.isSpeaking ? "speaker.wave.3.fill" : "speaker.wave.2.fill")
+                          ? (tts.isSpeaking ? "speaker.wave.3.fill" : "speaker.wave.2.fill")
                           : "speaker.slash")
                     .foregroundColor(ttsEnabled ? .teal : .secondary)
                 }
@@ -330,10 +330,11 @@ struct ChatView: View {
             isLoading = false
             stopElapsedTimer()
             if ttsEnabled && !result.response.isEmpty {
-                speech.speak(result.response,
-                             rate: Float(ttsRate),
-                             pitch: Float(ttsPitch),
-                             voiceID: persona.voiceID)
+                tts.speak(result.response,
+                          rate: Float(ttsRate),
+                          pitch: Float(ttsPitch),
+                          voiceID: persona.voiceID,
+                          onError: { errorMessage = $0 })
             }
         }
     }

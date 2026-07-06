@@ -113,7 +113,7 @@ final class VoiceConversationController: NSObject, ObservableObject {
     /// running transcript keeps every sentence instead of only the latest one.
     private var lastSegment = ""
 
-    private let speech = SpeechService.shared
+    private let speech = TTSCoordinator.shared
 
     /// Joins committed text from prior segments with the live segment. Pure and
     /// static so it can be unit-tested without audio hardware.
@@ -527,6 +527,9 @@ final class VoiceConversationController: NSObject, ObservableObject {
                     guard self.running else { return }
                     self.beginListening()
                 }
+            },
+            onError: { [weak self] message in
+                Task { @MainActor in self?.errorMessage = message }
             }
         )
     }
