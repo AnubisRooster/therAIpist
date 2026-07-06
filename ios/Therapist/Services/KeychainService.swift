@@ -1,6 +1,16 @@
 import Foundation
 import Security
 
+/// Any type whose values each map to a distinct Keychain-stored API key, with
+/// UI metadata for the settings key-entry row. `LLMProvider` conforms below;
+/// `TTSKeyProvider` (in TTSCoordinator.swift) is the other conformer, for
+/// cloud TTS services that aren't LLM providers.
+protocol APIKeyProvider {
+    var keychainKey: String { get }
+    var displayName: String { get }
+    var keyHint: String { get }
+}
+
 /// Wraps the Security framework Keychain API to store per-provider API keys.
 /// Keys are stored under the generic-password class with the app's bundle ID
 /// as the service and the provider's `keychainKey` as the account.
@@ -13,7 +23,7 @@ final class KeychainService: @unchecked Sendable {
 
     /// Saves `value` for `provider`. Overwrites any existing value.
     @discardableResult
-    func set(_ value: String, for provider: LLMProvider) -> Bool {
+    func set(_ value: String, for provider: some APIKeyProvider) -> Bool {
         let data = Data(value.utf8)
         let query: [CFString: Any] = [
             kSecClass:       kSecClassGenericPassword,
@@ -33,7 +43,7 @@ final class KeychainService: @unchecked Sendable {
     }
 
     /// Retrieves the stored value for `provider`, or `nil` if not set.
-    func get(for provider: LLMProvider) -> String? {
+    func get(for provider: some APIKeyProvider) -> String? {
         let query: [CFString: Any] = [
             kSecClass:            kSecClassGenericPassword,
             kSecAttrService:      service,
@@ -53,7 +63,7 @@ final class KeychainService: @unchecked Sendable {
 
     /// Removes the stored key for `provider`.
     @discardableResult
-    func delete(for provider: LLMProvider) -> Bool {
+    func delete(for provider: some APIKeyProvider) -> Bool {
         let query: [CFString: Any] = [
             kSecClass:       kSecClassGenericPassword,
             kSecAttrService: service,
@@ -64,7 +74,7 @@ final class KeychainService: @unchecked Sendable {
     }
 
     /// Returns `true` if a non-empty key exists for `provider`.
-    func hasKey(for provider: LLMProvider) -> Bool {
+    func hasKey(for provider: some APIKeyProvider) -> Bool {
         get(for: provider) != nil
     }
 

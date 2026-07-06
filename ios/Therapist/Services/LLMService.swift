@@ -75,6 +75,8 @@ enum LLMProvider: String, CaseIterable, Identifiable {
     }
 }
 
+extension LLMProvider: APIKeyProvider {}
+
 // MARK: - LLM sending protocol
 
 /// Abstraction over the inference backend so callers (e.g. ChatService) can be

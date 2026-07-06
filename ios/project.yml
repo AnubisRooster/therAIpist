@@ -10,6 +10,9 @@ packages:
   LLM:
     url: https://github.com/eastriverlee/LLM.swift
     exactVersion: "1.8.0"
+  OnDeviceKit:
+    url: https://github.com/AnubisRooster/OnDeviceKit
+    from: "0.1.0"
 
 settings:
   base:
@@ -48,6 +51,8 @@ targets:
         buildPhase: resources
     dependencies:
       - package: LLM
+      - package: OnDeviceKit
+        product: VoiceLoopKit
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.therAIpist.app

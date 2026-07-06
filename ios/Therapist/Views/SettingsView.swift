@@ -1,4 +1,5 @@
 import SwiftUI
+import VoiceLoopKit
 
 // MARK: - Settings tab wrapper
 
@@ -137,8 +138,8 @@ struct KeysAndProvidersSettingsView: View {
 }
 
 /// Inline key-entry row for a single provider.
-private struct ProviderKeySection: View {
-    let provider: LLMProvider
+private struct ProviderKeySection<P: APIKeyProvider>: View {
+    let provider: P
     var onSaved: () -> Void = {}
     private let keychain = KeychainService.shared
 
@@ -331,43 +332,59 @@ struct ModelsSettingsView: View {
 
 struct VoiceSettingsView: View {
     @EnvironmentObject private var speechService: SpeechService
+    @StateObject private var tts = TTSCoordinator.shared
 
     @AppStorage("tts_enabled")           private var ttsEnabled   = false
+    @AppStorage("tts_provider")          private var ttsProvider  = "ondevice"
     @AppStorage("tts_rate")              private var ttsRate: Double  = 0.5
     @AppStorage("tts_pitch")             private var ttsPitch: Double = 1.0
     @AppStorage("tts_voice_id")          private var ttsVoiceID   = ""
+    @AppStorage("tts_openai_voice")      private var openAIVoice  = OpenAITTSEngine.defaultVoice
+    @AppStorage("tts_openai_model")      private var openAIModel  = OpenAITTSEngine.defaultModel
+    @AppStorage("tts_elevenlabs_voice_id") private var elevenLabsVoiceID = ElevenLabsTTSEngine.defaultVoiceId
     @AppStorage("voice_silence_seconds") private var voiceSilenceSeconds: Double = 5.0
+
+    @State private var elevenLabsVoices: [ElevenLabsTTSEngine.Voice] = []
+    @State private var voicesError: String?
+    @State private var previewError: String?
 
     var body: some View {
         Form {
             Section {
                 Toggle("Speak responses aloud", isOn: $ttsEnabled)
                 if ttsEnabled {
-                    NavigationLink {
-                        VoicePickerView().environmentObject(speechService)
-                    } label: {
-                        LabeledContent("Default Voice", value: SpeechService.voiceName(for: ttsVoiceID))
+                    Picker("Voice Engine", selection: $ttsProvider) {
+                        Text("On-Device").tag("ondevice")
+                        Text("OpenAI").tag("openai")
+                        Text("ElevenLabs").tag("elevenlabs")
                     }
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Speed: \(String(format: "%.2f", ttsRate))")
-                            .font(.caption).foregroundColor(.secondary)
-                        Slider(value: $ttsRate, in: 0.2...0.7, step: 0.025)
+                    .pickerStyle(.segmented)
+
+                    switch ttsProvider {
+                    case "openai":
+                        openAISection
+                    case "elevenlabs":
+                        elevenLabsSection
+                    default:
+                        onDeviceSection
                     }
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Pitch: \(String(format: "%.1f", ttsPitch))")
-                            .font(.caption).foregroundColor(.secondary)
-                        Slider(value: $ttsPitch, in: 0.75...1.25, step: 0.05)
+
+                    if let previewError {
+                        Text(previewError).font(.caption).foregroundColor(.red)
                     }
                     Button("Preview") {
-                        speechService.speak("Hello. How are you feeling today?",
-                                            rate: Float(ttsRate), pitch: Float(ttsPitch),
-                                            voiceID: ttsVoiceID)
+                        previewError = nil
+                        tts.speak("Hello. How are you feeling today?",
+                                  rate: Float(ttsRate), pitch: Float(ttsPitch), voiceID: ttsVoiceID,
+                                  onError: { previewError = $0 })
                     }
                 }
             } header: {
                 Text("Text-to-Speech")
             } footer: {
-                Text("Uses on-device TTS. No audio leaves the device. Download more voices in iOS Settings → Accessibility → Spoken Content → Voices.")
+                Text(ttsProvider == "ondevice"
+                     ? "Uses on-device TTS. No audio leaves the device. Download more voices in iOS Settings → Accessibility → Spoken Content → Voices."
+                     : "Cloud voice replies are sent to a third-party service to synthesize speech.")
                     .font(.caption)
             }
 
@@ -386,6 +403,70 @@ struct VoiceSettingsView: View {
         }
         .navigationTitle("Voice & Speech")
         .navigationBarTitleDisplayMode(.inline)
+    }
+
+    @ViewBuilder
+    private var onDeviceSection: some View {
+        NavigationLink {
+            VoicePickerView().environmentObject(speechService)
+        } label: {
+            LabeledContent("Default Voice", value: SpeechService.voiceName(for: ttsVoiceID))
+        }
+        VStack(alignment: .leading, spacing: 4) {
+            Text("Speed: \(String(format: "%.2f", ttsRate))")
+                .font(.caption).foregroundColor(.secondary)
+            Slider(value: $ttsRate, in: 0.2...0.7, step: 0.025)
+        }
+        VStack(alignment: .leading, spacing: 4) {
+            Text("Pitch: \(String(format: "%.1f", ttsPitch))")
+                .font(.caption).foregroundColor(.secondary)
+            Slider(value: $ttsPitch, in: 0.75...1.25, step: 0.05)
+        }
+    }
+
+    @ViewBuilder
+    private var openAISection: some View {
+        if KeychainService.shared.hasKey(for: LLMProvider.openai) {
+            Picker("Voice", selection: $openAIVoice) {
+                ForEach(OpenAITTSEngine.availableVoices, id: \.self) { Text($0.capitalized).tag($0) }
+            }
+            Picker("Model", selection: $openAIModel) {
+                ForEach(OpenAITTSEngine.availableModels, id: \.self) { Text($0).tag($0) }
+            }
+        } else {
+            Text("Uses your existing OpenAI API key from Keys & Providers.")
+                .font(.caption).foregroundColor(.secondary)
+            Text("No OpenAI key configured yet — add one in Settings → Keys & Providers to use OpenAI voices.")
+                .font(.caption).foregroundColor(.orange)
+        }
+    }
+
+    @ViewBuilder
+    private var elevenLabsSection: some View {
+        ProviderKeySection(provider: TTSKeyProvider.elevenlabs) {
+            Task { await loadElevenLabsVoices() }
+        }
+        if elevenLabsVoices.isEmpty {
+            if let voicesError {
+                Text(voicesError).font(.caption).foregroundColor(.red)
+            }
+            Button("Load Voices") { Task { await loadElevenLabsVoices() } }
+                .disabled(!KeychainService.shared.hasKey(for: TTSKeyProvider.elevenlabs))
+        } else {
+            Picker("Voice", selection: $elevenLabsVoiceID) {
+                ForEach(elevenLabsVoices) { Text($0.name).tag($0.id) }
+            }
+        }
+    }
+
+    private func loadElevenLabsVoices() async {
+        guard let key = KeychainService.shared.get(for: TTSKeyProvider.elevenlabs) else { return }
+        do {
+            elevenLabsVoices = try await ElevenLabsTTSEngine.fetchVoices(apiKey: key)
+            voicesError = nil
+        } catch {
+            voicesError = "Couldn't load voices: \(error.localizedDescription)"
+        }
     }
 }
 
