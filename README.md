@@ -62,7 +62,7 @@ Now with a **Narrative page** that writes your life story from your sessions, **
   - **Therapist** — follows one of 13 evidence-based therapeutic modalities.
   - **Companion** — a warm, chatty, non-sycophantic friend with configurable name, gender, and personality.
   - **Spiritual Advisor** — a wise, non-denominational guide drawing from Interfaith, Stoic, Buddhist, Christian, Jewish, Islamic, Hindu, Taoist, or Secular-Humanist traditions. Never proselytises or judges.
-- **Named, voiced personalities** — each persona gets its own name and TTS voice in Settings → Personas.
+- **Named, voiced personalities** — each persona gets its own name and on-device TTS voice in Settings → Personas. (Per-persona voices are on-device only; cloud voice engines use one shared voice for all personas — see Text-to-speech below.)
 - **Shared memory across personas** — all three read and write the same episodic/semantic memory, knowledge graph, and global memories.
 
 ### Narrative page
@@ -70,6 +70,7 @@ Now with a **Narrative page** that writes your life story from your sessions, **
 
 ### Bring Your Own Key (BYOK)
 - Enter API keys for **OpenAI**, **Anthropic** (Claude), **DeepSeek**, **Groq**, **Together AI**, or **OpenRouter** in Settings → Keys & Providers. All keys are stored in the system **Keychain**, never in plaintext `UserDefaults`. The per-session model picker lets you choose any provider and model ID.
+- **ElevenLabs** key entry (Settings → Voice & Speech) uses the same Keychain-backed pattern, for cloud text-to-speech rather than chat.
 
 ### Navigation & UI
 - **Tab bar** — four top-level tabs: Chats · Narrative · Insights · Settings.
@@ -80,7 +81,11 @@ Now with a **Narrative page** that writes your life story from your sessions, **
 ### Therapy & conversation
 - **13 modalities** — Integrated, Adlerian, Jungian, DBT, CBT, Humanistic, Existential, Gestalt, Somatic, Narrative, ACT, Psychodynamic, and IFS — selectable per session (Therapist persona)
 - **Adaptive verbosity** — the assistant calibrates response length based on conversational context
-- **Text-to-speech** — responses spoken aloud with configurable voice, rate, and pitch; natural-sounding system voices
+- **Text-to-speech** — responses spoken aloud with configurable voice, rate, and pitch. Three engines, selectable in Settings → Voice & Speech:
+  - **On-device** (default) — natural-sounding system voices via `AVSpeechSynthesizer`; nothing leaves the device.
+  - **OpenAI** — silently reuses the OpenAI key already entered for chat (Settings → Keys & Providers); no separate setup.
+  - **ElevenLabs** — needs its own API key (Settings → Voice & Speech); voice list is fetched live from your account.
+  - On-device voices are still per-persona (Therapist/Companion/Spiritual Advisor each keep their own); the two cloud engines use one shared voice/model for all personas in this release. Both cloud engines are provided by [OnDeviceKit](https://github.com/AnubisRooster/OnDeviceKit)'s `VoiceLoopKit` module rather than reimplemented here.
 - **Hands-free voice mode** — a continuous speak/listen loop: the app transcribes your speech (on-device when supported), ends your turn automatically after a natural pause (~3s of silence), speaks the therapist's reply aloud, then returns to listening — no tapping between turns. The mic is torn down while speaking so it never transcribes its own voice. Long monologues are stitched across `SFSpeechRecognizer`'s ~1-minute segment limit, and tapping the speaker icon mid-reply skips it and resumes listening rather than stalling the loop.
 - **Voice input** — also available via the keyboard's built-in dictation for typed messages
 
@@ -141,6 +146,8 @@ ios/Therapist/
 │   ├── TherapyService.swift       # Persona/modality prompts + system prompt assembly
 │   ├── PersonaService.swift       # Therapist/Companion identity, name + voice resolution
 │   ├── SpeechService.swift        # AVSpeechSynthesizer TTS wrapper (+ onFinish loop hook)
+│   ├── TTSCoordinator.swift       # Routes speak() to on-device/OpenAI/ElevenLabs based on
+│   │                              #   the tts_provider setting (cloud engines from OnDeviceKit)
 │   ├── VoiceConversationController.swift  # Hands-free loop: SFSpeechRecognizer +
 │   │                              #   AVAudioEngine + silence endpointing
 │   ├── BadgeBackfillService.swift # One-time retro-tagging of old conversations (v2:
@@ -193,7 +200,7 @@ xcodegen generate          # regenerates Therapist.xcodeproj from project.yml
 open Therapist.xcodeproj
 ```
 
-Build and run on your device or simulator. Swift Package Manager will resolve `LLM.swift` automatically on first build.
+Build and run on your device or simulator. Swift Package Manager will resolve `LLM.swift` and [OnDeviceKit](https://github.com/AnubisRooster/OnDeviceKit) (cloud TTS engines) automatically on first build.
 
 ### First launch
 
