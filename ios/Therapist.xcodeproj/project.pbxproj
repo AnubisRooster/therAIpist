@@ -27,6 +27,7 @@
 		3D0847675E4FC56E60AE3375 /* cytoscape.min.js in Resources */ = {isa = PBXBuildFile; fileRef = 0BD64C26D65ADCEB4F013C0E /* cytoscape.min.js */; };
 		40BD96C8296D409B00D2E067 /* GraphExportService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 516427EF25D95CCA909F4B8C /* GraphExportService.swift */; };
 		41BABCC9389C06C7FC549A26 /* GraphVisualizationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4E35383169E391C4C71A1F9E /* GraphVisualizationView.swift */; };
+		4A360AD45D3ED34E5FF26112 /* TTSCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B7F3038A1D059869CE8DDC8 /* TTSCoordinator.swift */; };
 		4B808F4BB84AABD9F9FCB12A /* SessionModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C2E3E137BA2B43146C53624 /* SessionModelTests.swift */; };
 		4BB92C4B89EA7FA37F983496 /* VoiceConversationController.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7EF57872E42353E8E306853 /* VoiceConversationController.swift */; };
 		4D3E9591534F521D7C217B91 /* ModelService.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF4BE5016360D07B4A1B03F2 /* ModelService.swift */; };
@@ -67,6 +68,7 @@
 		E11D64B58D84E292AEB2D787 /* NarrativeService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5DA18D2A56B91B1073AD29A /* NarrativeService.swift */; };
 		E20D2DCBD0BED69521EBC643 /* TherapistApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6AAC81CE3481650BEC6360E1 /* TherapistApp.swift */; };
 		E37E384E27E4B1F60AE2451F /* PINService.swift in Sources */ = {isa = PBXBuildFile; fileRef = CEA2B400CC7FF4901629DBB4 /* PINService.swift */; };
+		E3AE88F160F145C4AA3F7056 /* VoiceLoopKit in Frameworks */ = {isa = PBXBuildFile; productRef = A55387F197517798B97E5C10 /* VoiceLoopKit */; };
 		E6296B8840585FB0844E1956 /* NewSessionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B66D9B0C478D8ADE380D64C /* NewSessionView.swift */; };
 		E734BCBDEC143DC1623BBA82 /* VectorStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3FC97A6C9CF980CC8A22E32 /* VectorStore.swift */; };
 		EAA5D87F1FEB4F4E7834B770 /* AgentSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8247533172B2362899FFBB29 /* AgentSystem.swift */; };
@@ -90,6 +92,7 @@
 		0581D2258450F18F3E17AFE3 /* SafetyServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SafetyServiceTests.swift; sourceTree = "<group>"; };
 		0885CBC0AD8F61374E1B9167 /* ModelPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelPickerView.swift; sourceTree = "<group>"; };
 		08B8E4472E85F942522C5576 /* PINLockoutTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PINLockoutTests.swift; sourceTree = "<group>"; };
+		0B7F3038A1D059869CE8DDC8 /* TTSCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TTSCoordinator.swift; sourceTree = "<group>"; };
 		0BD64C26D65ADCEB4F013C0E /* cytoscape.min.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = cytoscape.min.js; sourceTree = "<group>"; };
 		115C81BB8363E5F06EA3303E /* LocalLLMEngineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalLLMEngineTests.swift; sourceTree = "<group>"; };
 		17D9C8542218F244F0710E14 /* GlobalMemoryServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlobalMemoryServiceTests.swift; sourceTree = "<group>"; };
@@ -162,6 +165,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				6D76DDD2A6C266B4F7629756 /* LLM in Frameworks */,
+				E3AE88F160F145C4AA3F7056 /* VoiceLoopKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -196,6 +200,7 @@
 				6EE6DE3CA5C6934F88E1DAA0 /* SafetyService.swift */,
 				50509B03F33B1863EC8F3377 /* SpeechService.swift */,
 				575F01212E36AE1D15CB6E16 /* TherapyService.swift */,
+				0B7F3038A1D059869CE8DDC8 /* TTSCoordinator.swift */,
 				E3FC97A6C9CF980CC8A22E32 /* VectorStore.swift */,
 				C7EF57872E42353E8E306853 /* VoiceConversationController.swift */,
 				8CDAE0376C33CA89B735BD81 /* VoiceService.swift */,
@@ -358,6 +363,7 @@
 			name = Therapist;
 			packageProductDependencies = (
 				C21A0FFD4358DAFD86CCFFDF /* LLM */,
+				A55387F197517798B97E5C10 /* VoiceLoopKit */,
 			);
 			productName = Therapist;
 			productReference = 82F24F0752AA76B48E8788A6 /* Therapist.app */;
@@ -393,6 +399,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				64B0224D0B94F9350F0890CE /* XCRemoteSwiftPackageReference "LLM.swift" */,
+				C7261FB6BE54A982095300D0 /* XCRemoteSwiftPackageReference "OnDeviceKit" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 86EE4942D7C8B39A4FDDB403 /* Products */;
@@ -484,6 +491,7 @@
 				16653570295C89CBF513ABB7 /* SettingsView.swift in Sources */,
 				C760C757D0C06DA0EDE1019E /* SpeechService.swift in Sources */,
 				271BF8050BFDDB73431E345D /* SwiftDataModels.swift in Sources */,
+				4A360AD45D3ED34E5FF26112 /* TTSCoordinator.swift in Sources */,
 				33345F5ED4AC1B342354856D /* Theme.swift in Sources */,
 				E20D2DCBD0BED69521EBC643 /* TherapistApp.swift in Sources */,
 				0788C946D14F7244468134C0 /* TherapyService.swift in Sources */,
@@ -746,9 +754,22 @@
 				version = 1.8.0;
 			};
 		};
+		C7261FB6BE54A982095300D0 /* XCRemoteSwiftPackageReference "OnDeviceKit" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/AnubisRooster/OnDeviceKit";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.1.0;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		A55387F197517798B97E5C10 /* VoiceLoopKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = C7261FB6BE54A982095300D0 /* XCRemoteSwiftPackageReference "OnDeviceKit" */;
+			productName = VoiceLoopKit;
+		};
 		C21A0FFD4358DAFD86CCFFDF /* LLM */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 64B0224D0B94F9350F0890CE /* XCRemoteSwiftPackageReference "LLM.swift" */;

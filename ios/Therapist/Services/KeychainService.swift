@@ -90,12 +90,12 @@ final class KeychainService: @unchecked Sendable {
     /// should use it instead of reading `@AppStorage("openrouter_key")`.
     @discardableResult
     func openRouterKey() -> String {
-        if let stored = get(for: .openrouter) { return stored }
+        if let stored = get(for: LLMProvider.openrouter) { return stored }
 
         let legacy = (UserDefaults.standard.string(forKey: Self.legacyOpenRouterDefaultsKey) ?? "")
             .trimmingCharacters(in: .whitespacesAndNewlines)
         if !legacy.isEmpty {
-            set(legacy, for: .openrouter)
+            set(legacy, for: LLMProvider.openrouter)
             // Remove the plaintext copy now that it lives securely in Keychain.
             UserDefaults.standard.removeObject(forKey: Self.legacyOpenRouterDefaultsKey)
             return legacy

@@ -1,5 +1,5 @@
 {
-  "originHash" : "13f7579c217d540e3b4e09716e45fd676a14b82e3749b7b19a3c3afed3dc393c",
+  "originHash" : "d522b9f0d8a8f73394e388da95d4fe22b2a37ed38648be4ec70503b024973bbc",
   "pins" : [
     {
       "identity" : "llm.swift",
@@ -8,6 +8,15 @@
       "state" : {
         "revision" : "4b2517839f24498bea0695bae8967b359b9a35c4",
         "version" : "1.8.0"
+      }
+    },
+    {
+      "identity" : "ondevicekit",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/AnubisRooster/OnDeviceKit",
+      "state" : {
+        "revision" : "ee78189feed3395145b2ae0a829773edaff58714",
+        "version" : "0.1.0"
       }
     }
   ],
