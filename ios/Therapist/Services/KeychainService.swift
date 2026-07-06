@@ -28,6 +28,9 @@ final class KeychainService: @unchecked Sendable {
 
         var addAttrs = query
         addAttrs[kSecValueData] = data
+        // Keep keys on this device only (excluded from iCloud/iTunes backups) and
+        // available only while the device is unlocked.
+        addAttrs[kSecAttrAccessible] = kSecAttrAccessibleWhenUnlockedThisDeviceOnly
         let status = SecItemAdd(addAttrs as CFDictionary, nil)
         return status == errSecSuccess
     }

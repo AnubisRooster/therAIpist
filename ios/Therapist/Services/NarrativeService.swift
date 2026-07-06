@@ -11,7 +11,14 @@ import SwiftData
 /// This "revise-in-place" strategy is incremental (only new material is
 /// re-processed) while always producing a single, unified narrative rather than
 /// a pile of disconnected per-session chapters.
-actor NarrativeService {
+///
+/// Runs on the main actor because it reads and writes the app's main
+/// `ModelContext`, which is not safe to touch off the main thread. The only slow
+/// work — the LLM call — is `await`ed and suspends without blocking the UI, so
+/// staying on the main actor keeps the app responsive while remaining correct
+/// (mirrors `ChatService`).
+@MainActor
+final class NarrativeService {
     static let shared = NarrativeService()
 
     // MARK: - Public API

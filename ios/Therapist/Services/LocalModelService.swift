@@ -158,7 +158,12 @@ final class LocalModelService: ObservableObject {
 
     func startDownload(_ model: LocalModel) {
         guard model.kind == .gguf else { return }
-        guard activeTasks[model.id] == nil, !isDownloaded(model.id) else { return }
+        // `activeTasks` isn't populated until the async download actually starts,
+        // so also guard on `downloadProgress` to stop a rapid double-tap from
+        // kicking off two concurrent downloads of the same model.
+        guard activeTasks[model.id] == nil,
+              downloadProgress[model.id] == nil,
+              !isDownloaded(model.id) else { return }
         downloadProgress[model.id] = 0.001
         Task { await performDownload(model) }
     }

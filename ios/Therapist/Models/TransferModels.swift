@@ -102,7 +102,7 @@ struct CrisisPattern {
 }
 
 let crisisPatterns: [CrisisPattern] = [
-    CrisisPattern(patterns: ["kill myself", "end my life", "want to die", "better off dead", "suicide", "self-harm", "hurt myself", "cutting", "suicidal"], level: "critical"),
+    CrisisPattern(patterns: ["kill myself", "end my life", "want to die", "better off dead", "suicide", "self-harm", "hurt myself", "cutting", "cut myself", "suicidal"], level: "critical"),
     CrisisPattern(patterns: ["don't want to be here", "can't go on", "no reason to live", "worthless", "hopeless"], level: "warning"),
 ]
 
