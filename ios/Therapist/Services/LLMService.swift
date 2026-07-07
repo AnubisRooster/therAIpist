@@ -1,4 +1,5 @@
 import Foundation
+import BYOKLLMKit
 
 // MARK: - Provider enumeration
 
@@ -83,6 +84,21 @@ extension LLMProvider: APIKeyProvider {}
 /// unit-tested with a mock instead of hitting the network or a real model.
 protocol LLMSending: Sendable {
     func sendMessage(provider: String, model: String, messages: [LLMMessage]) async throws -> String
+}
+
+/// Optional capability: an `LLMSending` backend that can also stream
+/// incremental text deltas as the model generates, instead of only
+/// returning the finished reply. `LLMService` (the production backend)
+/// conforms; test mocks that only implement `LLMSending` simply don't —
+/// `ChatService` checks `as? LLMStreaming` and falls back to `sendMessage`
+/// when the injected backend doesn't support it.
+///
+/// Streaming deltas let a caller start synthesizing speech for the first
+/// sentence of a reply while the model is still generating the rest,
+/// instead of waiting for the entire reply before any text-to-speech work
+/// can begin.
+protocol LLMStreaming {
+    func streamMessage(provider: String, model: String, messages: [LLMMessage]) -> AsyncThrowingStream<String, Error>
 }
 
 // MARK: - LLMService
@@ -231,6 +247,63 @@ actor LLMService: LLMSending {
             }
         }
         return t.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+}
+
+// MARK: - LLMStreaming
+
+extension LLMService: LLMStreaming {
+    /// Streams a reply via SSE for the OpenAI-compatible cloud providers,
+    /// delegating the actual network/parsing work to `BYOKLLMKit.LLMService`
+    /// (its `streamMessage` is already covered by that package's own SSE
+    /// tests). `BYOKLLMKit`'s Keychain lookups use the same service/account
+    /// scheme as this app's `KeychainService`, so a key entered in Settings
+    /// is already visible to it — no separate configuration needed.
+    ///
+    /// Anthropic and on-device generation aren't streamed here: this yields
+    /// the whole reply as a single delta once `sendMessage` finishes, so
+    /// callers behave identically to the non-streaming path for those
+    /// providers, just without the early-arrival latency win.
+    nonisolated func streamMessage(provider: String = "openrouter",
+                                   model: String,
+                                   messages: [LLMMessage]) -> AsyncThrowingStream<String, Error> {
+        AsyncThrowingStream { continuation in
+            let task = Task {
+                do {
+                    let providerEnum = LLMProvider(rawValue: provider) ?? .openrouter
+
+                    guard providerEnum.isOpenAICompatible else {
+                        let text = try await self.sendMessage(provider: provider, model: model, messages: messages)
+                        continuation.yield(text)
+                        continuation.finish()
+                        return
+                    }
+
+                    let resolvedModel = model.isEmpty ? await self.defaultModel : model
+                    let kitMessages = messages.map { BYOKLLMKit.LLMMessage(role: $0.role, content: $0.content) }
+                    let kitStream = BYOKLLMKit.LLMService.shared.streamMessage(provider: provider, model: resolvedModel,
+                                                                               messages: kitMessages)
+                    for try await delta in kitStream {
+                        continuation.yield(delta)
+                    }
+                    continuation.finish()
+                } catch let kitError as BYOKLLMKit.LLMError {
+                    continuation.finish(throwing: Self.mapKitError(kitError))
+                } catch {
+                    continuation.finish(throwing: error)
+                }
+            }
+            continuation.onTermination = { _ in task.cancel() }
+        }
+    }
+
+    private static func mapKitError(_ error: BYOKLLMKit.LLMError) -> LLMError {
+        switch error {
+        case .noAPIKey: return .noAPIKey
+        case .apiError(let msg): return .apiError(msg)
+        case .unsupportedProvider(let p): return .unsupportedProvider(p)
+        case .streamingNotSupported(let p): return .unsupportedProvider(p)
+        }
     }
 }
 

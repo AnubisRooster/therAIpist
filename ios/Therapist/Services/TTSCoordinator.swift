@@ -34,6 +34,17 @@ final class TTSCoordinator: ObservableObject {
 
     private var provider: String { UserDefaults.standard.string(forKey: "tts_provider") ?? "ondevice" }
 
+    /// Bumped by `stop()` and by `speakPrefetched`'s own start, so a stale
+    /// queue-playback loop (or a stale in-flight continuation from
+    /// `playOne`) can tell it's been superseded and stop advancing instead of
+    /// playing a sentence nobody asked for anymore.
+    private var speechGeneration = 0
+    /// The continuation `playOne` is currently waiting on, so `stop()` can
+    /// resume it directly — the engines' own `stop()` clears their playback
+    /// callbacks without invoking them, which would otherwise leave this
+    /// continuation (and the queue loop awaiting it) suspended forever.
+    private var activeSentenceContinuation: CheckedContinuation<Void, Never>?
+
     private init() {
         // SpeechService.isSpeaking is @Published, but callers observe
         // TTSCoordinator instead now — mirror its changes so the mute-button
@@ -47,6 +58,7 @@ final class TTSCoordinator: ObservableObject {
                voiceID: String = "",
                onFinish: (() -> Void)? = nil,
                onError: ((String) -> Void)? = nil) {
+        interruptPendingQueue()
         switch provider {
         case "openai":
             speakOpenAI(text, rate: rate, onFinish: onFinish, onError: onError)
@@ -58,10 +70,21 @@ final class TTSCoordinator: ObservableObject {
     }
 
     func stop() {
+        interruptPendingQueue()
         onDevice.stop()
         elevenLabs.stop()
         openAI.stop()
         isSpeakingCloud = false
+    }
+
+    /// Resumes (without playing anything) any `playOne` continuation left
+    /// over from a `speakPrefetched` queue, and bumps `speechGeneration` so
+    /// that queue's driving loop stops advancing. Called before starting any
+    /// new utterance so an old queue can never keep running underneath it.
+    private func interruptPendingQueue() {
+        speechGeneration += 1
+        activeSentenceContinuation?.resume()
+        activeSentenceContinuation = nil
     }
 
     private func speakOpenAI(_ text: String, rate: Float, onFinish: (() -> Void)?, onError: ((String) -> Void)?) {
@@ -103,5 +126,127 @@ final class TTSCoordinator: ObservableObject {
                              onError?(error.localizedDescription)
                              onFinish?()
                          })
+    }
+
+    // MARK: - Sentence-level pipelining
+
+    /// One sentence of a reply, synthesized (or not) ahead of playback.
+    enum PrefetchedSentence: Sendable {
+        case openAI(OpenAITTSEngine.PrefetchedClip)
+        case elevenLabs(ElevenLabsTTSEngine.PrefetchedClip)
+        /// On-device synthesis has no network round trip to hide, so there's
+        /// nothing worth prefetching — carries the raw text to speak later.
+        /// Also used when prefetching a cloud sentence failed (bad key,
+        /// network error): falling back to the on-device voice for just that
+        /// one sentence beats dropping it or erroring the whole reply.
+        case onDeviceOrFallback(String)
+    }
+
+    /// Kicks off TTS synthesis for one completed sentence of a reply that's
+    /// still being generated — called from `ChatService.processMessage`'s
+    /// `onSentence` as each sentence streams in. Returns immediately; the
+    /// network round trip runs in the background and is awaited later by
+    /// `speakPrefetched`, so by the time the full reply is ready and cleared
+    /// by the safety check, most/all sentences are already synthesized and
+    /// playback can start with no further wait.
+    ///
+    /// Reads the current `tts_provider`/voice settings synchronously (before
+    /// hopping off-main), so a setting change mid-reply can't affect a
+    /// sentence already queued.
+    nonisolated func prefetchSentence(_ text: String, voiceID: String) -> Task<PrefetchedSentence, Never> {
+        let currentProvider = UserDefaults.standard.string(forKey: "tts_provider") ?? "ondevice"
+        let defaults = UserDefaults.standard
+
+        switch currentProvider {
+        case "openai":
+            guard let apiKey = KeychainService.shared.get(for: LLMProvider.openai), !apiKey.isEmpty else {
+                return Task { .onDeviceOrFallback(text) }
+            }
+            let voice = defaults.string(forKey: "tts_openai_voice") ?? OpenAITTSEngine.defaultVoice
+            let model = defaults.string(forKey: "tts_openai_model") ?? OpenAITTSEngine.defaultModel
+            return Task.detached(priority: .userInitiated) {
+                do {
+                    let clip = try await OpenAITTSEngine.prefetch(text, voice: voice, model: model, apiKey: apiKey)
+                    return .openAI(clip)
+                } catch {
+                    return .onDeviceOrFallback(text)
+                }
+            }
+        case "elevenlabs":
+            guard let apiKey = KeychainService.shared.get(for: TTSKeyProvider.elevenlabs), !apiKey.isEmpty else {
+                return Task { .onDeviceOrFallback(text) }
+            }
+            let voiceId = defaults.string(forKey: "tts_elevenlabs_voice_id") ?? ElevenLabsTTSEngine.defaultVoiceId
+            return Task.detached(priority: .userInitiated) {
+                do {
+                    let clip = try await ElevenLabsTTSEngine.prefetch(text, voiceId: voiceId,
+                                                                      modelId: ElevenLabsTTSEngine.defaultModelId,
+                                                                      apiKey: apiKey)
+                    return .elevenLabs(clip)
+                } catch {
+                    return .onDeviceOrFallback(text)
+                }
+            }
+        default:
+            return Task { .onDeviceOrFallback(text) }
+        }
+    }
+
+    /// Plays a full reply's sentences in order, using whichever clips
+    /// `prefetchSentence` already finished synthesizing and simply waiting on
+    /// whichever haven't. Call this only once the caller has confirmed the
+    /// reply cleared any safety check — nothing plays until this is called,
+    /// no matter how early prefetching started.
+    func speakPrefetched(_ tasks: [Task<PrefetchedSentence, Never>],
+                        rate: Float = 0.5,
+                        pitch: Float = 1.0,
+                        voiceID: String = "",
+                        onFinish: (() -> Void)? = nil,
+                        onError: ((String) -> Void)? = nil) {
+        guard !tasks.isEmpty else { onFinish?(); return }
+        interruptPendingQueue()
+        let generation = speechGeneration
+        isSpeakingCloud = (provider != "ondevice")
+
+        Task { [weak self] in
+            guard let self else { return }
+            for task in tasks {
+                guard self.speechGeneration == generation else { return }
+                let sentence = await task.value
+                guard self.speechGeneration == generation else { return }
+                await self.playOne(sentence, rate: rate, pitch: pitch, voiceID: voiceID, onError: onError)
+            }
+            guard self.speechGeneration == generation else { return }
+            self.isSpeakingCloud = false
+            onFinish?()
+        }
+    }
+
+    /// Plays a single prefetched sentence and suspends until it finishes (or
+    /// errors, or is interrupted by `stop()`), so `speakPrefetched`'s loop
+    /// naturally plays the queue back-to-back in order.
+    private func playOne(_ sentence: PrefetchedSentence, rate: Float, pitch: Float, voiceID: String,
+                         onError: ((String) -> Void)?) async {
+        await withCheckedContinuation { continuation in
+            activeSentenceContinuation = continuation
+            let finish: () -> Void = { [weak self] in
+                guard let self, self.activeSentenceContinuation != nil else { return }
+                self.activeSentenceContinuation = nil
+                continuation.resume()
+            }
+            switch sentence {
+            case .openAI(let clip):
+                openAI.play(clip, onStart: { _, _ in }, onProgress: { _ in },
+                           completion: { finish() },
+                           onError: { error in onError?(error.localizedDescription); finish() })
+            case .elevenLabs(let clip):
+                let elRate = Double(rate > 0 ? rate * 2 : 1.0)
+                elevenLabs.play(clip, rate: elRate, onStart: { _, _ in }, onProgress: { _ in },
+                               completion: { finish() },
+                               onError: { error in onError?(error.localizedDescription); finish() })
+            case .onDeviceOrFallback(let text):
+                onDevice.speak(text, rate: rate, pitch: pitch, voiceID: voiceID, onFinish: { finish() })
+            }
+        }
     }
 }

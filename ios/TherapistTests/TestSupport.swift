@@ -60,3 +60,38 @@ final class MockLLM: LLMSending, @unchecked Sendable {
         return response
     }
 }
+
+/// A mock that also conforms to `LLMStreaming`, so `ChatService` exercises its
+/// sentence-splitting/`onSentence` pipeline instead of the plain `sendMessage`
+/// fallback. Delivers `chunks` as successive stream deltas one at a time.
+final class MockStreamingLLM: LLMSending, LLMStreaming, @unchecked Sendable {
+    private let chunks: [String]
+    var error: Error?
+    private(set) var callCount = 0
+
+    /// - Parameter chunks: raw deltas yielded in order; join them to get the
+    ///   full reply. Doesn't need to align with sentence boundaries — the
+    ///   splitter is expected to buffer across delta boundaries.
+    init(chunks: [String], error: Error? = nil) {
+        self.chunks = chunks
+        self.error = error
+    }
+
+    func sendMessage(provider: String, model: String, messages: [LLMMessage]) async throws -> String {
+        callCount += 1
+        if let error { throw error }
+        return chunks.joined()
+    }
+
+    func streamMessage(provider: String, model: String, messages: [LLMMessage]) -> AsyncThrowingStream<String, Error> {
+        callCount += 1
+        return AsyncThrowingStream { continuation in
+            if let error {
+                continuation.finish(throwing: error)
+                return
+            }
+            for chunk in chunks { continuation.yield(chunk) }
+            continuation.finish()
+        }
+    }
+}

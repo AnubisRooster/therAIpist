@@ -38,9 +38,25 @@ final class ChatService {
         let isCrisis: Bool
         let tokenCount: Int
         let agentResponse: String?
+        /// True when `response` is a safety fallback (crisis resources or a
+        /// boundary-violation redirect) rather than the model's own reply.
+        /// Callers that speculatively synthesized speech for sentences of the
+        /// in-progress reply (via `onSentence`) must discard that audio when
+        /// this is true — the safety check requires nothing from the
+        /// original reply is ever spoken.
+        var wasReplacedForSafety = false
     }
 
-    func processMessage(session: SessionModel, userMessage: String, context: ModelContext) async -> ChatResult {
+    /// - Parameter onSentence: called once per complete sentence as the
+    ///   reply streams in (for cloud providers that support it — see
+    ///   `LLMStreaming`), *before* the safety/boundary check runs on the
+    ///   finished reply. Callers may use this to start synthesizing speech
+    ///   for each sentence early, overlapping that work with the rest of the
+    ///   reply still generating — but must not play any of it until this
+    ///   method returns with `wasReplacedForSafety == false`, since a
+    ///   violation detected later in the reply replaces the whole thing.
+    func processMessage(session: SessionModel, userMessage: String, context: ModelContext,
+                        onSentence: ((String) -> Void)? = nil) async -> ChatResult {
         let persona = PersonaService.resolve(for: session)
         let globalMemories = globalMemoryService.recall(query: userMessage, context: context)
         var crossSessionContext = ""
@@ -68,7 +84,8 @@ final class ChatService {
                 response: resourceMessage,
                 isCrisis: true,
                 tokenCount: 0,
-                agentResponse: nil
+                agentResponse: nil,
+                wasReplacedForSafety: true
             )
         }
 
@@ -124,11 +141,20 @@ final class ChatService {
         let tokenCount: Int
 
         do {
-            assistantResponse = try await llm.sendMessage(
-                provider: provider,
-                model: model,
-                messages: llmMessages
-            )
+            if let streaming = llm as? LLMStreaming {
+                assistantResponse = try await Self.streamAndSplitSentences(
+                    streaming.streamMessage(provider: provider, model: model, messages: llmMessages),
+                    onSentence: onSentence
+                )
+            } else {
+                // No streaming support (Anthropic, on-device, or a test
+                // mock) — same single round trip as before. Still reports
+                // the whole reply through `onSentence` once, so callers
+                // don't need to special-case non-streaming providers.
+                let text = try await llm.sendMessage(provider: provider, model: model, messages: llmMessages)
+                if !text.isEmpty { onSentence?(text) }
+                assistantResponse = text
+            }
             tokenCount = assistantResponse.count / 4
         } catch LocalLLMError.busy {
             return ChatResult(
@@ -246,8 +272,62 @@ final class ChatService {
             response: finalResponse,
             isCrisis: false,
             tokenCount: tokenCount,
-            agentResponse: agentResult.agentName != "integrative_agent" ? agentResult.content : nil
+            agentResponse: agentResult.agentName != "integrative_agent" ? agentResult.content : nil,
+            wasReplacedForSafety: boundaryCheck.isViolation
         )
+    }
+
+    /// Splits `text` at the first sentence-ending punctuation (`.`, `!`,
+    /// `?`) or newline, returning that leading sentence (trimmed) and
+    /// everything after it — `nil` if `text` has no complete sentence yet.
+    /// Skips stray boundary-only fragments (e.g. leading whitespace before a
+    /// stray period) by recursing into the remainder. Pure/static so it's
+    /// unit-testable without any network or LLM involved.
+    static func splitFirstSentence(from text: String) -> (sentence: String, rest: String)? {
+        guard let boundary = text.firstIndex(where: { ".!?\n".contains($0) }) else { return nil }
+        let end = text.index(after: boundary)
+        let sentence = String(text[text.startIndex..<end]).trimmingCharacters(in: .whitespacesAndNewlines)
+        let rest = String(text[end...])
+        // A fragment with no letters/digits (e.g. a stray leading "." with
+        // only whitespace before it) isn't a real sentence — skip it rather
+        // than firing onSentence with punctuation alone.
+        guard sentence.rangeOfCharacter(from: .alphanumerics) != nil else { return splitFirstSentence(from: rest) }
+        return (sentence, rest)
+    }
+
+    /// Consumes a streamed reply, firing `onSentence` for each complete
+    /// sentence as it arrives (merging runs of very short sentences — e.g.
+    /// "Ok." — into the next one, so a one- or two-word utterance never
+    /// becomes its own separate TTS call), then flushing whatever's left
+    /// once the stream ends. Returns the full accumulated reply.
+    private static func streamAndSplitSentences(_ stream: AsyncThrowingStream<String, Error>,
+                                                onSentence: ((String) -> Void)?,
+                                                minChunkLength: Int = 20) async throws -> String {
+        var full = ""
+        var buffer = ""
+        var pendingBatch = ""
+
+        for try await delta in stream {
+            full += delta
+            guard onSentence != nil else { continue }
+            buffer += delta
+            while let (sentence, rest) = splitFirstSentence(from: buffer) {
+                buffer = rest
+                pendingBatch = pendingBatch.isEmpty ? sentence : pendingBatch + " " + sentence
+                if pendingBatch.count >= minChunkLength {
+                    onSentence?(pendingBatch)
+                    pendingBatch = ""
+                }
+            }
+        }
+
+        if onSentence != nil {
+            let trailing = ((pendingBatch.isEmpty ? "" : pendingBatch + " ") + buffer)
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            if !trailing.isEmpty { onSentence?(trailing) }
+        }
+
+        return full
     }
 
     /// Inserts a guidance message as an assistant bubble so configuration

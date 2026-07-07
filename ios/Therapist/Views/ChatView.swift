@@ -291,17 +291,38 @@ struct ChatView: View {
             startElapsedTimer()
         }
         Task {
+            var prefetchTasks: [Task<TTSCoordinator.PrefetchedSentence, Never>] = []
+            let voiceID = voice.preferredVoiceID ?? persona.voiceID
             let result = await ChatService.shared.processMessage(
                 session: session,
                 userMessage: text,
-                context: context
+                context: context,
+                onSentence: { sentence in
+                    prefetchTasks.append(tts.prefetchSentence(sentence, voiceID: voiceID))
+                }
             )
             session.updatedAt = Date()
             try? context.save()
             isLoading = false
             stopElapsedTimer()
-            voice.deliverResponse(result.response)
+            speakForVoiceMode(result, prefetchTasks: prefetchTasks)
         }
+    }
+
+    /// Speaks a voice-mode reply, preferring whichever sentences were already
+    /// prefetched (in the background, overlapping generation) once the reply
+    /// clears the safety check. Falls back to `voice.deliverResponse` — the
+    /// original single-shot synthesis — when nothing was prefetched or the
+    /// safety check replaced the reply, since audio for the pre-replacement
+    /// text must never play.
+    private func speakForVoiceMode(_ result: ChatService.ChatResult,
+                                   prefetchTasks: [Task<TTSCoordinator.PrefetchedSentence, Never>]) {
+        guard !result.wasReplacedForSafety, !prefetchTasks.isEmpty else {
+            for task in prefetchTasks { task.cancel() }
+            voice.deliverResponse(result.response)
+            return
+        }
+        voice.deliverPrefetchedResponse(prefetchTasks, fallbackText: result.response)
     }
 
     private func sendMessage() {
@@ -317,10 +338,14 @@ struct ChatView: View {
         }
 
         Task {
+            var prefetchTasks: [Task<TTSCoordinator.PrefetchedSentence, Never>] = []
             let result = await ChatService.shared.processMessage(
                 session: session,
                 userMessage: text,
-                context: context
+                context: context,
+                onSentence: ttsEnabled ? { sentence in
+                    prefetchTasks.append(tts.prefetchSentence(sentence, voiceID: persona.voiceID))
+                } : nil
             )
             if result.isCrisis {
                 errorMessage = "Crisis resources have been shared above."
@@ -330,13 +355,33 @@ struct ChatView: View {
             isLoading = false
             stopElapsedTimer()
             if ttsEnabled && !result.response.isEmpty {
-                tts.speak(result.response,
-                          rate: Float(ttsRate),
-                          pitch: Float(ttsPitch),
-                          voiceID: persona.voiceID,
-                          onError: { errorMessage = $0 })
+                speakTypedReply(result, prefetchTasks: prefetchTasks)
+            } else {
+                for task in prefetchTasks { task.cancel() }
             }
         }
+    }
+
+    /// Speaks a typed-mode reply, preferring whichever sentences were
+    /// already prefetched once the reply clears the safety check. Falls back
+    /// to a single `tts.speak` call — the original behavior — when nothing
+    /// was prefetched or the safety check replaced the reply.
+    private func speakTypedReply(_ result: ChatService.ChatResult,
+                                 prefetchTasks: [Task<TTSCoordinator.PrefetchedSentence, Never>]) {
+        guard !result.wasReplacedForSafety, !prefetchTasks.isEmpty else {
+            for task in prefetchTasks { task.cancel() }
+            tts.speak(result.response,
+                      rate: Float(ttsRate),
+                      pitch: Float(ttsPitch),
+                      voiceID: persona.voiceID,
+                      onError: { errorMessage = $0 })
+            return
+        }
+        tts.speakPrefetched(prefetchTasks,
+                            rate: Float(ttsRate),
+                            pitch: Float(ttsPitch),
+                            voiceID: persona.voiceID,
+                            onError: { errorMessage = $0 })
     }
 
     private func startElapsedTimer() {

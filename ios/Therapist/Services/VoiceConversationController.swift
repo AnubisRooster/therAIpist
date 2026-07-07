@@ -503,35 +503,65 @@ final class VoiceConversationController: NSObject, ObservableObject {
         }
     }
 
-    private func speakThenResume(_ text: String) {
+    /// Like `deliverResponse`, but plays sentence clips already synthesized
+    /// in the background while the reply was still generating (via
+    /// `TTSCoordinator.prefetchSentence`), instead of synthesizing the whole
+    /// reply from scratch. Falls back to `deliverResponse` when there's
+    /// nothing prefetched — e.g. the safety check replaced the reply, or no
+    /// LLM call happened at all (crisis turn).
+    func deliverPrefetchedResponse(_ tasks: [Task<TTSCoordinator.PrefetchedSentence, Never>], fallbackText: String?) {
+        guard running, phase == .thinking else { return }
+        guard !tasks.isEmpty else {
+            deliverResponse(fallbackText)
+            return
+        }
         phase = .speaking
-
-        let rate    = Float(UserDefaults.standard.double(forKey: "tts_rate"))
-        let pitch   = Float(UserDefaults.standard.double(forKey: "tts_pitch"))
-        let personaVoice = preferredVoiceID ?? ""
-        let voiceID = personaVoice.isEmpty
-            ? (UserDefaults.standard.string(forKey: "tts_voice_id") ?? "")
-            : personaVoice
-
-        speech.speak(
-            text,
-            rate:  rate  > 0 ? rate  : 0.5,
-            pitch: pitch > 0 ? pitch : 1.0,
-            voiceID: voiceID,
-            onFinish: { [weak self] in
-                Task { @MainActor in
-                    guard let self, self.running, self.phase == .speaking else { return }
-                    // Brief pause so the audio session can flip from playback
-                    // back to record cleanly before the mic re-engages.
-                    try? await Task.sleep(nanoseconds: 300_000_000)
-                    guard self.running else { return }
-                    self.beginListening()
-                }
-            },
+        let (rate, pitch, voiceID) = resolvedVoiceSettings()
+        speech.speakPrefetched(
+            tasks,
+            rate: rate, pitch: pitch, voiceID: voiceID,
+            onFinish: { [weak self] in self?.resumeListeningAfterSpeaking() },
             onError: { [weak self] message in
                 Task { @MainActor in self?.errorMessage = message }
             }
         )
+    }
+
+    private func speakThenResume(_ text: String) {
+        phase = .speaking
+        let (rate, pitch, voiceID) = resolvedVoiceSettings()
+
+        speech.speak(
+            text,
+            rate: rate,
+            pitch: pitch,
+            voiceID: voiceID,
+            onFinish: { [weak self] in self?.resumeListeningAfterSpeaking() },
+            onError: { [weak self] message in
+                Task { @MainActor in self?.errorMessage = message }
+            }
+        )
+    }
+
+    private func resolvedVoiceSettings() -> (rate: Float, pitch: Float, voiceID: String) {
+        let rate  = Float(UserDefaults.standard.double(forKey: "tts_rate"))
+        let pitch = Float(UserDefaults.standard.double(forKey: "tts_pitch"))
+        let personaVoice = preferredVoiceID ?? ""
+        let voiceID = personaVoice.isEmpty
+            ? (UserDefaults.standard.string(forKey: "tts_voice_id") ?? "")
+            : personaVoice
+        return (rate > 0 ? rate : 0.5, pitch > 0 ? pitch : 1.0, voiceID)
+    }
+
+    /// Shared tail of both speaking paths: a brief pause so the audio session
+    /// can flip from playback back to record cleanly, then resume listening.
+    private func resumeListeningAfterSpeaking() {
+        Task { @MainActor in
+            guard self.running, self.phase == .speaking else { return }
+            try? await Task.sleep(nanoseconds: 300_000_000)
+            guard self.running else { return }
+            self.beginListening()
+        }
     }
 
     /// Stops the current spoken reply and returns to listening. Used when the

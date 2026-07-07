@@ -33,6 +33,7 @@
 		4D3E9591534F521D7C217B91 /* ModelService.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF4BE5016360D07B4A1B03F2 /* ModelService.swift */; };
 		4D7ED89FBA7DD083C535DD8F /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 4290A23EA6EF05CF895B9B33 /* Assets.xcassets */; };
 		50C24D918C3620BEC62CEC18 /* ChatServiceE2ETests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 858F22BFF444241014953741 /* ChatServiceE2ETests.swift */; };
+		36549A97E8F94428AD57BD3C /* ChatServiceStreamingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E99D0BAC3721432DAEAFA80C /* ChatServiceStreamingTests.swift */; };
 		60751590572BDFB97B89E8EC /* GlobalMemoryService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32EFFACA0671B2DB902C7DA9 /* GlobalMemoryService.swift */; };
 		62C67B9F41C9822B1FD5F9A1 /* InsightsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF40E7F165FFD8EC37D6EC13 /* InsightsView.swift */; };
 		6CAFEC1AFBB5013E59635D31 /* PINView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F868C10EB7C5EB2A7B00489 /* PINView.swift */; };
@@ -69,6 +70,7 @@
 		E20D2DCBD0BED69521EBC643 /* TherapistApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6AAC81CE3481650BEC6360E1 /* TherapistApp.swift */; };
 		E37E384E27E4B1F60AE2451F /* PINService.swift in Sources */ = {isa = PBXBuildFile; fileRef = CEA2B400CC7FF4901629DBB4 /* PINService.swift */; };
 		E3AE88F160F145C4AA3F7056 /* VoiceLoopKit in Frameworks */ = {isa = PBXBuildFile; productRef = A55387F197517798B97E5C10 /* VoiceLoopKit */; };
+		DE840A69EEBD4405939D3CB1 /* BYOKLLMKit in Frameworks */ = {isa = PBXBuildFile; productRef = 18B12AB40A4248F789282292 /* BYOKLLMKit */; };
 		E6296B8840585FB0844E1956 /* NewSessionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B66D9B0C478D8ADE380D64C /* NewSessionView.swift */; };
 		E734BCBDEC143DC1623BBA82 /* VectorStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3FC97A6C9CF980CC8A22E32 /* VectorStore.swift */; };
 		EAA5D87F1FEB4F4E7834B770 /* AgentSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8247533172B2362899FFBB29 /* AgentSystem.swift */; };
@@ -125,6 +127,7 @@
 		8247533172B2362899FFBB29 /* AgentSystem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentSystem.swift; sourceTree = "<group>"; };
 		82F24F0752AA76B48E8788A6 /* Therapist.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Therapist.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		858F22BFF444241014953741 /* ChatServiceE2ETests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatServiceE2ETests.swift; sourceTree = "<group>"; };
+		E99D0BAC3721432DAEAFA80C /* ChatServiceStreamingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatServiceStreamingTests.swift; sourceTree = "<group>"; };
 		8BB146387FA63BE78299C6DF /* VoiceTranscriptTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceTranscriptTests.swift; sourceTree = "<group>"; };
 		8CDAE0376C33CA89B735BD81 /* VoiceService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceService.swift; sourceTree = "<group>"; };
 		8F868C10EB7C5EB2A7B00489 /* PINView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PINView.swift; sourceTree = "<group>"; };
@@ -166,6 +169,7 @@
 			files = (
 				6D76DDD2A6C266B4F7629756 /* LLM in Frameworks */,
 				E3AE88F160F145C4AA3F7056 /* VoiceLoopKit in Frameworks */,
+				DE840A69EEBD4405939D3CB1 /* BYOKLLMKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -241,6 +245,7 @@
 			isa = PBXGroup;
 			children = (
 				858F22BFF444241014953741 /* ChatServiceE2ETests.swift */,
+				E99D0BAC3721432DAEAFA80C /* ChatServiceStreamingTests.swift */,
 				488F642BC70DD8497D21A5E6 /* FeatureRoadmapTests.swift */,
 				17D9C8542218F244F0710E14 /* GlobalMemoryServiceTests.swift */,
 				E3F78329A560A0736BB4632B /* GraphExportServiceTests.swift */,
@@ -364,6 +369,7 @@
 			packageProductDependencies = (
 				C21A0FFD4358DAFD86CCFFDF /* LLM */,
 				A55387F197517798B97E5C10 /* VoiceLoopKit */,
+				18B12AB40A4248F789282292 /* BYOKLLMKit */,
 			);
 			productName = Therapist;
 			productReference = 82F24F0752AA76B48E8788A6 /* Therapist.app */;
@@ -431,6 +437,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				50C24D918C3620BEC62CEC18 /* ChatServiceE2ETests.swift in Sources */,
+				36549A97E8F94428AD57BD3C /* ChatServiceStreamingTests.swift in Sources */,
 				FCB14D4D61CA41A430445116 /* FeatureRoadmapTests.swift in Sources */,
 				B100757DBE5A046CD6DC6E18 /* GlobalMemoryServiceTests.swift in Sources */,
 				C0A088D2F613DF67D4B552C9 /* GraphExportServiceTests.swift in Sources */,
@@ -769,6 +776,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = C7261FB6BE54A982095300D0 /* XCRemoteSwiftPackageReference "OnDeviceKit" */;
 			productName = VoiceLoopKit;
+		};
+		18B12AB40A4248F789282292 /* BYOKLLMKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = C7261FB6BE54A982095300D0 /* XCRemoteSwiftPackageReference "OnDeviceKit" */;
+			productName = BYOKLLMKit;
 		};
 		C21A0FFD4358DAFD86CCFFDF /* LLM */ = {
 			isa = XCSwiftPackageProductDependency;
