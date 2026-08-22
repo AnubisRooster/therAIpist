@@ -194,9 +194,13 @@ ios/Therapist/
 
 ### Build
 
+> **Do not run `xcodegen generate`.** The repository ships a ready-to-build
+> `Therapist.xcodeproj`. Regenerating it strips the manually-maintained SPM
+> link settings and breaks the build with a `BYOKLLMKit` undefined-symbol
+> error. Just open the committed project.
+
 ```bash
 cd ios
-xcodegen generate          # regenerates Therapist.xcodeproj from project.yml
 open Therapist.xcodeproj
 ```
 
@@ -327,9 +331,11 @@ Run them with:
 
 ```bash
 cd ios
-xcodegen generate
 xcodebuild test -scheme Therapist -destination 'platform=iOS Simulator,name=iPhone 17'
 ```
+
+> Note: do not run `xcodegen generate` first — open the committed
+> `Therapist.xcodeproj` directly (see Build above).
 
 ---
 
