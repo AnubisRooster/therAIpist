@@ -169,6 +169,20 @@ class TherapyService {
                 return "Turn toward the part — 'Can you get curious about that part? How do you feel toward it?'"
             }
             return nil
+        case "active_imagination":
+            if lower.contains("dream") || lower.contains("image") || lower.contains("vision") || lower.contains("mood") {
+                return "Help them choose an entry point — a dream fragment, a charged mood, or a recurring figure — and invite the image to arise on its own"
+            }
+            if lower.contains("figure") || lower.contains("voice") || lower.contains("it said") || lower.contains("it told") {
+                return "Encourage dialogic engagement — 'Ask the figure who it is and what it wants,' then listen for its response"
+            }
+            if lower.contains("overwhelm") || lower.contains("lost") || lower.contains("dissociat") || lower.contains("spinning") {
+                return "Pause and ground: return attention to the body and the present moment before continuing"
+            }
+            if lower.contains("what does it mean") || lower.contains("integration") || lower.contains("now what") || lower.contains("takeaway") {
+                return "Support integration — reflect on the image's claim and translate one insight into a small real-life step"
+            }
+            return nil
         default:
             return nil
         }
