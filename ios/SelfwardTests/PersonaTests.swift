@@ -13,7 +13,7 @@ final class PersonaTests: XCTestCase {
         let p = PersonaService.resolve(kind: .therapist, defaults: d)
         XCTAssertEqual(p.kind, .therapist)
         XCTAssertEqual(p.name, "")               // intentionally unnamed
-        XCTAssertEqual(p.displayName, "Therapist")
+        XCTAssertEqual(p.displayName, "AI Reflection Guide")
     }
 
     func testCompanionHasADefaultName() {
@@ -85,7 +85,7 @@ final class PersonaTests: XCTestCase {
     func testResolvedCompanionCarriesTraitsAndTherapistDoesNot() {
         let d = TestSupport.ephemeralDefaults()
         d.set(CompanionPersonality.bold.rawValue, forKey: "companion_personality")
-        XCTAssertTrue(PersonaService.resolve(kind: .companion, defaults: d).traits.contains("bold and flirty"))
+        XCTAssertTrue(PersonaService.resolve(kind: .companion, defaults: d).traits.contains("bold and confident"))
         XCTAssertEqual(PersonaService.resolve(kind: .therapist, defaults: d).traits, "")
     }
 
@@ -113,14 +113,14 @@ final class PersonaTests: XCTestCase {
         let named = Persona(kind: .therapist, name: "Sage", voiceID: "")
         let prompt = TherapyService.shared.getSystemPrompt(persona: named, modality: "cbt")
         XCTAssertTrue(prompt.contains("Your name is Sage"))
-        XCTAssertTrue(prompt.contains("CBT therapist"))
+        XCTAssertTrue(prompt.contains("CBT-informed"))
     }
 
     func testUnnamedTherapistPromptHasNoNameLine() {
         let unnamed = Persona(kind: .therapist, name: "", voiceID: "")
         let prompt = TherapyService.shared.getSystemPrompt(persona: unnamed, modality: "dbt")
         XCTAssertFalse(prompt.contains("Your name is"))
-        XCTAssertTrue(prompt.contains("DBT therapist"))
+        XCTAssertTrue(prompt.contains("DBT-informed"))
     }
 
     // MARK: - End-to-end Companion turn

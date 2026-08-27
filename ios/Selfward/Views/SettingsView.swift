@@ -516,9 +516,9 @@ struct PersonasSettingsView: View {
                     LabeledContent("Voice", value: SpeechService.voiceName(for: therapistVoiceID))
                 }
             } header: {
-                Label("Therapist", systemImage: PersonaKind.therapist.icon)
+                Label("AI Reflection Guide", systemImage: PersonaKind.therapist.icon)
             } footer: {
-                Text("The therapeutic approach is chosen per session. All personas share the same memories and knowledge graph.")
+                Text("The reflection approach is chosen per session. All personas share the same memories and knowledge graph.")
                     .font(.caption)
             }
 

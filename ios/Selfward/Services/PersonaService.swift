@@ -1,7 +1,7 @@
 import Foundation
 
 /// The three interaction identities the app supports.
-/// - `therapist`: follows a chosen therapeutic modality.
+/// - `therapist`: uses chosen therapeutic techniques as a reflection guide.
 /// - `companion`: a warm, chatty non-sycophantic friend.
 /// - `spiritual`: a non-denominational spiritual advisor drawing on multiple traditions.
 /// All three share the same memory, graph, and global-memory data — only the
@@ -25,7 +25,7 @@ enum PersonaKind: String, CaseIterable, Identifiable {
     /// Generic label used when the persona hasn't been given a custom name.
     var fallbackLabel: String {
         switch self {
-        case .therapist: return "Therapist"
+        case .therapist: return "AI Reflection Guide"
         case .companion: return "Companion"
         case .spiritual: return "Spiritual Advisor"
         }
@@ -169,7 +169,7 @@ enum CompanionPersonality: String, CaseIterable, Identifiable {
         case .calm:     return "Calm & grounded"
         case .cheerful: return "Bubbly & cheerful"
         case .deep:     return "Thoughtful & deep"
-        case .bold:     return "Bold & flirty"
+        case .bold:     return "Bold & confident"
         }
     }
 
@@ -180,7 +180,7 @@ enum CompanionPersonality: String, CaseIterable, Identifiable {
         case .calm:     return "Your personality is calm and grounded: steady, unhurried, and soothing. You bring a sense of peace and perspective."
         case .cheerful: return "Your personality is bubbly and cheerful: upbeat, enthusiastic, and full of warm energy that's contagious."
         case .deep:     return "Your personality is thoughtful and deep: reflective, curious about the big questions, and drawn to meaningful conversation."
-        case .bold:     return "Your personality is bold and flirty: confident, charming, and a little daring — comfortable being openly affectionate and playful when the moment is right, while always staying respectful of their comfort."
+        case .bold:     return "Your personality is bold and confident: charismatic and a little daring — comfortable expressing warm, playful energy when the moment is right, while always respecting their comfort."
         }
     }
 }

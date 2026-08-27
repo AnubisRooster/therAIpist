@@ -110,7 +110,7 @@ private struct WelcomeStep: View {
                 Label("Important Notice", systemImage: "exclamationmark.triangle.fill")
                     .font(.subheadline.bold())
                     .foregroundColor(.orange)
-                Text("Selfward is **not** a licensed therapist, psychologist, or medical provider. It is a journaling and self-reflection tool only. It cannot diagnose, treat, or manage any mental health condition.")
+                Text("Selfward is an AI journaling and self-reflection companion. It is **not** a licensed therapist, psychologist, or medical provider, and cannot diagnose, treat, or manage any mental health condition.")
                     .font(.subheadline)
                     .foregroundColor(.primary)
 

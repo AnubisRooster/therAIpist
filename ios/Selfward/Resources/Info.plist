@@ -22,6 +22,8 @@
 	<string>Selfward uses the microphone for hands-free voice conversations, so you can speak with the therapist and hear spoken replies.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>Selfward transcribes your speech (on-device when supported) so you can talk through your thoughts instead of typing.</string>
+	<key>NSPrivacyPolicyURL</key>
+	<string>https://sites.google.com/view/selfward/privacy</string>
 	<key>UILaunchScreen</key>
 	<dict>
 		<key>UIColorName</key>
