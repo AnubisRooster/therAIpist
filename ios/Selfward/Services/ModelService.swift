@@ -2,11 +2,24 @@ import Foundation
 
 // MARK: - OpenRouter model catalogue
 
+struct OpenRouterArchitecture: Codable, Hashable {
+    let modality: String?
+    let inputModalities: [String]?
+    let outputModalities: [String]?
+
+    enum CodingKeys: String, CodingKey {
+        case modality
+        case inputModalities = "input_modalities"
+        case outputModalities = "output_modalities"
+    }
+}
+
 struct OpenRouterModel: Codable, Identifiable, Hashable {
     let id: String
     let name: String
     let pricing: ModelPricing
     let contextLength: Int
+    let architecture: OpenRouterArchitecture?
 
     /// A model is free when both prompt and completion cost strings are "0".
     var isFree: Bool { pricing.prompt == "0" && pricing.completion == "0" }
@@ -14,8 +27,22 @@ struct OpenRouterModel: Codable, Identifiable, Hashable {
     /// The portion after the slash, used for compact display (e.g. "gpt-4o").
     var shortName: String { id.components(separatedBy: "/").last ?? id }
 
+    /// Selfward is a text-first journaling/reflection app, so we only surface
+    /// text models. Excludes image-generation models (e.g. Stable Diffusion,
+    /// Flux) and coding-specialised models (e.g. *-coder).
+    var isTextFirst: Bool {
+        let out = (architecture?.outputModalities ?? []).map { $0.lowercased() }
+        if out.contains("image") { return false }
+        let mod = (architecture?.modality ?? "").lowercased()
+        if mod == "image" { return false }
+        let codingKeywords = ["coder", "code-", "codestral", "codellama", "codegemma",
+                              "deepcoder", "codegeex", "codeium"]
+        if codingKeywords.contains(where: { id.lowercased().contains($0) }) { return false }
+        return true
+    }
+
     enum CodingKeys: String, CodingKey {
-        case id, name, pricing
+        case id, name, pricing, architecture
         case contextLength = "context_length"
     }
 
@@ -25,6 +52,7 @@ struct OpenRouterModel: Codable, Identifiable, Hashable {
         name = (try? c.decode(String.self, forKey: .name)) ?? id
         pricing = (try? c.decode(ModelPricing.self, forKey: .pricing)) ?? ModelPricing(prompt: "0", completion: "0")
         contextLength = (try? c.decode(Int.self, forKey: .contextLength)) ?? 0
+        architecture = (try? c.decode(OpenRouterArchitecture.self, forKey: .architecture))
     }
 }
 
@@ -101,7 +129,7 @@ final class ModelService: ObservableObject {
                 return
             }
             let decoded = try JSONDecoder().decode(ModelsResponse.self, from: data)
-            models = sort(decoded.data)
+            models = sort(decoded.data).filter(\.isTextFirst)
             UserDefaults.standard.set(data, forKey: cacheKey)
             UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: timestampKey)
         } catch {
@@ -114,7 +142,7 @@ final class ModelService: ObservableObject {
     private func loadCache() {
         guard let data = UserDefaults.standard.data(forKey: cacheKey),
               let decoded = try? JSONDecoder().decode(ModelsResponse.self, from: data) else { return }
-        models = sort(decoded.data)
+        models = sort(decoded.data).filter(\.isTextFirst)
     }
 
     private func sort(_ list: [OpenRouterModel]) -> [OpenRouterModel] {
