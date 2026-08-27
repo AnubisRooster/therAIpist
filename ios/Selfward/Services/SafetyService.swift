@@ -1,4 +1,8 @@
 import Foundation
+import SwiftData
+import UserNotifications
+import CryptoKit
+import CommonCrypto
 
 class SafetyService {
     static let shared = SafetyService()
@@ -225,5 +229,143 @@ enum StoreProtection {
         for file in files where file.pathExtension == "store" {
             apply(to: file)
         }
+    }
+}
+
+// MARK: - Journaling reminders
+
+/// Schedules a daily local notification reminding the user to journal. Local
+/// notifications need no special entitlement — only user authorization.
+enum ReminderScheduler {
+    static let identifier = "selfward.daily.journal.reminder"
+
+    /// Builds (but does not schedule) the daily reminder request.
+    static func buildRequest(hour: Int, minute: Int) -> UNNotificationRequest {
+        let content = UNMutableNotificationContent()
+        content.title = "Time to check in with yourself"
+        content.body = "A few minutes of journaling can help you notice how you're really doing."
+        content.sound = .default
+
+        var date = DateComponents()
+        date.hour = hour
+        date.minute = minute
+        let trigger = UNCalendarNotificationTrigger(dateMatching: date, repeats: true)
+
+        return UNNotificationRequest(identifier: identifier, content: content, trigger: trigger)
+    }
+
+    /// Requests authorization, then schedules (or re-schedules) the reminder.
+    static func schedule(hour: Int, minute: Int, center: UNUserNotificationCenter = .current()) async {
+        _ = await requestAuthorization(center: center)
+        do {
+            try await center.add(buildRequest(hour: hour, minute: minute))
+        } catch {
+            // A pending request with the same identifier is replaced; ignore others.
+        }
+    }
+
+    static func cancel(center: UNUserNotificationCenter = .current()) {
+        center.removePendingNotificationRequests(withIdentifiers: [identifier])
+    }
+
+    static func requestAuthorization(center: UNUserNotificationCenter = .current()) async -> Bool {
+        do {
+            return try await center.requestAuthorization(options: [.alert, .sound, .badge])
+        } catch {
+            return false
+        }
+    }
+}
+
+// MARK: - Encrypted backup export
+
+/// Passphrase-protected, encrypted full-data export. A PBKDF2-derived key
+/// (from the passphrase + random salt) seals a JSON snapshot with AES-GCM.
+enum BackupService {
+    private static let saltLength = 16
+    private static let iterations = 100_000
+
+    struct Payload: Codable {
+        let sessions: [SessionSnapshot]
+        let moods: [MoodSnapshot]
+        let exportedAt: Date
+    }
+    struct SessionSnapshot: Codable {
+        let id: String
+        let title: String
+        let modality: String
+        let messages: [MessageSnapshot]
+    }
+    struct MessageSnapshot: Codable {
+        let role: String
+        let content: String
+        let createdAt: Date
+    }
+    struct MoodSnapshot: Codable {
+        let value: Int
+        let note: String
+        let createdAt: Date
+    }
+
+    enum BackupError: Error { case sealFailed, malformed, keyDerivationFailed }
+
+    /// Produces encrypted backup bytes: `[salt (16)] + [AES-GCM combined sealed box]`.
+    static func exportEncrypted(context: ModelContext, passphrase: String) throws -> Data {
+        let sessions = (try? context.fetch(FetchDescriptor<SessionModel>())) ?? []
+        let moods = (try? context.fetch(FetchDescriptor<MoodEntryModel>())) ?? []
+        let payload = Payload(
+            sessions: sessions.map { s in
+                SessionSnapshot(
+                    id: s.id, title: s.title, modality: s.modality,
+                    messages: s.messages.map {
+                        MessageSnapshot(role: $0.role, content: $0.content, createdAt: $0.createdAt)
+                    }
+                )
+            },
+            moods: moods.map { MoodSnapshot(value: $0.value, note: $0.note, createdAt: $0.createdAt) },
+            exportedAt: Date()
+        )
+        let json = try JSONEncoder().encode(payload)
+
+        let salt = Data((0..<saltLength).map { _ in UInt8.random(in: 0...255) })
+        let key = try deriveKey(passphrase: passphrase, salt: salt)
+        let sealed = try AES.GCM.seal(json, using: key)
+        guard let combined = sealed.combined else { throw BackupError.sealFailed }
+        return salt + combined
+    }
+
+    /// Decrypts backup bytes produced by `exportEncrypted`.
+    static func decrypt(_ data: Data, passphrase: String) throws -> Payload {
+        guard data.count > saltLength else { throw BackupError.malformed }
+        let salt = data.prefix(saltLength)
+        let sealedData = data.dropFirst(saltLength)
+        let key = try deriveKey(passphrase: passphrase, salt: Data(salt))
+        let sealed = try AES.GCM.SealedBox(combined: Data(sealedData))
+        let json = try AES.GCM.open(sealed, using: key)
+        return try JSONDecoder().decode(Payload.self, from: json)
+    }
+
+    private static func deriveKey(passphrase: String, salt: Data) throws -> SymmetricKey {
+        var derived = [UInt8](repeating: 0, count: 32)
+        let count = derived.count
+        let status = passphrase.withCString { pw in
+            salt.withUnsafeBytes { saltBuf in
+                derived.withUnsafeMutableBytes { derivBuf in
+                    CCKeyDerivationPBKDF(
+                        CCPBKDFAlgorithm(kCCPBKDF2),
+                        pw,
+                        strlen(pw),
+                        saltBuf.bindMemory(to: UInt8.self).baseAddress!,
+                        salt.count,
+                        CCPseudoRandomAlgorithm(kCCPRFHmacAlgSHA256),
+                        UInt32(iterations),
+                        derivBuf.bindMemory(to: UInt8.self).baseAddress!,
+                        count
+                    )
+                }
+            }
+        }
+        guard status == kCCSuccess else { throw BackupError.keyDerivationFailed }
+        return SymmetricKey(data: Data(derived))
     }
 }

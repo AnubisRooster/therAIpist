@@ -19,6 +19,7 @@ struct SelfwardApp: App {
             SafetyEventModel.self,
             GlobalMemoryModel.self,
             NarrativeDocument.self,
+            MoodEntryModel.self,
         ])
     }
 }

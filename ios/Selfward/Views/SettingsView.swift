@@ -1,4 +1,6 @@
 import SwiftUI
+import SwiftData
+import UniformTypeIdentifiers
 import VoiceLoopKit
 
 // MARK: - Settings tab wrapper
@@ -25,8 +27,18 @@ struct SettingsView: View {
     @EnvironmentObject private var modelService:      ModelService
     @EnvironmentObject private var speechService:     SpeechService
     @EnvironmentObject private var localModelService: LocalModelService
+    @Environment(\.modelContext) private var context
 
     @State private var showChangePIN = false
+
+    // Backup / reminder UI state
+    @AppStorage("reminder_enabled") private var reminderEnabled = false
+    @AppStorage("reminder_minute")  private var reminderMinute: Int = 1200   // minutes from midnight
+    @State private var reminderTime = Date()
+    @State private var showPassphrase = false
+    @State private var passphrase = ""
+    @State private var backupData = Data()
+    @State private var showExporter = false
 
     var body: some View {
         Form {
@@ -81,11 +93,82 @@ struct SettingsView: View {
                     Label("Privacy", systemImage: "lock.shield")
                 }
             }
+
+            Section("Reminders & Backup") {
+                Toggle("Daily journaling reminder", isOn: $reminderEnabled)
+                if reminderEnabled {
+                    DatePicker("Remind me at", selection: $reminderTime, displayedComponents: .hourAndMinute)
+                }
+                Button("Export encrypted backup…") { showPassphrase = true }
+                    .foregroundStyle(.primary)
+                Text("Creates a passphrase-protected file of all your data. No account or cloud upload is involved.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
         }
         .navigationTitle("Settings")
+        .onAppear { reminderTime = date(forMinute: reminderMinute) }
+        .onChange(of: reminderEnabled) { _, enabled in
+            if enabled {
+                let comps = Calendar.current.dateComponents([.hour, .minute], from: reminderTime)
+                Task { await ReminderScheduler.schedule(hour: comps.hour ?? 20, minute: comps.minute ?? 0) }
+            } else {
+                ReminderScheduler.cancel()
+            }
+        }
+        .onChange(of: reminderTime) { _, newTime in
+            let comps = Calendar.current.dateComponents([.hour, .minute], from: newTime)
+            reminderMinute = (comps.hour ?? 20) * 60 + (comps.minute ?? 0)
+            guard reminderEnabled else { return }
+            Task { await ReminderScheduler.schedule(hour: comps.hour ?? 20, minute: comps.minute ?? 0) }
+        }
+        .alert("Encrypt backup", isPresented: $showPassphrase) {
+            SecureField("Passphrase", text: $passphrase)
+            Button("Export") {
+                guard !passphrase.isEmpty else { return }
+                if let data = try? BackupService.exportEncrypted(context: context, passphrase: passphrase) {
+                    backupData = data
+                    showExporter = true
+                }
+                passphrase = ""
+            }
+            Button("Cancel", role: .cancel) { passphrase = "" }
+        } message: {
+            Text("Your data is encrypted with this passphrase. It cannot be recovered if you forget it.")
+        }
+        .fileExporter(isPresented: $showExporter,
+                      document: EncryptedBackupDocument(data: backupData),
+                      contentType: .data,
+                      defaultFilename: "selfward-backup") { _ in }
         .sheet(isPresented: $showChangePIN) {
             PINView(onSuccess: { showChangePIN = false }, forceSetup: true)
         }
+    }
+
+    /// Builds a `Date` for today at the given minutes-from-midnight, for the picker.
+    private func date(forMinute minute: Int) -> Date {
+        let cal = Calendar.current
+        var comps = cal.dateComponents([.year, .month, .day], from: Date())
+        comps.hour = minute / 60
+        comps.minute = minute % 60
+        return cal.date(from: comps) ?? Date()
+    }
+}
+
+/// FileDocument wrapper so the encrypted backup can be shared/saved via the
+/// system file exporter.
+struct EncryptedBackupDocument: FileDocument {
+    static var readableContentTypes: [UTType] { [.data] }
+    let data: Data
+
+    init(data: Data) { self.data = data }
+
+    init(configuration: ReadConfiguration) throws {
+        self.data = configuration.file.regularFileContents ?? Data()
+    }
+
+    func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
+        FileWrapper(regularFileWithContents: data)
     }
 }
 

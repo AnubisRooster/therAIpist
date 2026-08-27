@@ -193,3 +193,39 @@ struct InsightResult {
     let repeatingLoops: [String]
     let modalityAnalysis: String
 }
+
+// MARK: - Mood tracking
+
+/// Lightweight daily mood logging + trend aggregation, backed by SwiftData.
+enum MoodStore {
+    /// Records a mood check-in on a 1–5 scale (clamped).
+    static func log(value: Int, note: String = "", context: ModelContext) {
+        context.insert(MoodEntryModel(value: value, note: note))
+        try? context.save()
+    }
+
+    /// The most recent `limit` check-ins, newest first.
+    static func recent(limit: Int = 30, context: ModelContext) -> [MoodEntryModel] {
+        let descriptor = FetchDescriptor<MoodEntryModel>(
+            sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
+        )
+        let all = (try? context.fetch(descriptor)) ?? []
+        return Array(all.prefix(limit))
+    }
+
+    /// `(count, overallAverage, perDayAverageSeries)` for charting.
+    static func trendSummary(context: ModelContext) -> (count: Int, average: Double, daily: [(Date, Double)]) {
+        let entries = recent(limit: 365, context: context)
+        guard !entries.isEmpty else { return (0, 0, []) }
+        let avg = Double(entries.reduce(0) { $0 + $1.value }) / Double(entries.count)
+        let cal = Calendar.current
+        var byDay: [Date: [Int]] = [:]
+        for entry in entries {
+            byDay[cal.startOfDay(for: entry.createdAt), default: []].append(entry.value)
+        }
+        let daily = byDay.map { (day, values) in
+            (day, Double(values.reduce(0, +)) / Double(values.count))
+        }.sorted { $0.0 < $1.0 }
+        return (entries.count, avg, daily)
+    }
+}

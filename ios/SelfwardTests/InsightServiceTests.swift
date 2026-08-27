@@ -113,4 +113,38 @@ final class InsightServiceTests: XCTestCase {
 
         XCTAssertTrue(insight.plainLanguageHighlights(session: session).isEmpty)
     }
+
+    // MARK: - Mood tracking
+
+    func testMoodIsLoggedAndClamped() throws {
+        let container = TestSupport.makeInMemoryContainer()
+        let ctx = container.mainContext
+
+        MoodStore.log(value: 6, context: ctx)   // out of range -> clamped to 5
+        MoodStore.log(value: 3, context: ctx)
+        MoodStore.log(value: 0, context: ctx)   // out of range -> clamped to 1
+
+        let recent = MoodStore.recent(context: ctx)
+        XCTAssertEqual(recent.count, 3)
+        XCTAssertEqual(recent.map(\.value).sorted(), [1, 3, 5])
+    }
+
+    func testMoodTrendSummaryAggregatesDaily() throws {
+        let container = TestSupport.makeInMemoryContainer()
+        let ctx = container.mainContext
+
+        let cal = Calendar.current
+        let today = cal.startOfDay(for: Date())
+        let yesterday = cal.date(byAdding: .day, value: -1, to: today)!
+
+        MoodStore.log(value: 4, context: ctx)
+        MoodStore.log(value: 2, context: ctx)
+        ctx.insert(MoodEntryModel(value: 5, createdAt: yesterday))
+
+        let summary = MoodStore.trendSummary(context: ctx)
+        XCTAssertEqual(summary.count, 3)
+        XCTAssertEqual(summary.daily.count, 2)   // two distinct days
+        // Yesterday's single entry averages to 5.
+        XCTAssertTrue(summary.daily.contains { cal.isDate($0.0, inSameDayAs: yesterday) && $0.1 == 5 })
+    }
 }

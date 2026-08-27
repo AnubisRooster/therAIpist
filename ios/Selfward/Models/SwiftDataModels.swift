@@ -310,3 +310,21 @@ final class SafetyEventModel {
         self.createdAt = Date()
     }
 }
+
+/// A single mood check-in. `value` is a 1–5 scale (1 = very low, 5 = great).
+/// Stored globally (not per-session) so trends reflect the user's overall
+/// emotional weather over time.
+@Model
+final class MoodEntryModel {
+    var id: String
+    var value: Int
+    var note: String
+    var createdAt: Date
+
+    init(value: Int, note: String = "", createdAt: Date = Date()) {
+        self.id = UUID().uuidString
+        self.value = min(max(value, 1), 5)
+        self.note = note
+        self.createdAt = createdAt
+    }
+}

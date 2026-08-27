@@ -20,6 +20,7 @@ enum TestSupport {
             GlobalMemoryModel.self,
             SafetyEventModel.self,
             NarrativeDocument.self,
+            MoodEntryModel.self,
         ])
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
         // Force-unwrap is acceptable in tests; a failure here is a setup bug.

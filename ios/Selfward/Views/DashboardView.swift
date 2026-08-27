@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import Charts
 
 // MARK: - DashboardView
 
@@ -50,6 +51,15 @@ struct DashboardView: View {
                             value: "\(sessions.reduce(0) { $0 + $1.messages.count })")
                     StatRow(label: "Active Sessions",
                             value: "\(sessions.filter { !$0.messages.isEmpty }.count)")
+                }
+
+                // MARK: Mood check-in
+                Section {
+                    MoodCheckInCard()
+                } header: {
+                    Text("Mood Check-in")
+                } footer: {
+                    Text("A quick daily check-in. Your entries stay on this device and are never shared.")
                 }
 
                 // MARK: Modality Distribution
@@ -135,6 +145,71 @@ struct DashboardView: View {
             .map { $0 }
     }
 
+}
+
+// MARK: - Mood check-in card
+
+private struct MoodCheckInCard: View {
+    @Environment(\.modelContext) private var context
+    @Query(sort: \MoodEntryModel.createdAt, order: .reverse) private var moods: [MoodEntryModel]
+
+    private let emojis = ["😞", "😕", "😐", "🙂", "😄"]
+    private let labels = ["Very low", "Low", "Okay", "Good", "Great"]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("How are you right now?")
+                .font(.subheadline.weight(.medium))
+            HStack(spacing: 8) {
+                ForEach(1...5, id: \.self) { value in
+                    Button {
+                        MoodStore.log(value: value, context: context)
+                    } label: {
+                        VStack(spacing: 2) {
+                            Text(emojis[value - 1]).font(.title2)
+                            Text(labels[value - 1])
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 6)
+                        .background(Color(.secondarySystemGroupedBackground))
+                        .cornerRadius(10)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            if !recentDaily.isEmpty {
+                Chart(recentDaily) { point in
+                    LineMark(
+                        x: .value("Day", point.day, unit: .day),
+                        y: .value("Mood", point.average)
+                    )
+                    .interpolationMethod(.catmullRom)
+                    .symbol(Circle())
+                }
+                .frame(height: 120)
+                .chartYScale(domain: 1...5)
+            }
+        }
+    }
+
+    private var recentDaily: [MoodDayAverage] {
+        let cal = Calendar.current
+        var byDay: [Date: [Int]] = [:]
+        for mood in moods.prefix(30) {
+            byDay[cal.startOfDay(for: mood.createdAt), default: []].append(mood.value)
+        }
+        return byDay.map { day, values in
+            MoodDayAverage(day: day, average: Double(values.reduce(0, +)) / Double(values.count))
+        }.sorted { $0.day < $1.day }
+    }
+}
+
+private struct MoodDayAverage: Identifiable {
+    let id = UUID()
+    let day: Date
+    let average: Double
 }
 
 // MARK: - Stat row helpers

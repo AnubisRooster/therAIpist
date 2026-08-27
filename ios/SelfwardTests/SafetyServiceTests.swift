@@ -138,4 +138,51 @@ final class SafetyServiceTests: XCTestCase {
         XCTAssertEqual(KeychainService.shared.openRouterKey(), "sk-from-keychain")
         KeychainService.shared.set("", for: LLMProvider.openrouter)
     }
+
+    // MARK: - Journaling reminder
+
+    func testReminderRequestHasExpectedContentAndTrigger() {
+        let request = ReminderScheduler.buildRequest(hour: 20, minute: 30)
+        XCTAssertEqual(request.content.title, "Time to check in with yourself")
+        XCTAssertEqual(request.identifier, ReminderScheduler.identifier)
+
+        guard let trigger = request.trigger as? UNCalendarNotificationTrigger else {
+            XCTFail("Expected a calendar trigger"); return
+        }
+        XCTAssertTrue(trigger.repeats)
+        XCTAssertEqual(trigger.dateComponents.hour, 20)
+        XCTAssertEqual(trigger.dateComponents.minute, 30)
+    }
+
+    // MARK: - Encrypted backup (round-trip)
+
+    @MainActor
+    func testBackupRoundTripsWithCorrectPassphrase() throws {
+        let container = TestSupport.makeInMemoryContainer()
+        let ctx = container.mainContext
+
+        let session = SessionModel(title: "Private thoughts")
+        ctx.insert(session)
+        ctx.insert(MessageModel(session: session, role: "user", content: "I feel anxious about work."))
+        ctx.insert(MoodEntryModel(value: 3))
+
+        let encrypted = try BackupService.exportEncrypted(context: ctx, passphrase: "correct horse")
+        let decrypted = try BackupService.decrypt(encrypted, passphrase: "correct horse")
+
+        XCTAssertEqual(decrypted.sessions.count, 1)
+        XCTAssertEqual(decrypted.sessions.first?.title, "Private thoughts")
+        XCTAssertEqual(decrypted.sessions.first?.messages.count, 1)
+        XCTAssertEqual(decrypted.moods.count, 1)
+    }
+
+    @MainActor
+    func testBackupFailsToDecryptWithWrongPassphrase() throws {
+        let container = TestSupport.makeInMemoryContainer()
+        let ctx = container.mainContext
+        ctx.insert(SessionModel(title: "S"))
+        ctx.insert(MoodEntryModel(value: 4))
+
+        let encrypted = try BackupService.exportEncrypted(context: ctx, passphrase: "right")
+        XCTAssertThrowsError(try BackupService.decrypt(encrypted, passphrase: "wrong"))
+    }
 }
