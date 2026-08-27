@@ -1,7 +1,7 @@
-# therAIpist
+# Selfward
 
 <p align="center">
-  <img src="docs/icon.png" alt="therAIpist app icon" width="160" />
+  <img src="docs/icon.png" alt="Selfward app icon" width="160" />
 </p>
 
 A private, on-device iOS therapy companion — named personas, hands-free voice, knowledge graph, and 13 therapeutic modalities. No data leaves your phone.
@@ -43,7 +43,7 @@ Now with a **Narrative page** that writes your life story from your sessions, **
 ---
 
 > **Important disclaimer**
-> therAIpist is **not** a licensed therapist, psychologist, or medical provider. It is a journaling and self-reflection tool only. It cannot diagnose, treat, or manage any mental health condition.
+> Selfward is **not** a licensed therapist, psychologist, or medical provider. It is a journaling and self-reflection tool only. It cannot diagnose, treat, or manage any mental health condition.
 >
 > **If you are in crisis, please reach out immediately:**
 > - 🇺🇸 **988 Suicide & Crisis Lifeline** — call or text **988** — [988lifeline.org](https://988lifeline.org)
@@ -128,7 +128,7 @@ Now with a **Narrative page** that writes your life story from your sessions, **
 ## Architecture
 
 ```
-ios/Therapist/
+ios/Selfward/
 ├── Services/
 │   ├── ChatService.swift          # Core turn orchestrator: memory, graph, LLM, safety,
 │   │                              #   dream capture, note upsert
@@ -195,13 +195,13 @@ ios/Therapist/
 ### Build
 
 > **Do not run `xcodegen generate`.** The repository ships a ready-to-build
-> `Therapist.xcodeproj`. Regenerating it strips the manually-maintained SPM
+> `Selfward.xcodeproj`. Regenerating it strips the manually-maintained SPM
 > link settings and breaks the build with a `BYOKLLMKit` undefined-symbol
 > error. Just open the committed project.
 
 ```bash
 cd ios
-open Therapist.xcodeproj
+open Selfward.xcodeproj
 ```
 
 Build and run on your device or simulator. Swift Package Manager will resolve `LLM.swift` and [OnDeviceKit](https://github.com/AnubisRooster/OnDeviceKit) (cloud TTS engines) automatically on first build.
@@ -313,7 +313,7 @@ Sessions are never hard-deleted by default:
 
 ## Testing
 
-A hosted XCTest target (`TherapistTests`) covers the core logic with positive and
+A hosted XCTest target (`SelfwardTests`) covers the core logic with positive and
 negative cases, plus end-to-end pipeline tests:
 
 - **Unit** — safety detection, knowledge-graph extraction/edges, memory keywording,
@@ -331,11 +331,11 @@ Run them with:
 
 ```bash
 cd ios
-xcodebuild test -scheme Therapist -destination 'platform=iOS Simulator,name=iPhone 17'
+xcodebuild test -scheme Selfward -destination 'platform=iOS Simulator,name=iPhone 17'
 ```
 
 > Note: do not run `xcodegen generate` first — open the committed
-> `Therapist.xcodeproj` directly (see Build above).
+> `Selfward.xcodeproj` directly (see Build above).
 
 ---
 

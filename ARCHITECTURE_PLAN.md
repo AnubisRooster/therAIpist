@@ -95,7 +95,7 @@ Therapist/
 │
 └── ios/                        # Future: SwiftUI project
     └── Therapist/
-        ├── TherapistApp.swift
+        ├── SelfwardApp.swift
         ├── Models/
         ├── Views/
         ├── Services/

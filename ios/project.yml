@@ -1,6 +1,6 @@
-name: Therapist
+name: Selfward
 options:
-  bundleIdPrefix: com.therAIpist
+  bundleIdPrefix: com.intelligentdesignsllc.selfward
   deploymentTarget:
     iOS: "17.0"
   xcodeVersion: "16.0"
@@ -24,15 +24,15 @@ settings:
     CODE_SIGN_STYLE: Automatic
 
 targets:
-  Therapist:
+  Selfward:
     type: application
     platform: iOS
     deploymentTarget: "17.0"
     info:
-      path: Therapist/Resources/Info.plist
+      path: Selfward/Resources/Info.plist
       properties:
-        NSMicrophoneUsageDescription: "therAIpist uses the microphone for hands-free voice conversations, so you can speak with the therapist and hear spoken replies."
-        NSSpeechRecognitionUsageDescription: "therAIpist transcribes your speech (on-device when supported) so you can talk through your thoughts instead of typing."
+        NSMicrophoneUsageDescription: "Selfward uses the microphone for hands-free voice conversations, so you can speak with the therapist and hear spoken replies."
+        NSSpeechRecognitionUsageDescription: "Selfward transcribes your speech (on-device when supported) so you can talk through your thoughts instead of typing."
         UILaunchScreen:
           UIColorName: ""
         UISupportedInterfaceOrientations:
@@ -43,11 +43,11 @@ targets:
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
     sources:
-      - path: Therapist
+      - path: Selfward
         excludes:
           - "Resources/AppIcon.png"
     resources:
-      - path: Therapist/Resources/Graph
+      - path: Selfward/Resources/Graph
         buildPhase: resources
     dependencies:
       - package: LLM
@@ -55,33 +55,33 @@ targets:
         product: VoiceLoopKit
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.therAIpist.app
-        INFOPLIST_FILE: Therapist/Resources/Info.plist
+        PRODUCT_BUNDLE_IDENTIFIER: com.intelligentdesignsllc.selfward.app
+        INFOPLIST_FILE: Selfward/Resources/Info.plist
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ENABLE_PREVIEWS: YES
 
-  TherapistTests:
+  SelfwardTests:
     type: bundle.unit-test
     platform: iOS
     deploymentTarget: "17.0"
     sources:
-      - path: TherapistTests
+      - path: SelfwardTests
     dependencies:
-      - target: Therapist
+      - target: Selfward
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.therAIpist.tests
+        PRODUCT_BUNDLE_IDENTIFIER: com.intelligentdesignsllc.selfward.tests
         GENERATE_INFOPLIST_FILE: YES
-        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/Therapist.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Therapist"
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/Selfward.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Selfward"
         BUNDLE_LOADER: "$(TEST_HOST)"
 
 schemes:
-  Therapist:
+  Selfward:
     build:
       targets:
-        Therapist: all
-        TherapistTests: [test]
+        Selfward: all
+        SelfwardTests: [test]
     test:
       targets:
-        - TherapistTests
+        - SelfwardTests
       gatherCoverageData: true

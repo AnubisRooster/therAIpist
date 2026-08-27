@@ -1,5 +1,5 @@
 """
-Therapist Desktop Client (Windows/Linux/macOS)
+Selfward Desktop Client (Windows/Linux/macOS)
 
 A simple desktop client using Python's built-in tkinter.
 Requires the backend to be running at http://localhost:8000
@@ -18,10 +18,10 @@ from tkinter import ttk, scrolledtext, messagebox
 BASE_URL = "http://localhost:8000"
 
 
-class TherapistDesktop:
+class SelfwardDesktop:
     def __init__(self, root):
         self.root = root
-        self.root.title("Therapist Desktop Client")
+        self.root.title("Selfward Desktop Client")
         self.root.geometry("900x700")
         self.session_id = None
 
@@ -172,5 +172,5 @@ class TherapistDesktop:
 
 if __name__ == "__main__":
     root = tk.Tk()
-    app = TherapistDesktop(root)
+    app = SelfwardDesktop(root)
     root.mainloop()
