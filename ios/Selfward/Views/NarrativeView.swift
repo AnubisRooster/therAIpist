@@ -37,7 +37,7 @@ struct NarrativeView: View {
     }
 
     private var localAvailable: Bool {
-        localModelService.catalog.contains { localModelService.isDownloaded($0.id) }
+        localModelService.availableModels.contains { localModelService.isDownloaded($0.id) }
     }
 
     private var cloudProvidersWithKeys: [LLMProvider] {
@@ -71,7 +71,7 @@ struct NarrativeView: View {
         // …otherwise fall back to any available on-device model (a downloaded
         // GGUF or the built-in Apple model) so we never try to load a model
         // that isn't present.
-        if let available = localModelService.catalog.first(where: { localModelService.isDownloaded($0.id) }) {
+        if let available = localModelService.availableModels.first(where: { localModelService.isDownloaded($0.id) }) {
             return available.id
         }
         return defaultLocalModel.isEmpty ? "llama-3.2-3b" : defaultLocalModel

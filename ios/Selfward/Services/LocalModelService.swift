@@ -2,6 +2,13 @@ import Foundation
 
 // MARK: - LocalModel
 
+/// Where a catalog entry came from. Curated models are vetted and bundled in
+/// the app; Hugging Face models are fetched dynamically (see HuggingFaceModelService).
+enum ModelSource: Hashable {
+    case curated
+    case huggingFace
+}
+
 struct LocalModel: Identifiable, Hashable {
     let id: String          // used as filename stem and session.localModel value
     let name: String
@@ -11,6 +18,7 @@ struct LocalModel: Identifiable, Hashable {
     let templateType: LocalModelTemplate
     let isRecommended: Bool
     var kind: LocalModelKind = .gguf
+    var source: ModelSource = .curated
 }
 
 enum LocalModelTemplate {
@@ -137,13 +145,73 @@ final class LocalModelService: ObservableObject {
 
     @Published private(set) var downloadProgress: [String: Double] = [:]
     @Published private(set) var downloadedIDs: Set<String> = []
+    @Published private(set) var dynamicModels: [LocalModel] = []
+    @Published private(set) var isCatalogLoading = false
 
     private var activeTasks: [String: URLSessionDownloadTask] = [:]
 
     // MARK: Init
 
     private init() {
+        // Start from the last cached Hugging Face catalogue (offline-safe), then
+        // refresh in the background if the 24h cache is stale or empty.
+        dynamicModels = HuggingFaceModelService.modelsFromCache()
         refreshDownloadedStatus()
+        if HuggingFaceModelService.isCacheStale() || dynamicModels.isEmpty {
+            Task { await refreshCatalog() }
+        }
+    }
+
+    // MARK: Catalog (curated + dynamic)
+
+    /// All selectable models: curated first, then dynamic Hugging Face models,
+    /// de-duplicated by id (curated wins).
+    var availableModels: [LocalModel] {
+        var seen = Set<String>()
+        var out: [LocalModel] = []
+        for m in catalog + dynamicModels {
+            if seen.contains(m.id) { continue }
+            seen.insert(m.id)
+            out.append(m)
+        }
+        return out
+    }
+
+    var recommendedModels: [LocalModel] { catalog.filter { $0.isRecommended } }
+    var huggingFaceModels: [LocalModel] { availableModels.filter { $0.source == .huggingFace } }
+
+    /// Refreshes the dynamic Hugging Face catalogue from the network.
+    func refreshCatalog() async {
+        isCatalogLoading = true
+        defer { isCatalogLoading = false }
+        let models = await HuggingFaceModelService.fetch()
+        if !models.isEmpty { dynamicModels = models }
+    }
+
+    /// Test-only hook so unit tests can exercise the catalog merge without
+    /// hitting the network.
+    func setDynamicModels(_ models: [LocalModel]) {
+        dynamicModels = models
+    }
+
+    /// Recommends a local model id for the device's RAM so new users start with
+    /// something that fits. Prefers Apple Foundation (iOS 26+, no download).
+    func recommendedModelID(ramGB: Int) -> String {
+        if #available(iOS 26, *),
+           let apple = catalog.first(where: { $0.kind == .appleFoundation }) {
+            return apple.id
+        }
+        let budget: Int64
+        switch ramGB {
+        case ..<4:  budget = 1_300_000_000
+        case 4..<6: budget = 1_300_000_000
+        case 6..<8: budget = 2_600_000_000
+        default:    budget = 5_500_000_000
+        }
+        let gguf = catalog.filter { $0.kind == .gguf && $0.sizeBytes <= budget }
+        if let best = gguf.max(by: { $0.sizeBytes < $1.sizeBytes }) { return best.id }
+        return catalog.filter { $0.kind == .gguf }
+            .min(by: { $0.sizeBytes < $1.sizeBytes })?.id ?? "llama-3.2-1b"
     }
 
     // MARK: Public API
@@ -178,7 +246,7 @@ final class LocalModelService: ObservableObject {
     func deleteModel(_ id: String) {
         guard activeTasks[id] == nil else { return }
         // Apple Foundation model has no file to delete.
-        if let model = catalog.first(where: { $0.id == id }), model.kind == .appleFoundation { return }
+        if let model = availableModels.first(where: { $0.id == id }), model.kind == .appleFoundation { return }
         try? FileManager.default.removeItem(at: modelFilePath(id: id))
         downloadedIDs.remove(id)
 
@@ -192,7 +260,7 @@ final class LocalModelService: ObservableObject {
         let fm = FileManager.default
         try? fm.createDirectory(at: modelsDirectory, withIntermediateDirectories: true)
         var found = Set<String>()
-        for model in catalog {
+        for model in availableModels {
             switch model.kind {
             case .appleFoundation:
                 // Treated as "downloaded" when available; availability is checked
@@ -308,5 +376,160 @@ private final class DownloadProgressDelegate: NSObject, URLSessionDownloadDelega
                     didWriteData _: Int64, totalBytesWritten: Int64, totalBytesExpectedToWrite: Int64) {
         guard totalBytesExpectedToWrite > 0 else { return }
         onProgress(Double(totalBytesWritten) / Double(totalBytesExpectedToWrite))
+    }
+}
+
+// MARK: - Hugging Face dynamic catalogue
+
+/// Fetches the continuously-updated catalogue of downloadable GGUF models from
+/// the Hugging Face Hub, so on-device model choices stay current without shipping
+/// an app update. Results are merged with the curated `catalog` by `LocalModelService`.
+/// The catalogue is cached for 24h (mirrors `ModelService`).
+enum HuggingFaceModelService {
+
+    private static let cacheKey     = "hf_models_cache_v1"
+    private static let timestampKey = "hf_models_timestamp_v1"
+    private static let maxAge: TimeInterval = 86_400
+
+    // Reputable curators we trust to surface for a mental-health app. Models from
+    // other orgs are ignored to avoid low-quality or unsafe instruction following.
+    private static let trustedOrgs = Set([
+        "unsloth", "bartowski", "qwen", "google", "maziyarpanahi",
+        "mobiuslab", "prithivml", "dataset", "saveml", "replete-ai",
+        "nousresearch", "allenai", "microsoft", "huggingface"
+    ])
+
+    private static let codingKeywords = ["coder", "code-", "codestral", "codellama",
+                                         "codegemma", "deepcoder", "codegeex", "codeium"]
+
+    // MARK: API
+
+    private struct HFModel: Codable {
+        let id: String
+        let downloads: Int
+        let siblings: [HFSibling]?
+        struct HFSibling: Codable { let rfilename: String }
+    }
+
+    static func fetch() async -> [LocalModel] {
+        var components = URLComponents(string: "https://huggingface.co/api/models")!
+        components.queryItems = [
+            URLQueryItem(name: "library", value: "gguf"),
+            URLQueryItem(name: "pipeline_tag", value: "text-generation"),
+            URLQueryItem(name: "sort", value: "downloads"),
+            URLQueryItem(name: "direction", value: "-1"),
+            URLQueryItem(name: "limit", value: "60")
+        ]
+        guard let url = components.url else { return [] }
+        var req = URLRequest(url: url)
+        req.timeoutInterval = 30
+
+        do {
+            let (data, response) = try await URLSession.shared.data(for: req)
+            if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
+                return modelsFromCache()
+            }
+            UserDefaults.standard.set(data, forKey: cacheKey)
+            UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: timestampKey)
+            return models(from: data)
+        } catch {
+            return modelsFromCache()
+        }
+    }
+
+    /// Builds the dynamic model list from cached data (offline / first launch).
+    static func modelsFromCache() -> [LocalModel] {
+        guard let data = UserDefaults.standard.data(forKey: cacheKey) else { return [] }
+        return models(from: data)
+    }
+
+    static func isCacheStale() -> Bool {
+        let age = Date().timeIntervalSince1970 - UserDefaults.standard.double(forKey: timestampKey)
+        return age > maxAge
+    }
+
+    // MARK: Parsing
+
+    static func models(from data: Data) -> [LocalModel] {
+        guard let list = try? JSONDecoder().decode([HFModel].self, from: data) else { return [] }
+        var result: [LocalModel] = []
+        for m in list {
+            let org = m.id.components(separatedBy: "/").first?.lowercased() ?? ""
+            if !trustedOrgs.contains(org) { continue }
+            if codingKeywords.contains(where: { m.id.lowercased().contains($0) }) { continue }
+
+            guard let siblings = m.siblings else { continue }
+            let ggufs = siblings.map(\.rfilename).filter { $0.lowercased().hasSuffix(".gguf") }
+            guard let file = pickGGUF(ggufs) else { continue }
+
+            let downloadURL = "https://huggingface.co/\(m.id)/resolve/main/\(file)"
+            let base = (m.id.components(separatedBy: "/").last ?? m.id)
+            let quant = quant(from: file)
+            let size = estimatedBytes(params: params(from: m.id), quant: quant)
+            let id = "\(m.id.replacingOccurrences(of: "/", with: "__"))_\(URL(fileURLWithPath: file).deletingPathExtension().lastPathComponent)"
+
+            var model = LocalModel(
+                id: id,
+                name: "\(base) · \(quant)",
+                description: "Auto · Hugging Face · ~\(String(format: "%.1f", Double(size) / 1_000_000_000)) GB",
+                sizeBytes: size,
+                downloadURL: downloadURL,
+                templateType: template(for: m.id),
+                isRecommended: false,
+                kind: .gguf
+            )
+            model.source = .huggingFace
+            result.append(model)
+        }
+        return result
+    }
+
+    // Pick a sensible quant: prefer Q4_K_M, then fall back the quality ladder.
+    private static func pickGGUF(_ files: [String]) -> String? {
+        let ranked = ["Q4_K_M", "Q4_K_S", "Q4_0", "Q3_K_M", "Q3_K_S", "Q2_K", "Q5_K_M", "Q6_K", "Q8_0"]
+        for token in ranked {
+            if let f = files.first(where: { $0.uppercased().contains(token) }) { return f }
+        }
+        return files.min(by: { $0.count < $1.count }) ?? files.first
+    }
+
+    private static func quant(from file: String) -> String {
+        let upper = file.uppercased()
+        for token in ["Q2_K", "Q3_K", "Q4_K_M", "Q4_K_S", "Q4_0", "Q5_K_M", "Q6_K", "Q8_0", "F16", "BF16"] {
+            if upper.contains(token) { return token }
+        }
+        return "Q4"
+    }
+
+    // Rough param count from the repo id, e.g. "Llama-3.3-3B" -> 3.0
+    private static func params(from id: String) -> Double {
+        let pattern = #"(\d+(?:\.\d+)?)\s*([BM])"#
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]),
+              let match = regex.firstMatch(in: id, range: NSRange(id.startIndex..., in: id)),
+              let range = Range(match.range(at: 1), in: id),
+              let val = Double(id[range]) else { return 3.0 }
+        return val
+    }
+
+    private static func estimatedBytes(params: Double, quant: String) -> Int64 {
+        let factor: Double
+        switch quant {
+        case "Q2_K": factor = 0.30
+        case "Q3_K": factor = 0.38
+        case "Q4_K_M", "Q4_K_S", "Q4_0": factor = 0.55
+        case "Q5_K": factor = 0.65
+        case "Q6_K": factor = 0.75
+        case "Q8_0": factor = 1.0
+        default: factor = 0.55
+        }
+        return Int64(params * factor * 1_000_000_000)
+    }
+
+    private static func template(for id: String) -> LocalModelTemplate {
+        let l = id.lowercased()
+        if l.contains("llama") || l.contains("mistral") { return .llama3 }
+        if l.contains("phi") { return .phi3 }
+        if l.contains("gemma") { return .gemma }
+        return .chatML
     }
 }

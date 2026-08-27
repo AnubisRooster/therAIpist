@@ -17,7 +17,7 @@ struct ModelPickerView: View {
     private var paidSorted: [OpenRouterModel] { filterCloud(modelService.paidModels) }
 
     private var downloadedLocalModels: [LocalModel] {
-        localModelService.catalog.filter { localModelService.isDownloaded($0.id) }
+        localModelService.availableModels.filter { localModelService.isDownloaded($0.id) }
     }
 
     /// Cloud providers (other than OpenRouter) that have a key set — these are

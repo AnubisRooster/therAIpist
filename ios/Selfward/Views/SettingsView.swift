@@ -225,21 +225,41 @@ struct ModelsSettingsView: View {
             }
 
             Section {
-                ForEach(localModelService.catalog) { model in
+                ForEach(localModelService.recommendedModels) { model in
                     localModelCard(model)
                 }
-                if defaultProvider == "local" {
+            } header: {
+                Label("Recommended", systemImage: "star")
+            } footer: {
+                Text("Vetted, on-device models that work well for journaling and reflection.")
+                    .font(.caption)
+            }
+
+            if !localModelService.huggingFaceModels.isEmpty {
+                Section {
+                    ForEach(localModelService.huggingFaceModels) { model in
+                        localModelCard(model)
+                    }
+                    Button(localModelService.isCatalogLoading ? "Updating…" : "Refresh from Hugging Face") {
+                        Task { await localModelService.refreshCatalog() }
+                    }
+                    .disabled(localModelService.isCatalogLoading)
+                } header: {
+                    Label("More from Hugging Face", systemImage: "cloud")
+                } footer: {
+                    Text("Automatically updated list of downloadable text models. New, more capable models appear here as they're released.")
+                        .font(.caption)
+                }
+            }
+
+            if defaultProvider == "local" {
+                Section {
                     Picker("Default local model", selection: $defaultLocalModel) {
-                        ForEach(localModelService.catalog.filter { localModelService.isDownloaded($0.id) }) { m in
+                        ForEach(localModelService.availableModels.filter { localModelService.isDownloaded($0.id) }) { m in
                             Text(m.name).tag(m.id)
                         }
                     }
                 }
-            } header: {
-                Label("On-Device Models", systemImage: "cpu")
-            } footer: {
-                Text("Models are stored in the app's Documents folder. Requires Wi-Fi for download. Inference runs fully on-device via Metal.")
-                    .font(.caption)
             }
         }
         .navigationTitle("Models")

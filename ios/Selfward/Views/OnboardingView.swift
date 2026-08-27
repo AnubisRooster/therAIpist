@@ -308,37 +308,17 @@ private struct APIKeyStep: View {
 // MARK: - Step 3: On-Device Models
 
 private struct OnDeviceModelsStep: View {
+    @EnvironmentObject private var localModelService: LocalModelService
+    @AppStorage("default_local_model") private var defaultLocalModel = "llama-3.2-3b"
+
     private var ramGB: Int {
         Int(ProcessInfo.processInfo.physicalMemory / 1_073_741_824)
     }
 
-    private var recommendation: (model: String, reason: String, suitable: Bool) {
-        switch ramGB {
-        case ..<4:
-            return (
-                "Not recommended on this device",
-                "Your device has less than 4 GB of RAM. On-device models require at least 4 GB to run without errors. Use OpenRouter cloud models instead.",
-                false
-            )
-        case 4..<6:
-            return (
-                "Llama 3.2 1B (recommended)",
-                "Your device has \(ramGB) GB RAM. The 1B model is the safest choice — it loads quickly and fits comfortably in memory.",
-                true
-            )
-        case 6..<8:
-            return (
-                "Llama 3.2 3B (recommended)",
-                "Your device has \(ramGB) GB RAM. The 3B model gives noticeably better answers than the 1B and should run well.",
-                true
-            )
-        default:
-            return (
-                "Llama 3.2 3B or Phi-3.5 Mini",
-                "Your device has \(ramGB) GB RAM. You can run any model in the catalog. The 3B model is the fastest; Phi-3.5 Mini tends to give more nuanced responses.",
-                true
-            )
-        }
+    private var recommendedID: String { localModelService.recommendedModelID(ramGB: ramGB) }
+
+    private var recommendedModel: LocalModel? {
+        localModelService.availableModels.first(where: { $0.id == recommendedID })
     }
 
     var body: some View {
@@ -347,73 +327,75 @@ private struct OnDeviceModelsStep: View {
                 StepHeader(
                     icon: "cpu",
                     title: "On-Device AI Models",
-                    subtitle: "Run AI entirely on your iPhone — no internet, no API key, and completely private."
+                    subtitle: "Run AI entirely on your iPhone — no internet, no API key, and completely private. We'll set you up with a model that fits your device."
                 )
 
-                // Device recommendation card
-                VStack(alignment: .leading, spacing: 10) {
-                    Label("Your Device", systemImage: "iphone")
-                        .font(.subheadline.bold())
-                        .foregroundColor(.secondary)
+                // Recommended-for-this-device card
+                if let rec = recommendedModel {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Label("Recommended for your device", systemImage: "iphone")
+                            .font(.subheadline.bold())
+                            .foregroundColor(.secondary)
+                        HStack(alignment: .top, spacing: 12) {
+                            Image(systemName: "checkmark.circle.fill")
+                                .font(.title2)
+                                .foregroundColor(.teal)
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(rec.name).font(.subheadline.bold())
+                                Text("Your device has \(ramGB) GB RAM. This is set as your default and will download automatically if needed.")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                        OnboardingModelRow(model: rec, isDefault: defaultLocalModel == rec.id) {
+                            defaultLocalModel = rec.id
+                        } onDownload: {
+                            localModelService.startDownload(rec)
+                        } onCancel: {
+                            localModelService.cancelDownload(rec.id)
+                        }
+                    }
+                    .padding(14)
+                    .background(Color(.secondarySystemGroupedBackground))
+                    .cornerRadius(10)
+                }
 
-                    HStack(alignment: .top, spacing: 12) {
-                        Image(systemName: recommendation.suitable ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
-                            .font(.title2)
-                            .foregroundColor(recommendation.suitable ? .teal : .orange)
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(recommendation.model)
-                                .font(.subheadline.bold())
-                            Text(recommendation.reason)
-                                .font(.caption)
-                                .foregroundColor(.secondary)
+                // Other curated recommended models
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Other recommended models").font(.subheadline.bold())
+                    ForEach(localModelService.recommendedModels.filter { $0.id != recommendedID }) { model in
+                        OnboardingModelRow(model: model, isDefault: defaultLocalModel == model.id) {
+                            defaultLocalModel = model.id
+                        } onDownload: {
+                            localModelService.startDownload(model)
+                        } onCancel: {
+                            localModelService.cancelDownload(model.id)
                         }
                     }
                 }
-                .padding(14)
-                .background(Color(.secondarySystemGroupedBackground))
-                .cornerRadius(10)
 
-                // Model comparison
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Available Models").font(.subheadline.bold())
-
-                    ModelInfoRow(
-                        name: "Llama 3.2 1B",
-                        size: "~800 MB",
-                        speed: "Fast",
-                        quality: "Good",
-                        minRAM: "4 GB",
-                        color: .green
-                    )
-                    ModelInfoRow(
-                        name: "Llama 3.2 3B",
-                        size: "~2 GB",
-                        speed: "Medium",
-                        quality: "Better",
-                        minRAM: "6 GB",
-                        color: .blue
-                    )
-                    ModelInfoRow(
-                        name: "Phi-3.5 Mini",
-                        size: "~2.2 GB",
-                        speed: "Medium",
-                        quality: "Best",
-                        minRAM: "8 GB",
-                        color: .purple
-                    )
+                // More from Hugging Face (auto-updated)
+                if !localModelService.huggingFaceModels.isEmpty {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("More from Hugging Face").font(.subheadline.bold())
+                        Text("Newer, more capable text models appear here automatically as they're released.")
+                            .font(.caption).foregroundColor(.secondary)
+                        ForEach(Array(localModelService.huggingFaceModels.prefix(8))) { model in
+                            OnboardingModelRow(model: model, isDefault: defaultLocalModel == model.id) {
+                                defaultLocalModel = model.id
+                            } onDownload: {
+                                localModelService.startDownload(model)
+                            } onCancel: {
+                                localModelService.cancelDownload(model.id)
+                            }
+                        }
+                        Button(localModelService.isCatalogLoading ? "Updating…" : "Refresh list") {
+                            Task { await localModelService.refreshCatalog() }
+                        }
+                        .disabled(localModelService.isCatalogLoading)
+                        .font(.caption)
+                    }
                 }
-
-                // How to download
-                VStack(alignment: .leading, spacing: 10) {
-                    Text("How to Download Models").font(.subheadline.bold())
-                    StepInstruction(number: "1", text: "Go to **Settings** (gear icon on the main screen)")
-                    StepInstruction(number: "2", text: "Scroll to **On-Device Models**")
-                    StepInstruction(number: "3", text: "Tap **Download** next to your chosen model")
-                    StepInstruction(number: "4", text: "Once downloaded, start a new session and tap the model chip to switch to **On-Device**")
-                }
-                .padding(14)
-                .background(Color(.secondarySystemGroupedBackground))
-                .cornerRadius(10)
 
                 // Caveats
                 VStack(alignment: .leading, spacing: 6) {
@@ -421,9 +403,9 @@ private struct OnDeviceModelsStep: View {
                         .font(.subheadline.bold())
                         .foregroundColor(.secondary)
                     BulletRow2("Responses take 10–60 seconds depending on your device")
-                    BulletRow2("Keep your phone plugged in during long sessions")
                     BulletRow2("The app may use significant battery and generate heat")
                     BulletRow2("Models are stored in your app's Documents folder and can be deleted anytime")
+                    BulletRow2("You can switch or download more models anytime in Settings")
                 }
                 .padding(14)
                 .background(Color(.secondarySystemGroupedBackground))
@@ -431,36 +413,60 @@ private struct OnDeviceModelsStep: View {
             }
             .padding(24)
         }
+        .onAppear {
+            // Make sure new users have a model to run off of as soon as they start.
+            defaultLocalModel = recommendedID
+            if let rec = recommendedModel, rec.kind == .gguf, !localModelService.isDownloaded(rec.id) {
+                localModelService.startDownload(rec)
+            }
+        }
     }
 }
 
-private struct ModelInfoRow: View {
-    let name: String
-    let size: String
-    let speed: String
-    let quality: String
-    let minRAM: String
-    let color: Color
+private struct OnboardingModelRow: View {
+    let model: LocalModel
+    let isDefault: Bool
+    let onUse: () -> Void
+    let onDownload: () -> Void
+    let onCancel: () -> Void
+    @EnvironmentObject private var localModelService: LocalModelService
 
     var body: some View {
-        HStack(spacing: 10) {
-            Circle()
-                .fill(color.opacity(0.2))
-                .frame(width: 36, height: 36)
-                .overlay(
-                    Image(systemName: "cpu")
-                        .font(.caption)
-                        .foregroundColor(color)
-                )
-            VStack(alignment: .leading, spacing: 2) {
-                Text(name).font(.subheadline.bold())
-                Text("\(size)  ·  Speed: \(speed)  ·  Quality: \(quality)  ·  Min \(minRAM) RAM")
-                    .font(.caption)
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 10) {
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 6) {
+                        Text(model.name).font(.subheadline.bold())
+                        if model.isRecommended { TagCapsule(label: "Recommended", color: .blue) }
+                        if model.kind == .appleFoundation { TagCapsule(label: "Built-in", color: .indigo) }
+                        if isDefault { TagCapsule(label: "Default", color: .teal) }
+                    }
+                    if model.kind == .gguf {
+                        Text(localModelService.sizeLabel(model))
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
+                Spacer()
+                if model.kind == .appleFoundation {
+                    Button("Use", action: onUse).buttonStyle(.bordered)
+                } else if localModelService.isDownloading(model.id) {
+                    Button("Cancel", action: onCancel).buttonStyle(.bordered)
+                } else if localModelService.isDownloaded(model.id) {
+                    Button("Use", action: onUse).buttonStyle(.borderedProminent).tint(.teal)
+                } else {
+                    Button("Download", action: onDownload).buttonStyle(.bordered)
+                }
+            }
+            if let progress = localModelService.downloadProgress[model.id] {
+                ProgressView(value: progress).tint(.blue)
+                Text(String(format: "%.0f%%", progress * 100))
+                    .font(.caption2)
                     .foregroundColor(.secondary)
             }
         }
         .padding(10)
-        .background(color.opacity(0.06))
+        .background(Color(.secondarySystemGroupedBackground))
         .cornerRadius(8)
     }
 }
