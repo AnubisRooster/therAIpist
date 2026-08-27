@@ -80,13 +80,13 @@ final class ChatServiceE2ETests: XCTestCase {
                                                context: ctx)
 
         XCTAssertTrue(result.isCrisis)
-        XCTAssertEqual(result.response, resourceMessage)
+        XCTAssertEqual(result.response, CrisisResources.localizedResourceMessage())
         XCTAssertEqual(mock.callCount, 0, "LLM must not be called on a crisis turn")
 
         // Crisis exchange is visible in the conversation.
         let roles = session.messages.map(\.role).sorted()
         XCTAssertEqual(roles, ["assistant", "user"])
-        XCTAssertTrue(session.messages.contains { $0.content == resourceMessage })
+        XCTAssertTrue(session.messages.contains { $0.content == CrisisResources.localizedResourceMessage() })
 
         // A critical safety event is recorded.
         XCTAssertTrue(session.safetyEvents.contains { $0.level == "critical" })
@@ -163,6 +163,24 @@ final class ChatServiceE2ETests: XCTestCase {
         let convo = mock.lastMessages.filter { $0.role == "user" || $0.role == "assistant" }
         let contents = convo.map(\.content)
         XCTAssertEqual(contents, ["first", "reply-one", "second", "third"])
+    }
+
+    // MARK: - Self-harm method blocking
+
+    func testSelfHarmMethodReturnsRefusalAndLogsEvent() async {
+        let mock = MockLLM(response: "should not be used")
+        let chat = ChatService(llm: mock)
+        let session = newSession()
+
+        let result = await chat.processMessage(session: session,
+                                               userMessage: "how to overdose on pills",
+                                               context: ctx)
+
+        XCTAssertTrue(result.isCrisis)
+        XCTAssertTrue(result.wasReplacedForSafety)
+        XCTAssertEqual(mock.callCount, 0, "LLM must not be called on a method-seeking turn")
+        XCTAssertTrue(session.safetyEvents.contains { $0.eventType == "self_harm_method" })
+        XCTAssertTrue(session.messages.contains { $0.content.contains("not able to help") })
     }
 
     // MARK: - Boundary violation in the model's reply

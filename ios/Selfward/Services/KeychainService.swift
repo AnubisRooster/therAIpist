@@ -81,28 +81,14 @@ final class KeychainService: @unchecked Sendable {
         get(for: provider) != nil
     }
 
-    // MARK: - OpenRouter legacy migration
+    // MARK: - OpenRouter key
 
-    private static let legacyOpenRouterDefaultsKey = "openrouter_key"
-
-    /// The effective OpenRouter key. Prefers the Keychain, and transparently
-    /// migrates (then clears) any legacy plaintext value stored in
-    /// `UserDefaults` under `openrouter_key`. Returns "" when none is set.
-    ///
-    /// This is the single source of truth for the OpenRouter key — callers
-    /// should use it instead of reading `@AppStorage("openrouter_key")`.
+    /// The effective OpenRouter key, read from the Keychain only. No plaintext
+    /// `UserDefaults` fallback is used — the key is never stored in the clear.
+    /// Returns "" when none is set. This is the single source of truth for the
+    /// OpenRouter key; callers should not read `@AppStorage("openrouter_key")`.
     @discardableResult
     func openRouterKey() -> String {
-        if let stored = get(for: LLMProvider.openrouter) { return stored }
-
-        let legacy = (UserDefaults.standard.string(forKey: Self.legacyOpenRouterDefaultsKey) ?? "")
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        if !legacy.isEmpty {
-            set(legacy, for: LLMProvider.openrouter)
-            // Remove the plaintext copy now that it lives securely in Keychain.
-            UserDefaults.standard.removeObject(forKey: Self.legacyOpenRouterDefaultsKey)
-            return legacy
-        }
-        return ""
+        get(for: LLMProvider.openrouter) ?? ""
     }
 }

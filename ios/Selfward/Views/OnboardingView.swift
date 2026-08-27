@@ -4,7 +4,7 @@ import SwiftUI
 /// Steps: 0=welcome, 1=disclaimer, 2=api key, 3=on-device models,
 ///        4=about you, 5=concerns, 6=history, 7=goals
 struct OnboardingView: View {
-    @AppStorage("openrouter_key")      private var openrouterKey      = ""
+    @State private var openrouterKey      = ""
     @AppStorage("user_name")           private var userName           = ""
     @AppStorage("user_pronouns")       private var userPronouns       = ""
     @AppStorage("user_age")            private var userAge            = ""
@@ -69,6 +69,12 @@ struct OnboardingView: View {
                     Button(step == totalSteps - 1 ? "Get Started" : "Continue") {
                         withAnimation {
                             if step == totalSteps - 1 {
+                                // Persist the API key to the Keychain only — never
+                                // in plaintext UserDefaults.
+                                let key = openrouterKey.trimmingCharacters(in: .whitespacesAndNewlines)
+                                if !key.isEmpty {
+                                    KeychainService.shared.set(key, for: LLMProvider.openrouter)
+                                }
                                 onboardingComplete = true
                             } else {
                                 step += 1

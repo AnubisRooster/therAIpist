@@ -62,4 +62,80 @@ final class SafetyServiceTests: XCTestCase {
         XCTAssertFalse(result.isViolation)
         XCTAssertNil(result.pattern)
     }
+
+    // MARK: - Self-harm method detection
+
+    func testSelfHarmMethodSeekingIsDetected() {
+        XCTAssertTrue(safety.checkSelfHarmMethod("how to overdose on pills"))
+        XCTAssertTrue(safety.checkSelfHarmMethod("what is a painless way to die"))
+        XCTAssertTrue(safety.checkSelfHarmMethod("how to cut myself"))
+    }
+
+    func testOrdinaryMessageIsNotSelfHarmMethod() {
+        XCTAssertFalse(safety.checkSelfHarmMethod("I had a really hard day at work"))
+        XCTAssertFalse(safety.checkSelfHarmMethod("what's a good way to relax"))
+    }
+
+    // MARK: - Localized crisis resources
+
+    func testCrisisResourcesDefaultToUS() {
+        let us = CrisisResources.resources(forRegion: "US")
+        XCTAssertTrue(us.contains { $0.name.contains("988") })
+        XCTAssertTrue(us.contains { $0.contact.contains("741741") })
+    }
+
+    func testCrisisResourcesLocalizeForKnownRegions() {
+        XCTAssertTrue(CrisisResources.resources(forRegion: "GB").contains { $0.name == "Samaritans" })
+        XCTAssertTrue(CrisisResources.resources(forRegion: "AU").contains { $0.name == "Lifeline" })
+        XCTAssertTrue(CrisisResources.resources(forRegion: "CA").contains { $0.name.contains("Canada") })
+    }
+
+    func testCrisisResourcesUnknownRegionFallsBackToInternational() {
+        let unknown = CrisisResources.resources(forRegion: "ZZ")
+        XCTAssertTrue(unknown.contains {
+            $0.name.contains("International Association") || $0.name.contains("Befrienders")
+        })
+    }
+
+    func testLocalizedResourceMessageIncludesLocalResources() {
+        let message = CrisisResources.localizedResourceMessage(forRegion: "CA")
+        XCTAssertTrue(message.contains("Canada Suicide Prevention"))
+    }
+
+    func testMethodRefusalMessageIncludesResources() {
+        let refusal = CrisisResources.methodRefusalMessage(forRegion: "GB")
+        XCTAssertTrue(refusal.contains("not able to help"))
+        XCTAssertTrue(refusal.contains("Samaritans"))
+    }
+
+    // MARK: - At-rest store protection
+
+    func testStoreProtectionAppliesAttributeWhenSupported() throws {
+        let tmp = FileManager.default.temporaryDirectory
+            .appendingPathComponent("store_prot_test_\(UUID().uuidString).sqlite")
+        FileManager.default.createFile(atPath: tmp.path, contents: Data("x".utf8))
+        StoreProtection.apply(to: tmp)
+        let attrs = try FileManager.default.attributesOfItem(atPath: tmp.path)
+        if let protection = attrs[.protectionKey] as? FileProtectionType {
+            XCTAssertEqual(protection, .completeUntilFirstUserAuthentication)
+        }
+        // On simulators/CI that don't enforce file protection the call must still succeed.
+        try? FileManager.default.removeItem(at: tmp)
+    }
+
+    // MARK: - OpenRouter key (no plaintext fallback)
+
+    func testOpenRouterKeyIgnoresLegacyUserDefaults() {
+        KeychainService.shared.set("", for: LLMProvider.openrouter)
+        UserDefaults.standard.set("sk-legacy-plaintext", forKey: "openrouter_key")
+        let key = KeychainService.shared.openRouterKey()
+        XCTAssertEqual(key, "", "Legacy plaintext in UserDefaults must not be used")
+        UserDefaults.standard.removeObject(forKey: "openrouter_key")
+    }
+
+    func testOpenRouterKeyReadsFromKeychain() {
+        KeychainService.shared.set("sk-from-keychain", for: LLMProvider.openrouter)
+        XCTAssertEqual(KeychainService.shared.openRouterKey(), "sk-from-keychain")
+        KeychainService.shared.set("", for: LLMProvider.openrouter)
+    }
 }

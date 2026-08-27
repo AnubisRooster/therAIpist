@@ -78,10 +78,32 @@ final class ChatService {
             // Persist the exchange so the crisis resources are visible in the
             // conversation (not just flashed as a caption).
             context.insert(MessageModel(session: session, role: "user", content: userMessage))
-            context.insert(MessageModel(session: session, role: "assistant", content: resourceMessage))
+            context.insert(MessageModel(session: session, role: "assistant", content: CrisisResources.localizedResourceMessage()))
 
             return ChatResult(
-                response: resourceMessage,
+                response: CrisisResources.localizedResourceMessage(),
+                isCrisis: true,
+                tokenCount: 0,
+                agentResponse: nil,
+                wasReplacedForSafety: true
+            )
+        }
+
+        // Block requests that seek concrete self-harm methods: respond with a
+        // safe refusal plus crisis resources, and never forward to the model.
+        if safety.checkSelfHarmMethod(userMessage) {
+            let event = SafetyEventModel(
+                session: session,
+                eventType: "self_harm_method",
+                level: "critical",
+                message: "Detected self-harm method-seeking language"
+            )
+            context.insert(event)
+            let refusal = CrisisResources.methodRefusalMessage()
+            context.insert(MessageModel(session: session, role: "user", content: userMessage))
+            context.insert(MessageModel(session: session, role: "assistant", content: refusal))
+            return ChatResult(
+                response: refusal,
                 isCrisis: true,
                 tokenCount: 0,
                 agentResponse: nil,

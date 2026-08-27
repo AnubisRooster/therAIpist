@@ -40,7 +40,7 @@ class CrisisAgent: TherapyAgent {
 
     func process(context: AgentContext) async -> AgentResult {
         AgentResult(
-            content: resourceMessage,
+            content: CrisisResources.localizedResourceMessage(),
             agentName: name,
             confidence: 1.0,
             interventions: ["crisis_referral"]

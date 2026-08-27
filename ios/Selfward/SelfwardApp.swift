@@ -69,7 +69,6 @@ struct AppRootView: View {
     @StateObject private var speechService     = SpeechService.shared
     @StateObject private var localModelService = LocalModelService.shared
 
-    @AppStorage("openrouter_key")      private var openrouterKey      = ""
     @AppStorage("default_model")       private var defaultModel       = "meta-llama/llama-3.2-1b-instruct:free"
     @AppStorage("onboarding_complete") private var onboardingComplete = false
 
@@ -88,21 +87,13 @@ struct AppRootView: View {
                     .environmentObject(localModelService)
                     .task {
                         BadgeBackfillService.runIfNeeded(context: modelContext)
-                        // Resolve (and migrate any legacy plaintext) OpenRouter key.
+                        // Encrypt the on-device journal at rest.
+                        StoreProtection.applyToDefaultStore()
+                        // Resolve the OpenRouter key (Keychain only — no plaintext fallback).
                         let orKey = KeychainService.shared.openRouterKey()
                         await LLMService.shared.configure(apiKey: orKey, defaultModel: defaultModel)
                         await modelService.refreshIfNeeded(apiKey: orKey)
                         localModelService.refreshDownloadedStatus()
-                    }
-                    .onChange(of: openrouterKey) { _, newKey in
-                        // Onboarding still writes the legacy default; migrate it
-                        // immediately so inference + the model list stay in sync.
-                        Task {
-                            let resolved = KeychainService.shared.openRouterKey()
-                            await LLMService.shared.configure(apiKey: resolved.isEmpty ? newKey : resolved,
-                                                              defaultModel: defaultModel)
-                            await modelService.refresh()
-                        }
                     }
             }
         }

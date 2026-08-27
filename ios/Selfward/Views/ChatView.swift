@@ -24,6 +24,9 @@ struct ChatView: View {
             sort: \MessageModel.createdAt,
             order: .forward
         )
+        _showCrisisBanner = State(initialValue: session.safetyEvents.contains {
+            $0.eventType == "crisis_keyword" || $0.eventType == "self_harm_method"
+        })
     }
 
     @State private var showInsights    = false
@@ -42,6 +45,7 @@ struct ChatView: View {
     @State private var generationStart: Date?
     @State private var elapsedSeconds = 0
     @State private var elapsedTimer: Timer?
+    @State private var showCrisisBanner = false
 
     /// True while input should be blocked: cloud request in flight OR local model is generating.
     private var isBusy: Bool {
@@ -53,8 +57,19 @@ struct ChatView: View {
     /// Resolved each render from the session + app-wide persona settings.
     private var persona: Persona { PersonaService.resolve(for: session) }
 
+    /// True when this session has ever produced a crisis or self-harm-method event,
+    /// so a supportive resource banner can stay visible across the conversation.
+    private var hasActiveCrisis: Bool {
+        session.safetyEvents.contains { $0.eventType == "crisis_keyword" || $0.eventType == "self_harm_method" }
+    }
+
     var body: some View {
         VStack(spacing: 0) {
+            if showCrisisBanner {
+                CrisisBanner(onDismiss: { showCrisisBanner = false })
+                    .padding(.horizontal)
+                    .padding(.top, 8)
+            }
             ScrollViewReader { proxy in
                 ScrollView {
                     LazyVStack(spacing: 12) {
@@ -305,6 +320,7 @@ struct ChatView: View {
             try? context.save()
             isLoading = false
             stopElapsedTimer()
+            if result.isCrisis { showCrisisBanner = true }
             speakForVoiceMode(result, prefetchTasks: prefetchTasks)
         }
     }
@@ -349,6 +365,7 @@ struct ChatView: View {
             )
             if result.isCrisis {
                 errorMessage = "Crisis resources have been shared above."
+                showCrisisBanner = true
             }
             session.updatedAt = Date()
             try? context.save()
@@ -545,6 +562,55 @@ private struct CapturedBadgeRow: View {
                 )
             }
         }
+    }
+}
+
+// MARK: - Persistent crisis-resource banner
+
+/// Sticky, dismissible banner shown whenever a session has hit a crisis or
+/// self-harm-method safety path, surfacing localized, tap-to-call help.
+private struct CrisisBanner: View {
+    var onDismiss: () -> Void
+    private let resources = CrisisResources.resources(forRegion: Locale.current.region?.identifier)
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Label("You're not alone", systemImage: "heart.fill")
+                    .font(.subheadline.bold())
+                    .foregroundColor(.red)
+                Spacer()
+                Button("Dismiss", action: onDismiss)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            Text("If you're in distress, free, confidential help is available 24/7:")
+                .font(.caption)
+                .foregroundColor(.secondary)
+            ForEach(resources, id: \.name) { resource in
+                if let urlString = resource.url, let url = URL(string: urlString) {
+                    Link(destination: url) {
+                        HStack(spacing: 6) {
+                            Text(resource.name).font(.subheadline.bold())
+                            Spacer()
+                            Text(resource.contact).font(.caption).foregroundColor(.secondary)
+                            Image(systemName: "arrow.up.right").font(.caption2)
+                        }
+                    }
+                    .foregroundColor(.primary)
+                } else {
+                    HStack {
+                        Text(resource.name).font(.subheadline.bold())
+                        Spacer()
+                        Text(resource.contact).font(.caption).foregroundColor(.secondary)
+                    }
+                }
+            }
+        }
+        .padding(12)
+        .background(Color.red.opacity(0.08))
+        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.red.opacity(0.3), lineWidth: 1))
+        .cornerRadius(12)
     }
 }
 

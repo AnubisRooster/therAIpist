@@ -106,6 +106,23 @@ let crisisPatterns: [CrisisPattern] = [
     CrisisPattern(patterns: ["don't want to be here", "can't go on", "no reason to live", "worthless", "hopeless"], level: "warning"),
 ]
 
+// Phrases that signal the user is seeking concrete self-harm *methods* (as
+// distinct from crisis ideation, which `crisisPatterns` covers). These trigger
+// a safe, non-compliant reply plus crisis resources rather than engaging.
+let methodPatterns: [String] = [
+    "how to kill myself",
+    "best way to kill myself",
+    "painless way to die",
+    "how to overdose",
+    "ways to overdose",
+    "how to cut myself",
+    "ways to self harm",
+    "how to self harm",
+    "lethal dose",
+    "how to end it all",
+    "quickest way to die",
+]
+
 // Phrases that indicate the assistant is diagnosing or prescribing, which it
 // must not do. Kept precise so ordinary empathetic language ("you have been
 // feeling…") doesn't trip the filter.
@@ -119,15 +136,6 @@ let boundaryPatterns: [String] = [
     "start taking",
     "stop taking your",
 ]
-
-let resourceMessage = """
-If you're experiencing thoughts of harming yourself or others, please reach out for support immediately:
-- National Crisis Hotline: 988
-- Crisis Text Line: Text HOME to 741741
-- Emergency Services: 911
-
-These resources are available 24/7 and are staffed by trained professionals.
-"""
 
 /// Appended to every modality prompt to shape response length and rhythm.
 /// The goal is a natural conversation: match the client's depth, expand when
