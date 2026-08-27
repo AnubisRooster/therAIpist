@@ -37,4 +37,4 @@ jobs:
             -scheme Selfward \
             -destination "platform=iOS Simulator,name=$DEVICE,OS=$RUNTIME" \
             CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO
+            CODE_SIGN_IDENTITY="-"
