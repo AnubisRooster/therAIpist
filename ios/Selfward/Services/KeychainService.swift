@@ -32,7 +32,8 @@ final class KeychainService: @unchecked Sendable {
         ]
 
         // Delete old item first so SecItemAdd always succeeds.
-        SecItemDelete(query as CFDictionary)
+        let deleteStatus = SecItemDelete(query as CFDictionary)
+        guard deleteStatus == errSecSuccess || deleteStatus == errSecItemNotFound else { return false }
 
         guard !value.isEmpty else { return true } // Intentional clear.
 

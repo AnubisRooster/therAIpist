@@ -66,6 +66,7 @@ struct RootTabView: View {
 /// Root routing: onboarding (first launch) → PIN → main app.
 struct AppRootView: View {
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.scenePhase) private var scenePhase
     @StateObject private var modelService      = ModelService()
     @StateObject private var speechService     = SpeechService.shared
     @StateObject private var localModelService = LocalModelService.shared
@@ -89,13 +90,23 @@ struct AppRootView: View {
                     .task {
                         BadgeBackfillService.runIfNeeded(context: modelContext)
                         // Encrypt the on-device journal at rest.
-                        StoreProtection.applyToDefaultStore()
+                        if !StoreProtection.applyToDefaultStore() {
+                            print("⚠️ StoreProtection: failed to apply at-rest file protection to one or more stores")
+                        }
                         // Resolve the OpenRouter key (Keychain only — no plaintext fallback).
                         let orKey = KeychainService.shared.openRouterKey()
                         await LLMService.shared.configure(apiKey: orKey, defaultModel: defaultModel)
                         await modelService.refreshIfNeeded(apiKey: orKey)
                         localModelService.refreshDownloadedStatus()
                     }
+            }
+        }
+        // Re-lock whenever the app is backgrounded, so a PIN is required
+        // every time the app becomes visible again — not just on cold
+        // launch, which is the only time it fired before this fix.
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .background, isUnlocked {
+                isUnlocked = false
             }
         }
     }
