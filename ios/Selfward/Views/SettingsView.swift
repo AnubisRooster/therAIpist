@@ -35,10 +35,13 @@ struct SettingsView: View {
     @AppStorage("reminder_enabled") private var reminderEnabled = false
     @AppStorage("reminder_minute")  private var reminderMinute: Int = 1200   // minutes from midnight
     @State private var reminderTime = Date()
+    @State private var reminderPermissionDenied = false
     @State private var showPassphrase = false
     @State private var passphrase = ""
     @State private var backupData = Data()
     @State private var showExporter = false
+    @State private var exportErrorMessage = ""
+    @State private var showExportError = false
 
     var body: some View {
         Form {
@@ -111,7 +114,7 @@ struct SettingsView: View {
         .onChange(of: reminderEnabled) { _, enabled in
             if enabled {
                 let comps = Calendar.current.dateComponents([.hour, .minute], from: reminderTime)
-                Task { await ReminderScheduler.schedule(hour: comps.hour ?? 20, minute: comps.minute ?? 0) }
+                Task { await requestReminder(hour: comps.hour ?? 20, minute: comps.minute ?? 0) }
             } else {
                 ReminderScheduler.cancel()
             }
@@ -120,28 +123,72 @@ struct SettingsView: View {
             let comps = Calendar.current.dateComponents([.hour, .minute], from: newTime)
             reminderMinute = (comps.hour ?? 20) * 60 + (comps.minute ?? 0)
             guard reminderEnabled else { return }
-            Task { await ReminderScheduler.schedule(hour: comps.hour ?? 20, minute: comps.minute ?? 0) }
+            Task { await requestReminder(hour: comps.hour ?? 20, minute: comps.minute ?? 0) }
+        }
+        .alert("Reminders are off", isPresented: $reminderPermissionDenied) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("Notifications aren't allowed for this app, so the daily journaling reminder can't be scheduled. Enable notifications in Settings to turn it on.")
         }
         .alert("Encrypt backup", isPresented: $showPassphrase) {
             SecureField("Passphrase", text: $passphrase)
-            Button("Export") {
-                guard !passphrase.isEmpty else { return }
-                if let data = try? BackupService.exportEncrypted(context: context, passphrase: passphrase) {
-                    backupData = data
-                    showExporter = true
-                }
-                passphrase = ""
-            }
+            Button("Export") { exportBackup() }
             Button("Cancel", role: .cancel) { passphrase = "" }
         } message: {
-            Text("Your data is encrypted with this passphrase. It cannot be recovered if you forget it.")
+            Text("Your data is encrypted with this passphrase (at least 8 characters). It cannot be recovered if you forget it.")
+        }
+        .alert("Backup failed", isPresented: $showExportError) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(exportErrorMessage)
         }
         .fileExporter(isPresented: $showExporter,
                       document: EncryptedBackupDocument(data: backupData),
                       contentType: .data,
-                      defaultFilename: "selfward-backup") { _ in }
+                      defaultFilename: "selfward-backup") { result in
+            if case .failure(let error) = result {
+                exportErrorMessage = error.localizedDescription
+                showExportError = true
+            }
+        }
         .sheet(isPresented: $showChangePIN) {
             PINView(onSuccess: { showChangePIN = false }, forceSetup: true)
+        }
+    }
+
+    /// Schedules the daily reminder; if notification permission was denied,
+    /// reflects that back into the toggle instead of leaving it silently "on".
+    private func requestReminder(hour: Int, minute: Int) async {
+        let granted = await ReminderScheduler.schedule(hour: hour, minute: minute)
+        if !granted {
+            reminderEnabled = false
+            reminderPermissionDenied = true
+        }
+    }
+
+    /// Validates the passphrase, then fetches (main actor) and encrypts
+    /// (background) the backup, surfacing any failure to the user instead of
+    /// failing silently.
+    private func exportBackup() {
+        guard passphrase.count >= 8 else {
+            exportErrorMessage = "Passphrase must be at least 8 characters."
+            showExportError = true
+            return
+        }
+        let enteredPassphrase = passphrase
+        passphrase = ""
+        Task {
+            do {
+                let payload = try BackupService.buildPayload(context: context)
+                let data = try await Task.detached(priority: .userInitiated) {
+                    try BackupService.encrypt(payload, passphrase: enteredPassphrase)
+                }.value
+                backupData = data
+                showExporter = true
+            } catch {
+                exportErrorMessage = error.localizedDescription
+                showExportError = true
+            }
         }
     }
 

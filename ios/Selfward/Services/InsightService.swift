@@ -198,34 +198,51 @@ struct InsightResult {
 
 /// Lightweight daily mood logging + trend aggregation, backed by SwiftData.
 enum MoodStore {
-    /// Records a mood check-in on a 1–5 scale (clamped).
-    static func log(value: Int, note: String = "", context: ModelContext) {
+    /// Records a mood check-in on a 1–5 scale (clamped). Throws if the save
+    /// fails, rolling back the insert first so a caller's @Query (which
+    /// already reflects the in-memory insert) doesn't show a check-in that
+    /// was never actually persisted.
+    static func log(value: Int, note: String = "", context: ModelContext) throws {
         context.insert(MoodEntryModel(value: value, note: note))
-        try? context.save()
+        do {
+            try context.save()
+        } catch {
+            context.rollback()
+            throw error
+        }
     }
 
     /// The most recent `limit` check-ins, newest first.
     static func recent(limit: Int = 30, context: ModelContext) -> [MoodEntryModel] {
-        let descriptor = FetchDescriptor<MoodEntryModel>(
+        var descriptor = FetchDescriptor<MoodEntryModel>(
             sortBy: [SortDescriptor(\.createdAt, order: .reverse)]
         )
-        let all = (try? context.fetch(descriptor)) ?? []
-        return Array(all.prefix(limit))
+        descriptor.fetchLimit = limit
+        return (try? context.fetch(descriptor)) ?? []
     }
 
-    /// `(count, overallAverage, perDayAverageSeries)` for charting.
-    static func trendSummary(context: ModelContext) -> (count: Int, average: Double, daily: [(Date, Double)]) {
-        let entries = recent(limit: 365, context: context)
-        guard !entries.isEmpty else { return (0, 0, []) }
-        let avg = Double(entries.reduce(0) { $0 + $1.value }) / Double(entries.count)
+    /// Groups entries by calendar day and averages each day's values. Shared
+    /// so `trendSummary` and any view-local aggregation (e.g. the Dashboard's
+    /// mood chart) can't drift into two different implementations of the same
+    /// "daily average" rule.
+    static func dailyAverages(_ entries: [MoodEntryModel]) -> [(Date, Double)] {
         let cal = Calendar.current
         var byDay: [Date: [Int]] = [:]
         for entry in entries {
             byDay[cal.startOfDay(for: entry.createdAt), default: []].append(entry.value)
         }
-        let daily = byDay.map { (day, values) in
+        return byDay.map { (day, values) in
             (day, Double(values.reduce(0, +)) / Double(values.count))
         }.sorted { $0.0 < $1.0 }
+    }
+
+    /// `(count, overallAverage, perDayAverageSeries)` for charting, aggregated
+    /// over the most recent `limit` check-ins.
+    static func trendSummary(limit: Int = 365, context: ModelContext) -> (count: Int, average: Double, daily: [(Date, Double)]) {
+        let entries = recent(limit: limit, context: context)
+        guard !entries.isEmpty else { return (0, 0, []) }
+        let avg = Double(entries.reduce(0) { $0 + $1.value }) / Double(entries.count)
+        let daily = dailyAverages(entries)
         return (entries.count, avg, daily)
     }
 }

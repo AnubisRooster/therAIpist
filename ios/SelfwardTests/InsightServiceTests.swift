@@ -120,9 +120,9 @@ final class InsightServiceTests: XCTestCase {
         let container = TestSupport.makeInMemoryContainer()
         let ctx = container.mainContext
 
-        MoodStore.log(value: 6, context: ctx)   // out of range -> clamped to 5
-        MoodStore.log(value: 3, context: ctx)
-        MoodStore.log(value: 0, context: ctx)   // out of range -> clamped to 1
+        try MoodStore.log(value: 6, context: ctx)   // out of range -> clamped to 5
+        try MoodStore.log(value: 3, context: ctx)
+        try MoodStore.log(value: 0, context: ctx)   // out of range -> clamped to 1
 
         let recent = MoodStore.recent(context: ctx)
         XCTAssertEqual(recent.count, 3)
@@ -137,8 +137,8 @@ final class InsightServiceTests: XCTestCase {
         let today = cal.startOfDay(for: Date())
         let yesterday = cal.date(byAdding: .day, value: -1, to: today)!
 
-        MoodStore.log(value: 4, context: ctx)
-        MoodStore.log(value: 2, context: ctx)
+        try MoodStore.log(value: 4, context: ctx)
+        try MoodStore.log(value: 2, context: ctx)
         ctx.insert(MoodEntryModel(value: 5, createdAt: yesterday))
 
         let summary = MoodStore.trendSummary(context: ctx)
