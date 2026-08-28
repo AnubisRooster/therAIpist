@@ -152,6 +152,7 @@ struct DashboardView: View {
 private struct MoodCheckInCard: View {
     @Environment(\.modelContext) private var context
     @Query(sort: \MoodEntryModel.createdAt, order: .reverse) private var moods: [MoodEntryModel]
+    @State private var saveFailed = false
 
     private let emojis = ["😞", "😕", "😐", "🙂", "😄"]
     private let labels = ["Very low", "Low", "Okay", "Good", "Great"]
@@ -163,7 +164,12 @@ private struct MoodCheckInCard: View {
             HStack(spacing: 8) {
                 ForEach(1...5, id: \.self) { value in
                     Button {
-                        MoodStore.log(value: value, context: context)
+                        do {
+                            try MoodStore.log(value: value, context: context)
+                            saveFailed = false
+                        } catch {
+                            saveFailed = true
+                        }
                     } label: {
                         VStack(spacing: 2) {
                             Text(emojis[value - 1]).font(.title2)
@@ -178,6 +184,11 @@ private struct MoodCheckInCard: View {
                     }
                     .buttonStyle(.plain)
                 }
+            }
+            if saveFailed {
+                Text("Couldn't save that check-in. Please try again.")
+                    .font(.caption2)
+                    .foregroundStyle(.red)
             }
             if !recentDaily.isEmpty {
                 Chart(recentDaily) { point in
@@ -194,15 +205,14 @@ private struct MoodCheckInCard: View {
         }
     }
 
+    /// Uses `MoodStore.dailyAverages` (the same aggregation `trendSummary`
+    /// uses) so the dashboard's quick view can't silently diverge from the
+    /// canonical day-averaging rule. `moods` stays a live `@Query` so this
+    /// view still refreshes automatically when a new check-in is logged.
     private var recentDaily: [MoodDayAverage] {
-        let cal = Calendar.current
-        var byDay: [Date: [Int]] = [:]
-        for mood in moods.prefix(30) {
-            byDay[cal.startOfDay(for: mood.createdAt), default: []].append(mood.value)
+        MoodStore.dailyAverages(Array(moods.prefix(30))).map { day, average in
+            MoodDayAverage(day: day, average: average)
         }
-        return byDay.map { day, values in
-            MoodDayAverage(day: day, average: Double(values.reduce(0, +)) / Double(values.count))
-        }.sorted { $0.day < $1.day }
     }
 }
 

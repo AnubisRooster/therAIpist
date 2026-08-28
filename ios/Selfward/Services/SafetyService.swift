@@ -255,12 +255,17 @@ enum ReminderScheduler {
     }
 
     /// Requests authorization, then schedules (or re-schedules) the reminder.
-    static func schedule(hour: Int, minute: Int, center: UNUserNotificationCenter = .current()) async {
-        _ = await requestAuthorization(center: center)
+    /// Returns `false` if authorization was denied or scheduling failed, so the
+    /// caller can reflect that back into the UI instead of assuming success.
+    @discardableResult
+    static func schedule(hour: Int, minute: Int, center: UNUserNotificationCenter = .current()) async -> Bool {
+        guard await requestAuthorization(center: center) else { return false }
         do {
+            // A pending request with the same identifier is replaced, not an error.
             try await center.add(buildRequest(hour: hour, minute: minute))
+            return true
         } catch {
-            // A pending request with the same identifier is replaced; ignore others.
+            return false
         }
     }
 
@@ -285,23 +290,25 @@ enum BackupService {
     private static let saltLength = 16
     private static let iterations = 100_000
 
-    struct Payload: Codable {
+    // Sendable: crosses into a background Task for the CPU-heavy encrypt step
+    // (see `encrypt(_:passphrase:)`), so every case must stay a pure value type.
+    struct Payload: Codable, Sendable {
         let sessions: [SessionSnapshot]
         let moods: [MoodSnapshot]
         let exportedAt: Date
     }
-    struct SessionSnapshot: Codable {
+    struct SessionSnapshot: Codable, Sendable {
         let id: String
         let title: String
         let modality: String
         let messages: [MessageSnapshot]
     }
-    struct MessageSnapshot: Codable {
+    struct MessageSnapshot: Codable, Sendable {
         let role: String
         let content: String
         let createdAt: Date
     }
-    struct MoodSnapshot: Codable {
+    struct MoodSnapshot: Codable, Sendable {
         let value: Int
         let note: String
         let createdAt: Date
@@ -309,11 +316,13 @@ enum BackupService {
 
     enum BackupError: Error { case sealFailed, malformed, keyDerivationFailed }
 
-    /// Produces encrypted backup bytes: `[salt (16)] + [AES-GCM combined sealed box]`.
-    static func exportEncrypted(context: ModelContext, passphrase: String) throws -> Data {
-        let sessions = (try? context.fetch(FetchDescriptor<SessionModel>())) ?? []
-        let moods = (try? context.fetch(FetchDescriptor<MoodEntryModel>())) ?? []
-        let payload = Payload(
+    /// Reads the current data to back up. Touches SwiftData, so it must run on
+    /// `context`'s actor (MainActor for the app's default container) — errors
+    /// propagate rather than silently degrading to an empty backup.
+    static func buildPayload(context: ModelContext) throws -> Payload {
+        let sessions = try context.fetch(FetchDescriptor<SessionModel>())
+        let moods = try context.fetch(FetchDescriptor<MoodEntryModel>())
+        return Payload(
             sessions: sessions.map { s in
                 SessionSnapshot(
                     id: s.id, title: s.title, modality: s.modality,
@@ -325,6 +334,11 @@ enum BackupService {
             moods: moods.map { MoodSnapshot(value: $0.value, note: $0.note, createdAt: $0.createdAt) },
             exportedAt: Date()
         )
+    }
+
+    /// Encrypts an already-fetched payload. Pure CPU work (JSON encode + PBKDF2
+    /// + AES-GCM) with no SwiftData access, so it's safe to run off the main actor.
+    static func encrypt(_ payload: Payload, passphrase: String) throws -> Data {
         let json = try JSONEncoder().encode(payload)
 
         let salt = Data((0..<saltLength).map { _ in UInt8.random(in: 0...255) })
@@ -332,6 +346,11 @@ enum BackupService {
         let sealed = try AES.GCM.seal(json, using: key)
         guard let combined = sealed.combined else { throw BackupError.sealFailed }
         return salt + combined
+    }
+
+    /// Produces encrypted backup bytes: `[salt (16)] + [AES-GCM combined sealed box]`.
+    static func exportEncrypted(context: ModelContext, passphrase: String) throws -> Data {
+        try encrypt(try buildPayload(context: context), passphrase: passphrase)
     }
 
     /// Decrypts backup bytes produced by `exportEncrypted`.
