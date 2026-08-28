@@ -7,8 +7,19 @@ import CommonCrypto
 class SafetyService {
     static let shared = SafetyService()
 
+    /// Lowercases and collapses runs of whitespace to a single space before
+    /// keyword matching, so a stray double space (a common typo/autocorrect
+    /// artifact) can't defeat an otherwise-exact phrase match like
+    /// "kill myself". This narrows one concrete, verified gap in substring
+    /// matching; it intentionally doesn't attempt paraphrase/typo/fuzzy
+    /// detection, which would need a different approach (e.g. an ML
+    /// classifier) entirely.
+    private func normalizedForMatching(_ text: String) -> String {
+        text.lowercased().replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
+    }
+
     func checkCrisis(_ message: String) -> (isCrisis: Bool, level: String, pattern: String?) {
-        let lower = message.lowercased()
+        let lower = normalizedForMatching(message)
         for cp in crisisPatterns {
             for pattern in cp.patterns {
                 if lower.contains(pattern) {
@@ -23,7 +34,7 @@ class SafetyService {
     /// crisis ideation, which `checkCrisis` covers). These are answered with a
     /// safe, non-compliant reply plus crisis resources rather than engaging.
     func checkSelfHarmMethod(_ message: String) -> Bool {
-        let lower = message.lowercased()
+        let lower = normalizedForMatching(message)
         return methodPatterns.contains { lower.contains($0) }
     }
 
@@ -32,7 +43,7 @@ class SafetyService {
     /// prayer, and practice — patterns that are fine in a spiritual context but
     /// wrong for a clinical one — so we apply a narrower rule set for it.
     func checkBoundaryViolation(_ text: String, persona: PersonaKind = .therapist) -> (isViolation: Bool, pattern: String?) {
-        let lower = text.lowercased()
+        let lower = normalizedForMatching(text)
 
         // These patterns are always disallowed, regardless of persona.
         let universalBlocked = [
@@ -42,14 +53,23 @@ class SafetyService {
             "i prescribe",
             "you need medication",
             "i recommend you take",
-            "start taking",
-            "stop taking your",
         ]
 
         for pattern in universalBlocked {
             if lower.contains(pattern) {
                 return (true, pattern)
             }
+        }
+
+        // "start taking" / "stop taking your ..." are common in ordinary
+        // coaching language ("start taking short walks each day"), so only
+        // treat them as a prescribing violation when a clinical-sounding
+        // object is also present in the same reply.
+        let startStopTakingPhrases = ["start taking", "stop taking your"]
+        let clinicalObjectHints = ["medication", "medicine", "pill", "dose", "dosage", "mg", "drug", "prescription"]
+        if startStopTakingPhrases.contains(where: lower.contains),
+           clinicalObjectHints.contains(where: lower.contains) {
+            return (true, "start/stop taking (medication)")
         }
 
         // Additional patterns blocked only for non-spiritual personas.
@@ -209,26 +229,42 @@ struct CrisisResources {
 /// Sets device-only, post-first-unlock file protection on a SQLite store so the
 /// user's journal never sits unencrypted at rest. Safe to call repeatedly.
 enum StoreProtection {
-    static func apply(to storeURL: URL) {
+    /// Applies protection to a store file (plus its -wal/-shm siblings).
+    /// Returns `false` if the attribute couldn't be set on a file that
+    /// exists, so callers can at least know at-rest protection didn't take
+    /// instead of the failure being invisible.
+    @discardableResult
+    static func apply(to storeURL: URL) -> Bool {
         let candidates = [storeURL,
                           storeURL.appendingPathExtension("wal"),
                           storeURL.appendingPathExtension("shm")]
+        var succeeded = true
         for url in candidates where FileManager.default.fileExists(atPath: url.path) {
-            try? FileManager.default.setAttributes(
-                [.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication],
-                ofItemAtPath: url.path
-            )
+            do {
+                try FileManager.default.setAttributes(
+                    [.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication],
+                    ofItemAtPath: url.path
+                )
+            } catch {
+                succeeded = false
+            }
         }
+        return succeeded
     }
 
-    /// Applies protection to every SwiftData `.store` file in Application Support.
-    static func applyToDefaultStore() {
+    /// Applies protection to every SwiftData `.store` file in Application
+    /// Support. Returns `false` if the directory couldn't be listed or any
+    /// store's protection failed to apply.
+    @discardableResult
+    static func applyToDefaultStore() -> Bool {
         let dir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         guard let files = try? FileManager.default.contentsOfDirectory(at: dir,
-                                                                      includingPropertiesForKeys: nil) else { return }
+                                                                      includingPropertiesForKeys: nil) else { return false }
+        var succeeded = true
         for file in files where file.pathExtension == "store" {
-            apply(to: file)
+            if !apply(to: file) { succeeded = false }
         }
+        return succeeded
     }
 }
 

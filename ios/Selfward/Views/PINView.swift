@@ -138,8 +138,12 @@ struct PINView: View {
 
         case .confirm(let first):
             if entered == first {
-                PINService.shared.save(entered)
-                onSuccess()
+                if PINService.shared.save(entered) {
+                    onSuccess()
+                } else {
+                    bounce("Couldn't save your PIN — please try again")
+                    mode = .setup
+                }
             } else {
                 bounce("PINs don't match — try again")
                 mode = .setup
