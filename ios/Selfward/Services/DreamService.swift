@@ -23,6 +23,16 @@ class DreamService {
     }
 
     func analyzeDream(session: SessionModel, dream: DreamModel, provider: String, model: String) async throws -> String {
+        // Mirrors ChatService: a dream narrative can carry crisis-relevant
+        // content, and it must get the same pre-send check before reaching a
+        // cloud LLM that a normal chat message would.
+        let safety = SafetyService.shared
+        if safety.checkCrisis(dream.narrative).isCrisis || safety.checkSelfHarmMethod(dream.narrative) {
+            let refusal = CrisisResources.localizedResourceMessage()
+            dream.analysis = refusal
+            return refusal
+        }
+
         let prompt = """
         You are a Jungian dream analyst. Analyze this dream narrative and provide:
         1. Key symbols and their possible archetypal meanings
@@ -34,7 +44,12 @@ class DreamService {
         Feelings: \(dream.feelings)
         """
         let messages = [LLMMessage(role: "user", content: prompt)]
-        let analysis = try await LLMService.shared.sendMessage(provider: provider, model: model, messages: messages)
+        let rawAnalysis = try await LLMService.shared.sendMessage(provider: provider, model: model, messages: messages)
+
+        let boundaryCheck = safety.checkBoundaryViolation(rawAnalysis)
+        let analysis = boundaryCheck.isViolation
+            ? "I want to be honest with you — that's beyond what I can safely help with, and I'm not able to give medical or diagnostic advice."
+            : rawAnalysis
         dream.analysis = analysis
         return analysis
     }

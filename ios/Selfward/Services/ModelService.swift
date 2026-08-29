@@ -50,7 +50,11 @@ struct OpenRouterModel: Codable, Identifiable, Hashable {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         id = try c.decode(String.self, forKey: .id)
         name = (try? c.decode(String.self, forKey: .name)) ?? id
-        pricing = (try? c.decode(ModelPricing.self, forKey: .pricing)) ?? ModelPricing(prompt: "0", completion: "0")
+        // A pricing decode failure must never silently look free (isFree
+        // checks for the literal string "0") — that could present a paid
+        // model as free and cost a BYOK user money with no warning. Fall
+        // back to a value that's unambiguously not "0".
+        pricing = (try? c.decode(ModelPricing.self, forKey: .pricing)) ?? ModelPricing(prompt: "unknown", completion: "unknown")
         contextLength = (try? c.decode(Int.self, forKey: .contextLength)) ?? 0
         architecture = (try? c.decode(OpenRouterArchitecture.self, forKey: .architecture))
     }
