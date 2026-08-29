@@ -301,7 +301,7 @@ final class SafetyEventModel {
     var message: String
     var createdAt: Date
 
-    init(session: SessionModel, eventType: String, level: String, message: String = "") {
+    init(session: SessionModel? = nil, eventType: String, level: String, message: String = "") {
         self.id = UUID().uuidString
         self.session = session
         self.eventType = eventType

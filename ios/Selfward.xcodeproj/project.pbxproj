@@ -67,6 +67,7 @@
 		D1554F68EB248BD21DD67147 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD46995D96416AD999A05710 /* OnboardingView.swift */; };
 		D26AC46605A40B00DE88E5A1 /* VoiceTranscriptTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8BB146387FA63BE78299C6DF /* VoiceTranscriptTests.swift */; };
 		DC44A97AFF2B72692BECE4F3 /* PINLockoutTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 08B8E4472E85F942522C5576 /* PINLockoutTests.swift */; };
+		462E79AF1154D733FDE943EC /* NarrativeServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 412EEF892267A821F7754866 /* NarrativeServiceTests.swift */; };
 		E11D64B58D84E292AEB2D787 /* NarrativeService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5DA18D2A56B91B1073AD29A /* NarrativeService.swift */; };
 		E20D2DCBD0BED69521EBC643 /* SelfwardApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6AAC81CE3481650BEC6360E1 /* SelfwardApp.swift */; };
 		E37E384E27E4B1F60AE2451F /* PINService.swift in Sources */ = {isa = PBXBuildFile; fileRef = CEA2B400CC7FF4901629DBB4 /* PINService.swift */; };
@@ -95,6 +96,7 @@
 		0581D2258450F18F3E17AFE3 /* SafetyServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SafetyServiceTests.swift; sourceTree = "<group>"; };
 		0885CBC0AD8F61374E1B9167 /* ModelPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelPickerView.swift; sourceTree = "<group>"; };
 		08B8E4472E85F942522C5576 /* PINLockoutTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PINLockoutTests.swift; sourceTree = "<group>"; };
+		412EEF892267A821F7754866 /* NarrativeServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NarrativeServiceTests.swift; sourceTree = "<group>"; };
 		0B7F3038A1D059869CE8DDC8 /* TTSCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TTSCoordinator.swift; sourceTree = "<group>"; };
 		0BD64C26D65ADCEB4F013C0E /* cytoscape.min.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = cytoscape.min.js; sourceTree = "<group>"; };
 		115C81BB8363E5F06EA3303E /* LocalLLMEngineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalLLMEngineTests.swift; sourceTree = "<group>"; };
@@ -258,6 +260,7 @@
 				0547D550048AA69FCE64BEC0 /* MemoryServiceTests.swift */,
 				BB7EE1C7C06B86E413ACD569 /* PersonaTests.swift */,
 				B2C3D4E5F60718293A4B5C6D /* ActiveImaginationTests.swift */,
+				412EEF892267A821F7754866 /* NarrativeServiceTests.swift */,
 				08B8E4472E85F942522C5576 /* PINLockoutTests.swift */,
 				0581D2258450F18F3E17AFE3 /* SafetyServiceTests.swift */,
 				4C2E3E137BA2B43146C53624 /* SessionModelTests.swift */,
@@ -449,6 +452,7 @@
 				FD1D8013622BE95FD9D5752C /* InsightServiceTests.swift in Sources */,
 				70B3BB2BC546EB0FD6E3A707 /* LocalLLMEngineTests.swift in Sources */,
 				1322EAA00CFC2FB3A2897DBA /* MemoryServiceTests.swift in Sources */,
+				462E79AF1154D733FDE943EC /* NarrativeServiceTests.swift in Sources */,
 				DC44A97AFF2B72692BECE4F3 /* PINLockoutTests.swift in Sources */,
 				C83EADB53620A24DD5B2DF66 /* PersonaTests.swift in Sources */,
 				A1F2C3D4E5F60718293A4B5C /* ActiveImaginationTests.swift in Sources */,

@@ -21,6 +21,14 @@ import SwiftData
 final class NarrativeService {
     static let shared = NarrativeService()
 
+    private let safety = SafetyService.shared
+    private let llm: LLMSending
+
+    /// Allows tests to inject a mock LLM, mirroring `ChatService`.
+    init(llm: LLMSending = LLMService.shared) {
+        self.llm = llm
+    }
+
     // MARK: - Public API
 
     /// Back-compat convenience that resolves the provider/model from the stored
@@ -58,6 +66,28 @@ final class NarrativeService {
 
         guard !sources.isEmpty else { return false }
 
+        // Unlike ChatService, this path has no per-turn moment to intervene on
+        // crisis content as it's said — it batches historical material after
+        // the fact. Cloud providers must not receive that material at all, so
+        // flagged sources are withheld from a cloud send. The watermark is
+        // only advanced past what's actually sent, so withheld material is
+        // picked up next time the narrative is built on-device instead of
+        // being silently lost.
+        let isCloud = provider != "local"
+        var sourcesToSend = sources
+        if isCloud {
+            let flagged = sources.filter(isSensitive)
+            if !flagged.isEmpty {
+                sourcesToSend = sources.filter { !isSensitive($0) }
+                context.insert(SafetyEventModel(
+                    eventType: "narrative_source_withheld",
+                    level: "warning",
+                    message: "\(flagged.count) source item(s) withheld from cloud narrative generation; build on-device to include them"
+                ))
+            }
+        }
+        guard !sourcesToSend.isEmpty else { return false }
+
         // Now that we have material, fetch-or-create the single document.
         let document: NarrativeDocument
         if let existingDocument {
@@ -67,10 +97,10 @@ final class NarrativeService {
             context.insert(document)
         }
 
-        let latestSourceDate = sources.map(\.date).max() ?? Date()
+        let latestSourceDate = sourcesToSend.map(\.date).max() ?? Date()
 
         // 3. Build the LLM prompt.
-        let sourceText = sources.map { "[\($0.kind)] \($0.text)" }.joined(separator: "\n\n")
+        let sourceText = sourcesToSend.map { "[\($0.kind)] \($0.text)" }.joined(separator: "\n\n")
 
         let latestSession = sessions
             .filter { !$0.messages.isEmpty }
@@ -115,7 +145,7 @@ final class NarrativeService {
         }
 
         // 4. Call the LLM.
-        let rawResponse = try await LLMService.shared.sendMessage(
+        let rawResponse = try await llm.sendMessage(
             provider: provider,
             model: model,
             messages: [
@@ -124,8 +154,23 @@ final class NarrativeService {
             ]
         )
 
+        // Mirrors ChatService's boundary check: a synthesized narrative
+        // shouldn't be allowed to carry diagnostic/prescriptive language
+        // into the document any more than a live chat reply should.
+        let boundaryCheck = safety.checkBoundaryViolation(rawResponse)
+        let finalResponse = boundaryCheck.isViolation
+            ? "I want to be honest with you — that's beyond what I can safely help with, and I'm not able to give medical or diagnostic advice."
+            : rawResponse
+        if boundaryCheck.isViolation {
+            context.insert(SafetyEventModel(
+                eventType: "boundary_violation",
+                level: "warning",
+                message: "Narrative generation detected pattern: '\(boundaryCheck.pattern ?? "")'"
+            ))
+        }
+
         // 5. Overwrite the document in place.
-        document.content         = rawResponse.trimmingCharacters(in: .whitespacesAndNewlines)
+        document.content         = finalResponse.trimmingCharacters(in: .whitespacesAndNewlines)
         document.sourceWatermark = latestSourceDate
         document.sessionCount    = sessions.filter { !$0.messages.isEmpty }.count
         document.updatedAt       = Date()
@@ -139,6 +184,12 @@ final class NarrativeService {
         let date: Date
         let kind: String
         let text: String
+    }
+
+    /// True when a source's text matches the same crisis/self-harm patterns
+    /// ChatService checks before ever forwarding a message to an LLM.
+    private func isSensitive(_ source: Source) -> Bool {
+        safety.checkCrisis(source.text).isCrisis || safety.checkSelfHarmMethod(source.text)
     }
 
     private func collectSources(sessions: [SessionModel],

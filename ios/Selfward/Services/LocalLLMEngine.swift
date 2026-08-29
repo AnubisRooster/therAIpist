@@ -76,7 +76,20 @@ final class LocalLLMEngine: ObservableObject {
             // its init.  Wait long enough for that task to complete before the first
             // inference call; without this delay the model runs to maxTokenCount
             // (4096 tokens) because no stop sequence is installed yet.
-            try? await Task.sleep(nanoseconds: 300_000_000)  // 300 ms
+            do {
+                try await Task.sleep(nanoseconds: 300_000_000)  // 300 ms
+            } catch {
+                // If this wait is cancelled, the stop sequence may not be
+                // registered yet — don't silently proceed as "loaded", since
+                // that would reproduce the exact runaway-generation bug this
+                // wait exists to prevent. Roll back instead of leaving a
+                // half-initialized model in place.
+                llm = nil
+                loadedModelID = nil
+                loadError = "Model load was interrupted. Try again."
+                isLoading = false
+                return
+            }
         } else {
             loadError = "Failed to load \(id). The file may be corrupt or unsupported."
         }
@@ -92,9 +105,15 @@ final class LocalLLMEngine: ObservableObject {
     }
 
     /// Cancels in-progress generation. Safe to call from the Stop button.
+    ///
+    /// Deliberately does NOT clear `isGenerating` itself. `generate()`'s own
+    /// `defer` is the only thing that clears it, once the (now-stopped) task
+    /// group actually unwinds — clearing it here immediately used to open a
+    /// window where a second `generate()` call could pass the busy-guard and
+    /// mutate shared state (the `llm` instance's `preprocess` closure) while
+    /// the stopped call was still resolving.
     func stopGeneration() {
         llm?.stop()
-        isGenerating = false
     }
 
     // MARK: - Inference

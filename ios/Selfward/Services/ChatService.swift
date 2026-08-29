@@ -202,7 +202,21 @@ final class ChatService {
                 "The on-device model couldn't be loaded. Try re-downloading it in Settings → Models, or switch to a cloud model for this session.",
                 session: session, context: context
             )
+        } catch LLMError.unsupportedProvider(let name) {
+            return configError(
+                "This session's provider (\"\(name)\") isn't recognized. Switch providers in Settings → Keys & Providers, or pick a different model for this session using the model chip at the top.",
+                session: session, context: context
+            )
+        } catch LLMError.emptyResponse {
+            assistantResponse = "I didn't quite catch a full response there — could you say that again, or try again in a moment?"
+            tokenCount = 0
         } catch {
+            // Anything not matched above (decode failures, unexpected HTTP
+            // errors, rate limits, etc.) would otherwise vanish into this
+            // generic fallback with zero trail. Logging it doesn't change
+            // the user-facing behavior but means a real bug is at least
+            // diagnosable instead of indistinguishable from a normal reply.
+            print("⚠️ ChatService: unhandled LLM error: \(error)")
             assistantResponse = "I'm here to listen. Could you tell me more about that?"
             tokenCount = 0
         }

@@ -123,7 +123,12 @@ actor LLMService: LLMSending {
     func sendMessage(provider: String = "openrouter",
                      model: String,
                      messages: [LLMMessage]) async throws -> String {
-        let providerEnum = LLMProvider(rawValue: provider) ?? .openrouter
+        // An unrecognized provider string must not silently fall back to a
+        // different provider (and thus a different API key) than the one the
+        // session was actually configured for — fail loudly instead.
+        guard let providerEnum = LLMProvider(rawValue: provider) else {
+            throw LLMError.unsupportedProvider(provider)
+        }
 
         if providerEnum == .local {
             // Route to Apple Foundation Models when the model ID is "apple-foundation".
@@ -185,12 +190,16 @@ actor LLMService: LLMSending {
         request.httpBody = try JSONEncoder().encode(body)
 
         let (data, response) = try await URLSession.shared.data(for: request)
-        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
-            throw LLMError.apiError(String(data: data, encoding: .utf8) ?? "Unknown error")
+        let httpStatus = (response as? HTTPURLResponse)?.statusCode
+        guard httpStatus == 200 else {
+            throw LLMError.apiError(Self.sanitizedErrorBody(data, status: httpStatus, apiKey: apiKey))
         }
 
         let result = try JSONDecoder().decode(OpenRouterResponse.self, from: data)
-        return result.choices.first?.message.content ?? ""
+        guard let content = result.choices.first?.message.content, !content.isEmpty else {
+            throw LLMError.emptyResponse
+        }
+        return content
     }
 
     // MARK: - Anthropic
@@ -213,12 +222,16 @@ actor LLMService: LLMSending {
         request.httpBody = body
 
         let (data, response) = try await URLSession.shared.data(for: request)
-        guard let http = response as? HTTPURLResponse, http.statusCode == 200 else {
-            throw LLMError.apiError(String(data: data, encoding: .utf8) ?? "Unknown error")
+        let httpStatus = (response as? HTTPURLResponse)?.statusCode
+        guard httpStatus == 200 else {
+            throw LLMError.apiError(Self.sanitizedErrorBody(data, status: httpStatus, apiKey: apiKey))
         }
 
         let result = try JSONDecoder().decode(AnthropicResponse.self, from: data)
-        return result.content.first?.text ?? ""
+        guard let content = result.content.first?.text, !content.isEmpty else {
+            throw LLMError.emptyResponse
+        }
+        return content
     }
 
     private func buildAnthropicRequest(model: String, messages: [LLMMessage]) throws -> Data {
@@ -235,6 +248,19 @@ actor LLMService: LLMSending {
     }
 
     // MARK: - Helpers
+
+    /// Builds a user-facing error message from a failed response, with the
+    /// literal API key redacted. Some providers echo a form of the submitted
+    /// key back into auth-failure bodies, and this text is displayed
+    /// directly in the UI — it must never carry the secret verbatim.
+    private static func sanitizedErrorBody(_ data: Data, status: Int?, apiKey: String) -> String {
+        var body = String(data: data, encoding: .utf8) ?? "Unknown error"
+        if !apiKey.isEmpty {
+            body = body.replacingOccurrences(of: apiKey, with: "[redacted]")
+        }
+        let statusText = status.map(String.init) ?? "unknown"
+        return "HTTP \(statusText): \(body)"
+    }
 
     private func stripCodeFences(_ text: String) -> String {
         var t = text.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -270,7 +296,9 @@ extension LLMService: LLMStreaming {
         AsyncThrowingStream { continuation in
             let task = Task {
                 do {
-                    let providerEnum = LLMProvider(rawValue: provider) ?? .openrouter
+                    guard let providerEnum = LLMProvider(rawValue: provider) else {
+                        throw LLMError.unsupportedProvider(provider)
+                    }
 
                     guard providerEnum.isOpenAICompatible else {
                         let text = try await self.sendMessage(provider: provider, model: model, messages: messages)
@@ -312,6 +340,7 @@ extension LLMService: LLMStreaming {
 enum LLMError: LocalizedError {
     case noAPIKey
     case apiError(String)
+    case emptyResponse
     case localModelNotDownloaded
     case localModelLoadFailed
     case unsupportedProvider(String)
@@ -322,6 +351,8 @@ enum LLMError: LocalizedError {
             return "API key not configured. Add it in Settings → Keys & Providers."
         case .apiError(let msg):
             return "API error: \(msg)"
+        case .emptyResponse:
+            return "The model returned an empty response."
         case .localModelNotDownloaded:
             return "No local model downloaded. Visit Settings → Models to download one."
         case .localModelLoadFailed:
