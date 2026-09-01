@@ -89,22 +89,31 @@ final class LocalModelService: ObservableObject {
 
         // MARK: Microsoft Phi
         LocalModel(
-            id: "phi-3.5-mini",
-            name: "Phi-3.5 Mini",
-            description: "Smart · ~2.2 GB · Strong instruction following",
-            sizeBytes: 2_200_000_000,
-            downloadURL: "https://huggingface.co/bartowski/Phi-3.5-mini-instruct-GGUF/resolve/main/Phi-3.5-mini-instruct-Q4_K_M.gguf",
+            id: "phi-4-mini",
+            name: "Phi-4 Mini",
+            description: "Smart · ~2.5 GB · 128K native context, strong instruction following",
+            sizeBytes: 2_491_874_688,
+            downloadURL: "https://huggingface.co/bartowski/microsoft_Phi-4-mini-instruct-GGUF/resolve/main/microsoft_Phi-4-mini-instruct-Q4_K_M.gguf",
             templateType: .phi3,
             isRecommended: false
         ),
 
         // MARK: Google Gemma
         LocalModel(
-            id: "gemma-2-2b",
-            name: "Gemma 2 2B",
-            description: "Compact · ~1.6 GB · Fast, Google-quality output",
-            sizeBytes: 1_620_000_000,
-            downloadURL: "https://huggingface.co/bartowski/gemma-2-2b-it-GGUF/resolve/main/gemma-2-2b-it-Q4_K_M.gguf",
+            id: "gemma-3-1b",
+            name: "Gemma 3 1B",
+            description: "Compact · ~0.8 GB · 32K context, fast",
+            sizeBytes: 806_058_240,
+            downloadURL: "https://huggingface.co/ggml-org/gemma-3-1b-it-GGUF/resolve/main/gemma-3-1b-it-Q4_K_M.gguf",
+            templateType: .gemma,
+            isRecommended: false
+        ),
+        LocalModel(
+            id: "gemma-3-4b",
+            name: "Gemma 3 4B",
+            description: "Balanced · ~2.5 GB · 128K context, Google-quality output",
+            sizeBytes: 2_489_757_856,
+            downloadURL: "https://huggingface.co/ggml-org/gemma-3-4b-it-GGUF/resolve/main/gemma-3-4b-it-Q4_K_M.gguf",
             templateType: .gemma,
             isRecommended: false
         ),
@@ -120,11 +129,11 @@ final class LocalModelService: ObservableObject {
             isRecommended: false
         ),
         LocalModel(
-            id: "qwen2.5-3b",
-            name: "Qwen 2.5 3B",
-            description: "Compact · ~1.9 GB · Multilingual, strong reasoning",
-            sizeBytes: 1_940_000_000,
-            downloadURL: "https://huggingface.co/Qwen/Qwen2.5-3B-Instruct-GGUF/resolve/main/qwen2.5-3b-instruct-q4_k_m.gguf",
+            id: "qwen3-4b",
+            name: "Qwen 3 4B",
+            description: "Compact · ~2.5 GB · 256K native context, multilingual, strong reasoning",
+            sizeBytes: 2_497_281_120,
+            downloadURL: "https://huggingface.co/unsloth/Qwen3-4B-Instruct-2507-GGUF/resolve/main/Qwen3-4B-Instruct-2507-Q4_K_M.gguf",
             templateType: .chatML,
             isRecommended: false
         ),

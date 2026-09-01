@@ -116,7 +116,7 @@ final class ChatService {
         // buildMessages). Sort chronologically — SwiftData relationships are
         // unordered, so suffix() on the raw set could send turns out of order.
         let provider = session.resolvedProvider
-        let historyLimit = provider == "local" ? 6 : 10
+        let historyLimit = provider == "local" ? LocalLLMEngine.historyLimit() : 10
         let recentMessages = session.messages
             .sorted { $0.createdAt < $1.createdAt }
             .suffix(historyLimit)

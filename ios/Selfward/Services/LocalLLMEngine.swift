@@ -60,11 +60,15 @@ final class LocalLLMEngine: ObservableObject {
 
         // llama_model_load_from_file is synchronous and CPU-bound — run off main.
         // maxTokenCount sets BOTH the context window AND the generation cap in
-        // LLM.swift. 2048 keeps memory low and bounds a runaway generation to a
-        // few minutes worst case (the 90 s timeout in generate() catches it first),
-        // while leaving ample room for our capped prompt (~800 tokens).
+        // LLM.swift (it maps directly to llama.cpp's n_ctx). Scaling it with
+        // device RAM means capable devices actually get to use the larger
+        // native context modern small models support, instead of every model
+        // being clamped to the same tiny window regardless of what it's
+        // capable of. The 90 s timeout in generate() still bounds a runaway
+        // generation regardless of window size.
+        let contextSize = Int32(Self.contextWindow())
         let loaded: LLM? = await Task.detached(priority: .userInitiated) {
-            LLM(from: url, stopSequence: stopSeq, maxTokenCount: 2048)
+            LLM(from: url, stopSequence: stopSeq, maxTokenCount: contextSize)
         }.value
 
         if let loaded {
@@ -202,6 +206,33 @@ final class LocalLLMEngine: ObservableObject {
         }
 
         return trimmed
+    }
+
+    // MARK: - Device-scaled sizing
+
+    /// llama.cpp's context window (`n_ctx`), scaled by device RAM so devices
+    /// with headroom get to use meaningfully more of what modern small models
+    /// natively support, while the most constrained devices keep the original
+    /// conservative budget. `ramGB` is injectable for testing.
+    static func contextWindow(ramGB: Int = Int(ProcessInfo.processInfo.physicalMemory / 1_073_741_824)) -> Int {
+        switch ramGB {
+        case ..<4:  return 2048
+        case 4..<6: return 3072
+        case 6..<8: return 4096
+        default:    return 8192
+        }
+    }
+
+    /// How many prior messages to include for a local model. Kept in step
+    /// with `contextWindow` so raising the window doesn't just get eaten by
+    /// history on the same low-RAM tier that still has a small window.
+    static func historyLimit(ramGB: Int = Int(ProcessInfo.processInfo.physicalMemory / 1_073_741_824)) -> Int {
+        switch ramGB {
+        case ..<4:  return 6
+        case 4..<6: return 8
+        case 6..<8: return 10
+        default:    return 12
+        }
     }
 
     // MARK: - Template helpers
