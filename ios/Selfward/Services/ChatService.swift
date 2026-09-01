@@ -294,6 +294,21 @@ final class ChatService {
         assistantMsg.capturedMemoryCount = session.memories.filter { !memoryIDsBefore.contains($0.id) }.count
         assistantMsg.capturedGlobalMemory = promoted != nil
 
+        // Persist now, before the agent-orchestration round trip below: the
+        // assistant's reply is already visible to the user via the live
+        // @Query the moment it was inserted above, but nothing durable
+        // exists yet since ChatView only saves after this whole function
+        // returns. `orchestrator.route` is another async/network call, and
+        // if the app is backgrounded or the process is suspended or killed
+        // during that gap, an unsaved reply the user already saw would be
+        // silently lost. Saving here closes that window; a failure is
+        // logged rather than swallowed so data loss isn't invisible.
+        do {
+            try context.save()
+        } catch {
+            print("⚠️ ChatService: failed to save assistant message: \(error)")
+        }
+
         let agentCtx = AgentContext(
             sessionId: session.id,
             userMessage: userMessage,

@@ -55,7 +55,15 @@ targets:
         product: VoiceLoopKit
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.intelligentdesignsllc.selfward.app
+        # Intentionally not bundleIdPrefix-derived: this matches the bundle ID
+        # of pre-rebrand builds already installed on real devices (the app was
+        # briefly shipped as "Therapist" / com.therAIpist.app before this
+        # project was renamed to Selfward). Keeping it means a rebuild updates
+        # those existing installs in place instead of creating a second,
+        # empty app alongside the user's real on-device data. Do not change
+        # this back to a selfward.app-style identifier without a real data
+        # migration path for anyone still on the old bundle ID.
+        PRODUCT_BUNDLE_IDENTIFIER: com.therAIpist.app
         INFOPLIST_FILE: Selfward/Resources/Info.plist
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ENABLE_PREVIEWS: YES
