@@ -80,6 +80,7 @@ struct AppRootView: View {
         Group {
             if !onboardingComplete {
                 OnboardingView()
+                    .environmentObject(localModelService)
             } else if !isUnlocked {
                 PINView(onSuccess: { isUnlocked = true })
             } else {
