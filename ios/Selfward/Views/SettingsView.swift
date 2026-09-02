@@ -355,11 +355,11 @@ struct ModelsSettingsView: View {
             }
 
             Section {
-                ForEach(localModelService.recommendedModels) { model in
+                ForEach(localModelService.catalog) { model in
                     localModelCard(model)
                 }
             } header: {
-                Label("Recommended", systemImage: "star")
+                Label("On-Device Models", systemImage: "star")
             } footer: {
                 Text("Vetted, on-device models that work well for journaling and reflection.")
                     .font(.caption)

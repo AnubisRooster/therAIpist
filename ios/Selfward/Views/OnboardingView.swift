@@ -366,10 +366,10 @@ private struct OnDeviceModelsStep: View {
                     .cornerRadius(10)
                 }
 
-                // Other curated recommended models
+                // Other curated models
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("Other recommended models").font(.subheadline.bold())
-                    ForEach(localModelService.recommendedModels.filter { $0.id != recommendedID }) { model in
+                    Text("Other on-device models").font(.subheadline.bold())
+                    ForEach(localModelService.catalog.filter { $0.id != recommendedID }) { model in
                         OnboardingModelRow(model: model, isDefault: defaultLocalModel == model.id) {
                             defaultLocalModel = model.id
                         } onDownload: {

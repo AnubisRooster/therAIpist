@@ -186,7 +186,6 @@ final class LocalModelService: ObservableObject {
         return out
     }
 
-    var recommendedModels: [LocalModel] { catalog.filter { $0.isRecommended } }
     var huggingFaceModels: [LocalModel] { availableModels.filter { $0.source == .huggingFace } }
 
     /// Refreshes the dynamic Hugging Face catalogue from the network.
