@@ -16,8 +16,8 @@ permissions:
   pull-requests: write
 
 concurrency:
-  group: findings-${{ github.ref }}
-  cancel-in-progress: false
+  group: gitnexus-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   # Push to main: reindex the graph, commit fresh findings + drift trend.

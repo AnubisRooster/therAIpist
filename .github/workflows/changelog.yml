@@ -13,8 +13,8 @@ permissions:
   contents: write
 
 concurrency:
-  group: findings-${{ github.ref }}
-  cancel-in-progress: false
+  group: changelog-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   update:
