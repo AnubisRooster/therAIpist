@@ -3,17 +3,21 @@ name: GitNexus
 on:
   push:
     branches: [main]
+  pull_request:
   workflow_dispatch:
 
 permissions:
   contents: write
+  pull-requests: write
 
 concurrency:
   group: gitnexus-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
+  # Push to main: reindex the graph and commit fresh findings into the repo.
   refresh:
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     env:
       GITNEXUS_REPO: therAIpist
@@ -65,4 +69,56 @@ jobs:
           else
             git commit -m "chore(gitnexus): refresh architecture findings [skip ci]"
             git push
+          fi
+
+  # Pull requests: map the PR diff to affected symbols/flows and comment the
+  # blast radius. Comment is upserted (one per PR) to avoid spam on pushes.
+  impact:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    env:
+      GITNEXUS_LBUG_EXTENSION_INSTALL: auto
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Install GitNexus
+        run: npm install -g gitnexus
+
+      - name: Index PR merge commit
+        run: gitnexus analyze . --skip-agents-md --skip-skills
+
+      - name: Detect blast radius vs base
+        env:
+          REPO_NAME: therAIpist
+        run: |
+          {
+            echo "<!-- gitnexus-impact -->"
+            echo "## 🔍 GitNexus impact analysis"
+            echo
+            echo "Structural blast radius of this PR vs \`${{ github.base_ref }}\`:"
+            echo
+            echo '```'
+            gitnexus detect-changes --scope compare --base-ref "origin/${{ github.base_ref }}" --repo "$REPO_NAME" 2>/dev/null || echo "No structural changes detected"
+            echo '```'
+            echo
+            echo "_Graph findings: [docs/gitnexus/ARCHITECTURE.md](../blob/main/docs/gitnexus/ARCHITECTURE.md) · refreshed on every push to \`main\`_"
+          } > pr-comment.md
+
+      - name: Upsert PR comment
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          EXISTING=$(gh api "repos/${{ github.repository }}/issues/$PR_NUMBER/comments" \
+            --jq '.[] | select(.body | startswith("<!-- gitnexus-impact -->")) | .id' | head -1 || true)
+          if [ -n "$EXISTING" ]; then
+            gh api -X PATCH "repos/${{ github.repository }}/issues/$PR_NUMBER/comments/$EXISTING" -F body=@pr-comment.md
+          else
+            gh pr comment "$PR_NUMBER" --body-file pr-comment.md
           fi
