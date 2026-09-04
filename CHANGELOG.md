@@ -2,6 +2,11 @@
 
 ## 2026-09-04
 
+- ci: per-workflow concurrency groups (shared group cancelled queued bots) (7ee4036)
+
+
+## 2026-09-04
+
 - ci: fix non-ASCII chars in workflow (da6d712)
 - ci: fix workflow YAML (BOM + concurrency group key) (d644561)
 - ci: serialize bot commits via shared concurrency group + stash-aware retry (f86559b)
