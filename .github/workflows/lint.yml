@@ -1,0 +1,49 @@
+name: Lint
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "docs/**"
+      - ".github/**"
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: lint-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install ruff
+        run: pip install ruff
+
+      # Hard gate: only true errors (syntax errors, undefined names) fail.
+      - name: Ruff (hard gate - E9, F63, F7, F82)
+        run: ruff check app/ --select E9,F63,F7,F82 --output-format=github
+
+      # Advisory: full rule set surfaces style issues as annotations without
+      # blocking. Flip continue-on-error to false once the baseline is clean.
+      - name: Ruff (advisory - full rules)
+        continue-on-error: true
+        run: ruff check app/ --output-format=github
+
+  swift:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: SwiftLint (advisory)
+        continue-on-error: true
+        run: |
+          brew install swiftlint
+          swiftlint lint --reporter github ios/Selfward ios/SelfwardTests 2>/dev/null || true

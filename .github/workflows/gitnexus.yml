@@ -3,6 +3,11 @@ name: GitNexus
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - "docs/**"
+      - ".github/**"
+      - "githooks/**"
+      - "**/*.md"
   pull_request:
   workflow_dispatch:
 
@@ -15,13 +20,15 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # Push to main: reindex the graph and commit fresh findings into the repo.
+  # Push to main: reindex the graph, commit fresh findings + drift trend.
   refresh:
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     env:
       GITNEXUS_REPO: therAIpist
       GITNEXUS_LBUG_EXTENSION_INSTALL: auto
+      GITNEXUS_API_KEY: ${{ secrets.GITNEXUS_API_KEY }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -37,17 +44,38 @@ jobs:
       - name: Refresh knowledge graph
         run: gitnexus analyze . --skip-agents-md --skip-skills
 
-      - name: Generate findings
+      - name: Generate findings + drift trend
         run: |
           mkdir -p docs/gitnexus
           NODES=$(gitnexus cypher "MATCH (n) RETURN count(n) AS nodes" --repo "$GITNEXUS_REPO" | jq -r '.markdown' | tail -1 | tr -d '| ')
           EDGES=$(gitnexus cypher "MATCH ()-[r]->() RETURN count(r) AS edges" --repo "$GITNEXUS_REPO" | jq -r '.markdown' | tail -1 | tr -d '| ')
           GOD=$(gitnexus cypher "MATCH (a)-[r]->(b) WHERE NOT a.filePath CONTAINS 'Test' AND NOT a.filePath CONTAINS 'test' RETURN a.name AS symbol, a.filePath AS file, count(r) AS outDegree ORDER BY outDegree DESC LIMIT 10" --repo "$GITNEXUS_REPO" | jq -r '.markdown')
+          TOP5=$(gitnexus cypher "MATCH (a)-[r]->(b) WHERE NOT a.filePath CONTAINS 'Test' AND NOT a.filePath CONTAINS 'test' RETURN a.name AS symbol, a.filePath AS file, count(r) AS outDegree ORDER BY outDegree DESC LIMIT 5" --repo "$GITNEXUS_REPO" \
+            | jq -r '.markdown' | tail -n +3 \
+            | jq -R -s -c '[split("\n")[] | select(length > 0) | split("|") | {name: (.[1] | gsub("^ +| +$"; "")), degree: (.[3] | gsub("^ +| +$"; "") | tonumber)}]')
+
+          # Drift tracking: compare this push's worst hub against all history.
+          PREV_MAX=0
+          if [ -f docs/gitnexus/trend.jsonl ]; then
+            PREV_MAX=$(jq -s '[.[] | ((.top // []) | max_by(.degree).degree // 0)] | max // 0' docs/gitnexus/trend.jsonl 2>/dev/null || echo 0)
+          fi
+          CUR_MAX=$(echo "$TOP5" | jq '[.[].degree] | max // 0')
+          DRIFT=""
+          if [ "${PREV_MAX:-0}" -gt 0 ] && [ "${CUR_MAX:-0}" -gt 0 ]; then
+            GROWTH=$(( (CUR_MAX - PREV_MAX) * 100 / PREV_MAX ))
+            if [ "$GROWTH" -ge 15 ]; then
+              DRIFT="> ⚠️ **Architecture drift:** worst hub out-degree grew ${GROWTH}% since the last tracked push (${PREV_MAX} → ${CUR_MAX}). Consider refactoring the top hub before it compounds."
+            fi
+          fi
+          printf '{"date":"%s","sha":"%s","nodes":%s,"edges":%s,"top":%s}\n' \
+            "$(date -u +%FT%TZ)" "${GITHUB_SHA:0:7}" "$NODES" "$EDGES" "$TOP5" >> docs/gitnexus/trend.jsonl
+
           {
             echo "# GitNexus Architecture Findings"
             echo
             echo "_Auto-generated from the GitNexus knowledge graph on every push to \`main\`. Do not edit by hand._"
             echo
+            if [ -n "$DRIFT" ]; then echo "$DRIFT"; echo; fi
             echo "## Graph size"
             echo
             echo "| nodes | edges |"
@@ -58,6 +86,19 @@ jobs:
             echo
             echo "$GOD"
           } > docs/gitnexus/ARCHITECTURE.md
+
+      - name: Generate wiki (optional, needs GITNEXUS_API_KEY or OPENAI_API_KEY)
+        if: env.GITNEXUS_API_KEY != '' || env.OPENAI_API_KEY != ''
+        continue-on-error: true
+        run: |
+          if [ -n "$GITNEXUS_API_KEY" ]; then
+            gitnexus wiki . --provider minimax --api-key "$GITNEXUS_API_KEY" --force
+          else
+            gitnexus wiki . --provider openai --api-key "$OPENAI_API_KEY" --force
+          fi
+          mkdir -p docs/gitnexus
+          [ -d wiki ] && cp -r wiki docs/gitnexus/wiki || true
+          [ -d gitnexus-wiki ] && cp -r gitnexus-wiki docs/gitnexus/wiki || true
 
       - name: Commit findings
         run: |
@@ -77,8 +118,8 @@ jobs:
             sleep 5
           done
 
-  # Pull requests: map the PR diff to affected symbols/flows and comment the
-  # blast radius. Comment is upserted (one per PR) to avoid spam on pushes.
+  # Pull requests: map the PR diff to affected symbols/flows, comment the
+  # blast radius, apply a risk label, and gate high-risk merges.
   impact:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
@@ -100,17 +141,26 @@ jobs:
         run: gitnexus analyze . --skip-agents-md --skip-skills
 
       - name: Detect blast radius vs base
+        id: blast
         env:
           REPO_NAME: therAIpist
+        run: |
+          gitnexus detect-changes --scope compare --base-ref "origin/${{ github.base_ref }}" --repo "$REPO_NAME" 2>/dev/null | tee detect.txt || echo "No structural changes detected" | tee detect.txt
+          RISK=$(grep -oE 'Risk level: [a-z]+' detect.txt | head -1 | awk '{print tolower($3)}')
+          echo "risk=${RISK:-none}" >> "$GITHUB_OUTPUT"
+
+      - name: Build PR comment
         run: |
           {
             echo "<!-- gitnexus-impact -->"
             echo "## 🔍 GitNexus impact analysis"
             echo
+            echo "**Risk level:** \`${{ steps.blast.outputs.risk }}\`"
+            echo
             echo "Structural blast radius of this PR vs \`${{ github.base_ref }}\`:"
             echo
             echo '```'
-            gitnexus detect-changes --scope compare --base-ref "origin/${{ github.base_ref }}" --repo "$REPO_NAME" 2>/dev/null || echo "No structural changes detected"
+            cat detect.txt
             echo '```'
             echo
             echo "_Graph findings: [docs/gitnexus/ARCHITECTURE.md](../blob/main/docs/gitnexus/ARCHITECTURE.md) · refreshed on every push to \`main\`_"
@@ -128,3 +178,27 @@ jobs:
           else
             gh pr comment "$PR_NUMBER" --body-file pr-comment.md
           fi
+
+      - name: Apply risk label
+        if: steps.blast.outputs.risk != 'none'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          RISK: ${{ steps.blast.outputs.risk }}
+        run: |
+          LABEL="risk-$RISK"
+          case "$RISK" in
+            low)    COLOR="0e8a16" ;;
+            medium) COLOR="d93f0b" ;;
+            high)   COLOR="b60205" ;;
+            *)      COLOR="cccccc" ;;
+          esac
+          gh label create "$LABEL" --color "$COLOR" --description "GitNexus blast radius: $RISK" 2>/dev/null \
+            || gh label edit "$LABEL" --color "$COLOR" 2>/dev/null || true
+          gh pr edit "$PR_NUMBER" --add-label "$LABEL"
+
+      - name: Quality gate (high risk fails the check)
+        if: steps.blast.outputs.risk == 'high'
+        run: |
+          echo "::error::GitNexus blast radius is HIGH - structural review required before merge."
+          exit 1

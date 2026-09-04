@@ -3,6 +3,9 @@ name: Graphify
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - ".github/**"
+      - "githooks/**"
   workflow_dispatch:
   schedule:
     - cron: "0 6 * * 1" # weekly Monday refresh as a safety net

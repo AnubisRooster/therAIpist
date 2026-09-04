@@ -1,0 +1,66 @@
+name: Changelog
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "CHANGELOG.md"
+      - "docs/**"
+      - ".github/**"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: changelog-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Prepend dated section from conventional commits
+        run: |
+          git config user.name "gitnexus-bot"
+          git config user.email "gitnexus-bot@users.noreply.github.com"
+          LAST=$(git log --format=%H -1 -- CHANGELOG.md || true)
+          if [ -n "$LAST" ]; then
+            NEW=$(git log --format='- %s (%h)' "$LAST..HEAD" | grep -v -- '- chore(changelog)' || true)
+          else
+            NEW=$(git log --format='- %s (%h)' | grep -v -- '- chore(changelog)' || true)
+          fi
+          if [ -z "$NEW" ]; then
+            echo "No new commits to log"
+            exit 0
+          fi
+          {
+            echo "# Changelog"
+            echo
+            echo "## $(date -u +%F)"
+            echo
+            echo "$NEW"
+            echo
+            if [ -f CHANGELOG.md ]; then tail -n +2 CHANGELOG.md; fi
+          } > CHANGELOG.md.new
+          mv CHANGELOG.md.new CHANGELOG.md
+
+      - name: Commit changelog
+        run: |
+          git add CHANGELOG.md
+          if git diff --cached --quiet; then
+            echo "No changelog changes"
+            exit 0
+          fi
+          git commit -m "chore(changelog): update [skip ci]"
+          attempts=0
+          until git push; do
+            attempts=$((attempts+1))
+            if [ "$attempts" -ge 3 ]; then exit 1; fi
+            git pull --rebase origin main || true
+            sleep 5
+          done

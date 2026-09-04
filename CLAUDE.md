@@ -43,3 +43,10 @@ This project is indexed by GitNexus as **therAIpist** (4832 symbols, 13412 relat
 | Index, status, clean, wiki CLI commands | `.claude/skills/gitnexus-cli/SKILL.md` |
 
 <!-- gitnexus:end -->
+
+## Workflow conventions (knowledge graph)
+
+- Prefer the GitNexus MCP tools (`gitnexus_query`, `gitnexus_context`, `gitnexus_impact`, `gitnexus_trace`) over manual grep-spelunking for structural questions - the graph returns complete context in one call.
+- For multi-hop traces or open-ended exploration, delegate to a subagent and summarize the conclusion back; keep large tool responses out of the main thread.
+- Before edits with wide reach, run an impact check on the target symbol first.
+- The graph auto-refreshes on commit (local hooks) and push (CI). If it feels stale after pulling, run `gitnexus analyze` - it is incremental and fast.
