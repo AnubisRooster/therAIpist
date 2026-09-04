@@ -1,4 +1,4 @@
-name: Changelog
+﻿name: Changelog
 
 on:
   push:
@@ -13,8 +13,8 @@ permissions:
   contents: write
 
 concurrency:
-  group: changelog-${{ github.ref }}
-  cancel-in-progress: true
+  findings-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   update:
@@ -61,6 +61,8 @@ jobs:
           until git push; do
             attempts=$((attempts+1))
             if [ "$attempts" -ge 3 ]; then exit 1; fi
+            git stash -u > /dev/null 2>&1 || true
             git pull --rebase origin main || true
+            git stash pop > /dev/null 2>&1 || true
             sleep 5
           done

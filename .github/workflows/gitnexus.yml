@@ -1,4 +1,4 @@
-name: GitNexus
+﻿name: GitNexus
 
 on:
   push:
@@ -16,8 +16,8 @@ permissions:
   pull-requests: write
 
 concurrency:
-  group: gitnexus-${{ github.ref }}
-  cancel-in-progress: true
+  group: findings-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   # Push to main: reindex the graph, commit fresh findings + drift trend.
@@ -64,7 +64,7 @@ jobs:
           if [ "${PREV_MAX:-0}" -gt 0 ] && [ "${CUR_MAX:-0}" -gt 0 ]; then
             GROWTH=$(( (CUR_MAX - PREV_MAX) * 100 / PREV_MAX ))
             if [ "$GROWTH" -ge 15 ]; then
-              DRIFT="> ⚠️ **Architecture drift:** worst hub out-degree grew ${GROWTH}% since the last tracked push (${PREV_MAX} → ${CUR_MAX}). Consider refactoring the top hub before it compounds."
+              DRIFT="> âš ï¸ **Architecture drift:** worst hub out-degree grew ${GROWTH}% since the last tracked push (${PREV_MAX} â†’ ${CUR_MAX}). Consider refactoring the top hub before it compounds."
             fi
           fi
           printf '{"date":"%s","sha":"%s","nodes":%s,"edges":%s,"top":%s}\n' \
@@ -114,7 +114,9 @@ jobs:
           until git push; do
             attempts=$((attempts+1))
             if [ "$attempts" -ge 3 ]; then exit 1; fi
+            git stash -u > /dev/null 2>&1 || true
             git pull --rebase origin main || true
+            git stash pop > /dev/null 2>&1 || true
             sleep 5
           done
 
@@ -153,7 +155,7 @@ jobs:
         run: |
           {
             echo "<!-- gitnexus-impact -->"
-            echo "## 🔍 GitNexus impact analysis"
+            echo "## ðŸ” GitNexus impact analysis"
             echo
             echo "**Risk level:** \`${{ steps.blast.outputs.risk }}\`"
             echo
@@ -163,7 +165,7 @@ jobs:
             cat detect.txt
             echo '```'
             echo
-            echo "_Graph findings: [docs/gitnexus/ARCHITECTURE.md](../blob/main/docs/gitnexus/ARCHITECTURE.md) · refreshed on every push to \`main\`_"
+            echo "_Graph findings: [docs/gitnexus/ARCHITECTURE.md](../blob/main/docs/gitnexus/ARCHITECTURE.md) Â· refreshed on every push to \`main\`_"
           } > pr-comment.md
 
       - name: Upsert PR comment
