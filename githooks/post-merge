@@ -1,0 +1,10 @@
+#!/bin/sh
+# GitNexus: keep the knowledge graph fresh after pull/merge (post-merge).
+# Same contract as post-commit: background re-index, logged to .gitnexus/hook.log.
+(
+  command -v gitnexus >/dev/null 2>&1 || exit 0
+  mkdir -p .gitnexus
+  echo "[$(date -Iseconds)] post-merge reindex started" >> .gitnexus/hook.log
+  gitnexus analyze . --skip-agents-md --skip-skills >> .gitnexus/hook.log 2>&1
+  echo "[$(date -Iseconds)] post-merge reindex done" >> .gitnexus/hook.log
+) &

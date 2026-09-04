@@ -1,0 +1,12 @@
+#!/bin/sh
+# GitNexus: keep the knowledge graph fresh after every commit.
+# Non-blocking: runs the incremental re-index in the background and logs to
+# .gitnexus/hook.log. Activate once per clone with:
+#   git config core.hooksPath githooks
+(
+  command -v gitnexus >/dev/null 2>&1 || exit 0
+  mkdir -p .gitnexus
+  echo "[$(date -Iseconds)] post-commit reindex started" >> .gitnexus/hook.log
+  gitnexus analyze . --skip-agents-md --skip-skills >> .gitnexus/hook.log 2>&1
+  echo "[$(date -Iseconds)] post-commit reindex done" >> .gitnexus/hook.log
+) &

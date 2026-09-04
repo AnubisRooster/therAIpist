@@ -1,0 +1,68 @@
+name: GitNexus
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: gitnexus-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    env:
+      GITNEXUS_REPO: therAIpist
+      GITNEXUS_LBUG_EXTENSION_INSTALL: auto
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Install GitNexus
+        run: npm install -g gitnexus
+
+      - name: Refresh knowledge graph
+        run: gitnexus analyze . --skip-agents-md --skip-skills
+
+      - name: Generate findings
+        run: |
+          mkdir -p docs/gitnexus
+          NODES=$(gitnexus cypher "MATCH (n) RETURN count(n) AS nodes" --repo "$GITNEXUS_REPO" | jq -r '.markdown' | tail -1 | tr -d '| ')
+          EDGES=$(gitnexus cypher "MATCH ()-[r]->() RETURN count(r) AS edges" --repo "$GITNEXUS_REPO" | jq -r '.markdown' | tail -1 | tr -d '| ')
+          GOD=$(gitnexus cypher "MATCH (a)-[r]->(b) WHERE NOT a.filePath CONTAINS 'Test' AND NOT a.filePath CONTAINS 'test' RETURN a.name AS symbol, a.filePath AS file, count(r) AS outDegree ORDER BY outDegree DESC LIMIT 10" --repo "$GITNEXUS_REPO" | jq -r '.markdown')
+          {
+            echo "# GitNexus Architecture Findings"
+            echo
+            echo "_Auto-generated from the GitNexus knowledge graph on every push to \`main\`. Do not edit by hand._"
+            echo
+            echo "## Graph size"
+            echo
+            echo "| nodes | edges |"
+            echo "| ----- | ----- |"
+            echo "| $NODES | $EDGES |"
+            echo
+            echo "## God nodes (highest out-degree, tests excluded)"
+            echo
+            echo "$GOD"
+          } > docs/gitnexus/ARCHITECTURE.md
+
+      - name: Commit findings
+        run: |
+          git config user.name "gitnexus-bot"
+          git config user.email "gitnexus-bot@users.noreply.github.com"
+          git add docs/gitnexus
+          if git diff --cached --quiet; then
+            echo "No findings changes to commit"
+          else
+            git commit -m "chore(gitnexus): refresh architecture findings [skip ci]"
+            git push
+          fi
