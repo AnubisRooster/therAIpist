@@ -1,4 +1,4 @@
-﻿name: Graphify
+name: Graphify
 
 on:
   push:
@@ -14,7 +14,7 @@ permissions:
   contents: write
 
 concurrency:
-  findings-${{ github.ref }}
+  group: findings-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:

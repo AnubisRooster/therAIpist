@@ -1,4 +1,4 @@
-﻿name: Changelog
+name: Changelog
 
 on:
   push:
@@ -13,7 +13,7 @@ permissions:
   contents: write
 
 concurrency:
-  findings-${{ github.ref }}
+  group: findings-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:

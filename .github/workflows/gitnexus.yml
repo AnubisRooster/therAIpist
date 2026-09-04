@@ -1,4 +1,4 @@
-﻿name: GitNexus
+name: GitNexus
 
 on:
   push:
