@@ -57,7 +57,13 @@ jobs:
           git add docs/graphify
           if git diff --cached --quiet; then
             echo "No graph artifacts changes to commit"
-          else
-            git commit -m "chore(graphify): refresh knowledge graph artifacts [skip ci]"
-            git push
+            exit 0
           fi
+          git commit -m "chore(graphify): refresh knowledge graph artifacts [skip ci]"
+          attempts=0
+          until git push; do
+            attempts=$((attempts+1))
+            if [ "$attempts" -ge 3 ]; then exit 1; fi
+            git pull --rebase origin main || true
+            sleep 5
+          done

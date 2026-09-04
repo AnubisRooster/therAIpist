@@ -66,10 +66,16 @@ jobs:
           git add docs/gitnexus
           if git diff --cached --quiet; then
             echo "No findings changes to commit"
-          else
-            git commit -m "chore(gitnexus): refresh architecture findings [skip ci]"
-            git push
+            exit 0
           fi
+          git commit -m "chore(gitnexus): refresh architecture findings [skip ci]"
+          attempts=0
+          until git push; do
+            attempts=$((attempts+1))
+            if [ "$attempts" -ge 3 ]; then exit 1; fi
+            git pull --rebase origin main || true
+            sleep 5
+          done
 
   # Pull requests: map the PR diff to affected symbols/flows and comment the
   # blast radius. Comment is upserted (one per PR) to avoid spam on pushes.
