@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-09-06
+
+- Exclude audio/video models from OpenRouter picker (57a5af6)
+- chore(gitnexus): refresh architecture findings [skip ci] (5be61bf)
+- chore(graphify): refresh knowledge graph artifacts [skip ci] (afaf438)
+
+
 ## 2026-09-04
 
 - ci: per-workflow concurrency groups (shared group cancelled queued bots) (7ee4036)
