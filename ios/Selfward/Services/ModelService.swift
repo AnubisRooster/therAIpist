@@ -29,10 +29,12 @@ struct OpenRouterModel: Codable, Identifiable, Hashable {
 
     /// Selfward is a text-first journaling/reflection app, so we only surface
     /// text models. Excludes image-generation models (e.g. Stable Diffusion,
-    /// Flux) and coding-specialised models (e.g. *-coder).
+    /// Flux), audio/video-generation models (e.g. Google Lyria music, TTS),
+    /// and coding-specialised models (e.g. *-coder).
     var isTextFirst: Bool {
         let out = (architecture?.outputModalities ?? []).map { $0.lowercased() }
         if out.contains("image") { return false }
+        if out.contains("audio") || out.contains("video") { return false }
         let mod = (architecture?.modality ?? "").lowercased()
         if mod == "image" { return false }
         let codingKeywords = ["coder", "code-", "codestral", "codellama", "codegemma",
