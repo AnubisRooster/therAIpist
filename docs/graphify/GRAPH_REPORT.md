@@ -1,7 +1,7 @@
-# Graph Report - therAIpist  (2026-09-06)
+# Graph Report - therAIpist  (2026-09-07)
 
 ## Corpus Check
-- Large corpus: 230 files · ~1,872,213 words. Semantic extraction will be expensive (many Claude tokens). Consider running on a subfolder.
+- Large corpus: 230 files · ~1,874,238 words. Semantic extraction will be expensive (many Claude tokens). Consider running on a subfolder.
 
 ## Summary
 - 2426 nodes · 5744 edges · 124 communities (108 shown, 8 thin omitted)
