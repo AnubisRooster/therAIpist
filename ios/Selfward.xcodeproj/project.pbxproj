@@ -39,12 +39,14 @@
 		62C67B9F41C9822B1FD5F9A1 /* InsightsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF40E7F165FFD8EC37D6EC13 /* InsightsView.swift */; };
 		6CAFEC1AFBB5013E59635D31 /* PINView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F868C10EB7C5EB2A7B00489 /* PINView.swift */; };
 		6D76DDD2A6C266B4F7629756 /* LLM in Frameworks */ = {isa = PBXBuildFile; productRef = C21A0FFD4358DAFD86CCFFDF /* LLM */; };
+		2B3C4D5E6F708192A3B4C5D6E7F8091A /* BackupKit in Frameworks */ = {isa = PBXBuildFile; productRef = 1A2B3C4D5E6F708192A3B4C5D6E7F80 /* BackupKit */; };
 		6EBB88189639752E07ABB10E /* SafetyServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0581D2258450F18F3E17AFE3 /* SafetyServiceTests.swift */; };
 		70B3BB2BC546EB0FD6E3A707 /* LocalLLMEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 115C81BB8363E5F06EA3303E /* LocalLLMEngineTests.swift */; };
 		75F280F5076A64614E2E32E3 /* GraphServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4109CAA4F079EF7B7B0AAFD4 /* GraphServiceTests.swift */; };
 		7757CE1E9FF56CD14ED522FA /* PersonaService.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD807732B6AA596C62EAACAB /* PersonaService.swift */; };
 		7A17C9CAF5858F88081B5D61 /* DashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4F11D0EDFFD12098624E8C7 /* DashboardView.swift */; };
 		8158DAA8486D64955E24C4D1 /* AppleFoundationEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4184494FCA5D3B34D0D30CE8 /* AppleFoundationEngine.swift */; };
+		D0F2E4C6A8B0F2D4E6A8C0E2F4 /* AutoBackupService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A97C4D1F3B5E7A9C0B2D4E6F /* AutoBackupService.swift */; };
 		866FF2077F990F1222B47397 /* SafetyService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6EE6DE3CA5C6934F88E1DAA0 /* SafetyService.swift */; };
 		9B7F15BE23099C999028E58A /* LLMService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9CFA9D1088AE93C9537A8E18 /* LLMService.swift */; };
 		A25C7207CC752BE3D01E8016 /* KeychainService.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCAAE3FD3A43DD1765F04D8D /* KeychainService.swift */; };
@@ -111,6 +113,7 @@
 		354679F376952EA2F614469A /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		4109CAA4F079EF7B7B0AAFD4 /* GraphServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraphServiceTests.swift; sourceTree = "<group>"; };
 		4184494FCA5D3B34D0D30CE8 /* AppleFoundationEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleFoundationEngine.swift; sourceTree = "<group>"; };
+		A97C4D1F3B5E7A9C0B2D4E6F /* AutoBackupService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AutoBackupService.swift; sourceTree = "<group>"; };
 		4290A23EA6EF05CF895B9B33 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		46312DB4CB2BDC8F00EF4D5E /* LocalModelService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalModelService.swift; sourceTree = "<group>"; };
 		488F642BC70DD8497D21A5E6 /* FeatureRoadmapTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeatureRoadmapTests.swift; sourceTree = "<group>"; };
@@ -176,6 +179,7 @@
 				6D76DDD2A6C266B4F7629756 /* LLM in Frameworks */,
 				E3AE88F160F145C4AA3F7056 /* VoiceLoopKit in Frameworks */,
 				DE840A69EEBD4405939D3CB1 /* BYOKLLMKit in Frameworks */,
+				2B3C4D5E6F708192A3B4C5D6E7F8091A /* BackupKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -186,6 +190,7 @@
 			isa = PBXGroup;
 			children = (
 				4184494FCA5D3B34D0D30CE8 /* AppleFoundationEngine.swift */,
+				A97C4D1F3B5E7A9C0B2D4E6F /* AutoBackupService.swift */,
 				C9C782A14A01E91D0A9918FA /* BadgeBackfillService.swift */,
 				FC490536A296899A16D06A8D /* ChatService.swift */,
 				C29C49EE4665A79130532A66 /* DashboardService.swift */,
@@ -379,6 +384,7 @@
 				C21A0FFD4358DAFD86CCFFDF /* LLM */,
 				A55387F197517798B97E5C10 /* VoiceLoopKit */,
 				18B12AB40A4248F789282292 /* BYOKLLMKit */,
+				1A2B3C4D5E6F708192A3B4C5D6E7F80 /* BackupKit */,
 			);
 			productName = Selfward;
 			productReference = 82F24F0752AA76B48E8788A6 /* Selfward.app */;
@@ -392,15 +398,15 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 1600;
-				TargetAttributes = {
-					28CFCDAE3A32272C0701071C = {
-						DevelopmentTeam = "";
-						ProvisioningStyle = Automatic;
-					};
-					CA9434505CC5FD52BDCAAE62 = {
-						DevelopmentTeam = "";
-						ProvisioningStyle = Automatic;
-					};
+			TargetAttributes = {
+				28CFCDAE3A32272C0701071C = {
+					DevelopmentTeam = H2545W6NGW;
+					ProvisioningStyle = Automatic;
+				};
+				CA9434505CC5FD52BDCAAE62 = {
+					DevelopmentTeam = H2545W6NGW;
+					ProvisioningStyle = Automatic;
+				};
 				};
 			};
 			buildConfigurationList = F41E3F2EE5F974EF77937B13 /* Build configuration list for PBXProject "Selfward" */;
@@ -415,6 +421,7 @@
 			packageReferences = (
 				64B0224D0B94F9350F0890CE /* XCRemoteSwiftPackageReference "LLM.swift" */,
 				C7261FB6BE54A982095300D0 /* XCRemoteSwiftPackageReference "OnDeviceKit" */,
+				0A0B0C0D1E2F3A4B5C6D7E8F09A0B1C2 /* XCLocalSwiftPackageReference "BackupKit" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 86EE4942D7C8B39A4FDDB403 /* Products */;
@@ -473,6 +480,7 @@
 			files = (
 				EAA5D87F1FEB4F4E7834B770 /* AgentSystem.swift in Sources */,
 				8158DAA8486D64955E24C4D1 /* AppleFoundationEngine.swift in Sources */,
+				D0F2E4C6A8B0F2D4E6A8C0E2F4 /* AutoBackupService.swift in Sources */,
 				086B9765C623CFDCBD0F9055 /* BadgeBackfillService.swift in Sources */,
 				CC39E622F47F9FD0B026F98C /* ChatService.swift in Sources */,
 				BDE709FD95C3BB5817D82CBD /* ChatView.swift in Sources */,
@@ -570,7 +578,8 @@
 				COPY_PHASE_STRIP = NO;
 				CURRENT_PROJECT_VERSION = 1;
 				DEBUG_INFORMATION_FORMAT = dwarf;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = H2545W6NGW;
+				ENABLE_DEBUG_DYLIB = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
@@ -691,7 +700,7 @@
 				COPY_PHASE_STRIP = NO;
 				CURRENT_PROJECT_VERSION = 1;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = H2545W6NGW;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
@@ -764,6 +773,13 @@
 		};
 /* End XCConfigurationList section */
 
+/* Begin XCLocalSwiftPackageReference section */
+		0A0B0C0D1E2F3A4B5C6D7E8F09A0B1C2 /* XCLocalSwiftPackageReference "BackupKit" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../Packages/BackupKit;
+		};
+/* End XCLocalSwiftPackageReference section */
+
 /* Begin XCRemoteSwiftPackageReference section */
 		64B0224D0B94F9350F0890CE /* XCRemoteSwiftPackageReference "LLM.swift" */ = {
 			isa = XCRemoteSwiftPackageReference;
@@ -784,6 +800,11 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		1A2B3C4D5E6F708192A3B4C5D6E7F80 /* BackupKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 0A0B0C0D1E2F3A4B5C6D7E8F09A0B1C2 /* XCLocalSwiftPackageReference "BackupKit" */;
+			productName = BackupKit;
+		};
 		A55387F197517798B97E5C10 /* VoiceLoopKit */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = C7261FB6BE54A982095300D0 /* XCRemoteSwiftPackageReference "OnDeviceKit" */;

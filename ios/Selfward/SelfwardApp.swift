@@ -109,6 +109,13 @@ struct AppRootView: View {
             if phase == .background, isUnlocked {
                 isUnlocked = false
             }
+            // If the user enabled automatic backups, capture the current state
+            // into the chosen Files folder while the app is being backgrounded.
+            if phase == .background {
+                Task {
+                    try? await AutoBackupService.shared.backupNow(context: modelContext)
+                }
+            }
         }
     }
 }

@@ -1,8 +1,7 @@
 import Foundation
 import SwiftData
 import UserNotifications
-import CryptoKit
-import CommonCrypto
+import BackupKit
 
 class SafetyService {
     static let shared = SafetyService()
@@ -320,37 +319,15 @@ enum ReminderScheduler {
 
 // MARK: - Encrypted backup export
 
-/// Passphrase-protected, encrypted full-data export. A PBKDF2-derived key
-/// (from the passphrase + random salt) seals a JSON snapshot with AES-GCM.
+/// Facade around `BackupKit`, the pure, testable backup-domain library.
+///
+/// `BackupService` owns only the SwiftData-specific pieces: dumping the store
+/// into payloads (`buildPayload`), mapping a restore *plan* back onto live
+/// models (`restore`), and producing the encrypted bytes the UI shares /
+/// imports. Every pure decision (crypto, JSON shape, idempotent merging)
+/// lives in `BackupKit` and is covered by its macOS unit tests.
 enum BackupService {
-    private static let saltLength = 16
-    private static let iterations = 100_000
-
-    // Sendable: crosses into a background Task for the CPU-heavy encrypt step
-    // (see `encrypt(_:passphrase:)`), so every case must stay a pure value type.
-    struct Payload: Codable, Sendable {
-        let sessions: [SessionSnapshot]
-        let moods: [MoodSnapshot]
-        let exportedAt: Date
-    }
-    struct SessionSnapshot: Codable, Sendable {
-        let id: String
-        let title: String
-        let modality: String
-        let messages: [MessageSnapshot]
-    }
-    struct MessageSnapshot: Codable, Sendable {
-        let role: String
-        let content: String
-        let createdAt: Date
-    }
-    struct MoodSnapshot: Codable, Sendable {
-        let value: Int
-        let note: String
-        let createdAt: Date
-    }
-
-    enum BackupError: Error { case sealFailed, malformed, keyDerivationFailed }
+    typealias Payload = BackupPayload
 
     /// Reads the current data to back up. Touches SwiftData, so it must run on
     /// `context`'s actor (MainActor for the app's default container) — errors
@@ -362,12 +339,13 @@ enum BackupService {
             sessions: sessions.map { s in
                 SessionSnapshot(
                     id: s.id, title: s.title, modality: s.modality,
+                    createdAt: s.createdAt, updatedAt: s.updatedAt,
                     messages: s.messages.map {
-                        MessageSnapshot(role: $0.role, content: $0.content, createdAt: $0.createdAt)
+                        MessageSnapshot(id: $0.id, role: $0.role, content: $0.content, createdAt: $0.createdAt)
                     }
                 )
             },
-            moods: moods.map { MoodSnapshot(value: $0.value, note: $0.note, createdAt: $0.createdAt) },
+            moods: moods.map { MoodSnapshot(id: $0.id, value: $0.value, note: $0.note, createdAt: $0.createdAt) },
             exportedAt: Date()
         )
     }
@@ -375,13 +353,7 @@ enum BackupService {
     /// Encrypts an already-fetched payload. Pure CPU work (JSON encode + PBKDF2
     /// + AES-GCM) with no SwiftData access, so it's safe to run off the main actor.
     static func encrypt(_ payload: Payload, passphrase: String) throws -> Data {
-        let json = try JSONEncoder().encode(payload)
-
-        let salt = Data((0..<saltLength).map { _ in UInt8.random(in: 0...255) })
-        let key = try deriveKey(passphrase: passphrase, salt: salt)
-        let sealed = try AES.GCM.seal(json, using: key)
-        guard let combined = sealed.combined else { throw BackupError.sealFailed }
-        return salt + combined
+        try BackupCrypto.encrypt(payload, passphrase: passphrase)
     }
 
     /// Produces encrypted backup bytes: `[salt (16)] + [AES-GCM combined sealed box]`.
@@ -391,36 +363,51 @@ enum BackupService {
 
     /// Decrypts backup bytes produced by `exportEncrypted`.
     static func decrypt(_ data: Data, passphrase: String) throws -> Payload {
-        guard data.count > saltLength else { throw BackupError.malformed }
-        let salt = data.prefix(saltLength)
-        let sealedData = data.dropFirst(saltLength)
-        let key = try deriveKey(passphrase: passphrase, salt: Data(salt))
-        let sealed = try AES.GCM.SealedBox(combined: Data(sealedData))
-        let json = try AES.GCM.open(sealed, using: key)
-        return try JSONDecoder().decode(Payload.self, from: json)
+        try BackupCrypto.decrypt(data, passphrase: passphrase)
     }
 
-    private static func deriveKey(passphrase: String, salt: Data) throws -> SymmetricKey {
-        var derived = [UInt8](repeating: 0, count: 32)
-        let count = derived.count
-        let status = passphrase.withCString { pw in
-            salt.withUnsafeBytes { saltBuf in
-                derived.withUnsafeMutableBytes { derivBuf in
-                    CCKeyDerivationPBKDF(
-                        CCPBKDFAlgorithm(kCCPBKDF2),
-                        pw,
-                        strlen(pw),
-                        saltBuf.bindMemory(to: UInt8.self).baseAddress!,
-                        salt.count,
-                        CCPseudoRandomAlgorithm(kCCPRFHmacAlgSHA256),
-                        UInt32(iterations),
-                        derivBuf.bindMemory(to: UInt8.self).baseAddress!,
-                        count
-                    )
-                }
+    /// Merges a decrypted backup into `context`. Record ids embedded in the
+    /// payload make a restore **idempotent** — a session, message, or mood
+    /// whose id already exists is skipped, and everything already on the
+    /// device is left untouched. Backups exported before ids were embedded
+    /// decode with nil ids and are inserted unconditionally.
+    ///
+    /// Touches SwiftData, so it must run on `context`'s actor. Returns how
+    /// many sessions and moods were actually inserted, for UI confirmation.
+    @discardableResult
+    @MainActor
+    static func restore(_ payload: Payload, into context: ModelContext) throws -> (sessions: Int, moods: Int) {
+        // Merge/idempotency decisions live in BackupPlanner (pure, unit-tested
+        // in BackupKit); here we only apply the plan to the SwiftData store.
+        // Membership is a plain fetched id set — no per-record #Predicate.
+        let plan = BackupPlanner.plan(
+            payload: payload,
+            existingSessionIDs: Set(try context.fetch(FetchDescriptor<SessionModel>()).map(\.id)),
+            existingMessageIDs: Set(try context.fetch(FetchDescriptor<MessageModel>()).map(\.id)),
+            existingMoodIDs: Set(try context.fetch(FetchDescriptor<MoodEntryModel>()).map(\.id))
+        )
+
+        for session in plan.sessions {
+            let restoredSession = SessionModel(title: session.title, modality: session.modality)
+            restoredSession.id = session.id
+            if let createdAt = session.createdAt { restoredSession.createdAt = createdAt }
+            if let updatedAt = session.updatedAt { restoredSession.updatedAt = updatedAt }
+            context.insert(restoredSession)
+
+            for message in session.messages {
+                let restored = MessageModel(session: restoredSession, role: message.role, content: message.content)
+                restored.createdAt = message.createdAt
+                if let id = message.id { restored.id = id }
+                context.insert(restored)
             }
         }
-        guard status == kCCSuccess else { throw BackupError.keyDerivationFailed }
-        return SymmetricKey(data: Data(derived))
+
+        for mood in plan.moods {
+            let restoredMood = MoodEntryModel(value: mood.value, note: mood.note, createdAt: mood.createdAt)
+            if let id = mood.id { restoredMood.id = id }
+            context.insert(restoredMood)
+        }
+
+        return (plan.sessionCount, plan.moodCount)
     }
 }

@@ -43,6 +43,24 @@ struct SettingsView: View {
     @State private var exportErrorMessage = ""
     @State private var showExportError = false
 
+    // Restore-from-backup UI state
+    @State private var showImporter = false
+    @State private var importedBackupData: Data?
+    @State private var showRestorePassphrase = false
+    @State private var restorePassphrase = ""
+    @State private var restoreSuccessMessage = ""
+    @State private var showRestoreSuccess = false
+    @State private var restoreErrorMessage = ""
+    @State private var showRestoreError = false
+
+    // Automatic-backup UI state
+    @AppStorage("autoBackup.enabled")      private var autoBackupEnabled   = false
+    @State private var showFolderPicker = false
+    @State private var autoBackupMessage = ""
+    @State private var showAutoBackupMessage = false
+    @State private var autoBackupErrorMessage = ""
+    @State private var showAutoBackupError = false
+
     var body: some View {
         Form {
             Section("AI & Models") {
@@ -107,6 +125,34 @@ struct SettingsView: View {
                 Text("Creates a passphrase-protected file of all your data. No account or cloud upload is involved.")
                     .font(.caption)
                     .foregroundColor(.secondary)
+                Button("Restore from encrypted backup…") { showImporter = true }
+                    .foregroundStyle(.primary)
+                Text("Restores a backup you exported earlier. Anything already on this device is kept — sessions, messages, and moods already present are skipped.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+
+            Section("Automatic backup") {
+                Toggle("Keep automatic backups", isOn: $autoBackupEnabled)
+                if autoBackupEnabled {
+                    Button("Choose backup folder…") {
+                        showFolderPicker = true
+                    }
+                    .foregroundStyle(.primary)
+                    Text("Folder: \(AutoBackupService.shared.folderDisplayName)")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    if let last = AutoBackupService.shared.lastBackupDate {
+                        Text("Last backup: \(last.formatted(date: .abbreviated, time: .shortened))")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    Button("Back up now") { makeAutoBackup() }
+                    Button("Recover latest auto-backup…") { recoverAutoBackup() }
+                }
+                Text("Each time the app is backgrounded, an encrypted copy of all your data is written to the folder you pick in the Files app — so it survives app updates and even uninstalls. Nothing is ever deleted automatically.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
             }
         }
         .navigationTitle("Settings")
@@ -151,8 +197,44 @@ struct SettingsView: View {
                 showExportError = true
             }
         }
+        .fileImporter(isPresented: $showImporter,
+                      allowedContentTypes: [.data]) { result in
+            pickBackupFile(result)
+        }
+        .alert("Restore backup", isPresented: $showRestorePassphrase) {
+            SecureField("Passphrase", text: $restorePassphrase)
+            Button("Restore") { restoreBackup() }
+            Button("Cancel", role: .cancel) { restorePassphrase = "" }
+        } message: {
+            Text("Enter the passphrase you used when exporting this backup. It cannot be recovered if you've forgotten it.")
+        }
+        .alert("Backup restored", isPresented: $showRestoreSuccess) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(restoreSuccessMessage)
+        }
+        .alert("Restore failed", isPresented: $showRestoreError) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(restoreErrorMessage)
+        }
         .sheet(isPresented: $showChangePIN) {
             PINView(onSuccess: { showChangePIN = false }, forceSetup: true)
+        }
+        .sheet(isPresented: $showFolderPicker) {
+            BackupFolderPicker { url in
+                AutoBackupService.shared.setFolder(url)
+            }
+        }
+        .alert("Automatic backup", isPresented: $showAutoBackupMessage) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(autoBackupMessage)
+        }
+        .alert("Automatic backup failed", isPresented: $showAutoBackupError) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(autoBackupErrorMessage)
         }
     }
 
@@ -192,6 +274,56 @@ struct SettingsView: View {
         }
     }
 
+    /// Reads the selected backup file into memory, then asks for the passphrase.
+    private func pickBackupFile(_ result: Result<URL, Error>) {
+        do {
+            let url = try result.get()
+            let accessing = url.startAccessingSecurityScopedResource()
+            defer { if accessing { url.stopAccessingSecurityScopedResource() } }
+            importedBackupData = try Data(contentsOf: url)
+            showRestorePassphrase = true
+        } catch {
+            restoreErrorMessage = "Couldn't read the backup file: \(error.localizedDescription)"
+            showRestoreError = true
+        }
+    }
+
+    /// Decrypts the chosen backup off the main actor, then merges it into the
+    /// store (idempotently) and reports what was restored.
+    private func restoreBackup() {
+        guard let imported = importedBackupData else {
+            restoreErrorMessage = "No backup file was selected."
+            showRestoreError = true
+            return
+        }
+        guard restorePassphrase.count >= 8 else {
+            restoreErrorMessage = "Passphrase must be at least 8 characters."
+            showRestoreError = true
+            return
+        }
+        let enteredPassphrase = restorePassphrase
+        restorePassphrase = ""
+        Task {
+            do {
+                let payload = try await Task.detached(priority: .userInitiated) {
+                    try BackupService.decrypt(imported, passphrase: enteredPassphrase)
+                }.value
+                let inserted = try BackupService.restore(payload, into: context)
+                try context.save()
+                try? StoreProtection.applyToDefaultStore()
+                if inserted.sessions == 0 && inserted.moods == 0 {
+                    restoreSuccessMessage = "This backup was already restored — nothing new was added."
+                } else {
+                    restoreSuccessMessage = "Restored \(inserted.sessions) session\(inserted.sessions == 1 ? "" : "s") and \(inserted.moods) mood entr\(inserted.moods == 1 ? "y" : "ies"). Everything already on this device was kept."
+                }
+                showRestoreSuccess = true
+            } catch {
+                restoreErrorMessage = "Restore failed: \(error.localizedDescription)"
+                showRestoreError = true
+            }
+        }
+    }
+
     /// Builds a `Date` for today at the given minutes-from-midnight, for the picker.
     private func date(forMinute minute: Int) -> Date {
         let cal = Calendar.current
@@ -199,6 +331,75 @@ struct SettingsView: View {
         comps.hour = minute / 60
         comps.minute = minute % 60
         return cal.date(from: comps) ?? Date()
+    }
+
+    /// Writes an automatic backup immediately, reporting the created file's name
+    /// (or the reason nothing was written) back to the user.
+    private func makeAutoBackup() {
+        Task {
+            do {
+                if let url = try await AutoBackupService.shared.backupNow(context: context) {
+                    autoBackupMessage = "Backup written to “\(url.lastPathComponent)” in \(AutoBackupService.shared.folderDisplayName)."
+                } else if AutoBackupService.shared.isEnabled {
+                    autoBackupMessage = "No backup folder is chosen yet — pick one first."
+                } else {
+                    autoBackupMessage = "Automatic backup is off."
+                }
+                showAutoBackupMessage = true
+            } catch {
+                autoBackupErrorMessage = error.localizedDescription
+                showAutoBackupError = true
+            }
+        }
+    }
+
+    /// Decrypts the newest automatic backup into the store (idempotent merge).
+    private func recoverAutoBackup() {
+        Task {
+            do {
+                let inserted = try await AutoBackupService.shared.recoverLatest(context: context)
+                autoBackupMessage = inserted.sessions == 0 && inserted.moods == 0
+                    ? "The latest automatic backup was already restored — nothing new was added."
+                    : "Restored \(inserted.sessions) session\(inserted.sessions == 1 ? "" : "s") and \(inserted.moods) mood entr\(inserted.moods == 1 ? "y" : "ies")."
+                showAutoBackupMessage = true
+            } catch {
+                autoBackupErrorMessage = error.localizedDescription
+                showAutoBackupError = true
+            }
+        }
+    }
+}
+
+/// Wraps the UIKit document picker so the user can choose a destination folder
+/// in the Files app once; the chosen folder is remembered via a security-scoped
+/// bookmark and every later automatic backup is written into it.
+struct BackupFolderPicker: UIViewControllerRepresentable {
+    let onPick: (URL) -> Void
+
+    func makeUIViewController(context: Context) -> UIDocumentPickerViewController {
+        let picker = UIDocumentPickerViewController(forOpeningContentTypes: [.folder], asCopy: false)
+        picker.allowsMultipleSelection = false
+        picker.delegate = context.coordinator
+        return picker
+    }
+
+    func updateUIViewController(_ uiViewController: UIDocumentPickerViewController, context: Context) {}
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(onPick: onPick)
+    }
+
+    final class Coordinator: NSObject, UIDocumentPickerDelegate {
+        let onPick: (URL) -> Void
+
+        init(onPick: @escaping (URL) -> Void) {
+            self.onPick = onPick
+        }
+
+        func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
+            guard let url = urls.first else { return }
+            onPick(url)
+        }
     }
 }
 

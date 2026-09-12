@@ -92,4 +92,50 @@ final class KeychainService: @unchecked Sendable {
     func openRouterKey() -> String {
         get(for: LLMProvider.openrouter) ?? ""
     }
+
+    // MARK: - Automatic backup passphrase
+
+    /// The account name under which the automatic-backup passphrase is stored.
+    /// Unlike API keys this is not tied to a provider, so it gets its own
+    /// account and load/store helpers.
+    private static let autoBackupAccount = "autobackup.passphrase"
+
+    /// Stores the passphrase used for automatic backups. The Keychain survives
+    /// an app uninstall, so this lets a reinstall decrypt backups made before
+    /// it without the user having to remember another passphrase.
+    @discardableResult
+    func setAutoBackupPassphrase(_ value: String) -> Bool {
+        let data = Data(value.utf8)
+        let query: [CFString: Any] = [
+            kSecClass:       kSecClassGenericPassword,
+            kSecAttrService: service,
+            kSecAttrAccount: Self.autoBackupAccount,
+        ]
+        let deleteStatus = SecItemDelete(query as CFDictionary)
+        guard deleteStatus == errSecSuccess || deleteStatus == errSecItemNotFound else { return false }
+        guard !value.isEmpty else { return true }
+        var addAttrs = query
+        addAttrs[kSecValueData] = data
+        addAttrs[kSecAttrAccessible] = kSecAttrAccessibleWhenUnlockedThisDeviceOnly
+        return SecItemAdd(addAttrs as CFDictionary, nil) == errSecSuccess
+    }
+
+    /// Returns the stored automatic-backup passphrase, or `nil` if never set.
+    func autoBackupPassphrase() -> String? {
+        let query: [CFString: Any] = [
+            kSecClass:            kSecClassGenericPassword,
+            kSecAttrService:      service,
+            kSecAttrAccount:      Self.autoBackupAccount,
+            kSecReturnData:       true,
+            kSecMatchLimit:       kSecMatchLimitOne,
+        ]
+        var result: AnyObject?
+        let status = SecItemCopyMatching(query as CFDictionary, &result)
+        guard status == errSecSuccess,
+              let data = result as? Data,
+              let string = String(data: data, encoding: .utf8),
+              !string.isEmpty
+        else { return nil }
+        return string
+    }
 }
