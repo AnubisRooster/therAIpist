@@ -6,19 +6,19 @@ _Auto-generated from the GitNexus knowledge graph on every push to `main`. Do no
 
 | nodes | edges |
 | ----- | ----- |
-| 5053 | 13376 |
+| 5267 | 14956 |
 
 ## God nodes (highest out-degree, tests excluded)
 
 | symbol | file | outDegree |
 | --- | --- | --- |
-| SafetyService.swift | ios/Selfward/Services/SafetyService.swift | 109 |
-| DashboardView.swift | ios/Selfward/Views/DashboardView.swift | 109 |
-| ChatService.swift | ios/Selfward/Services/ChatService.swift | 108 |
-| LocalModelService.swift | ios/Selfward/Services/LocalModelService.swift | 104 |
-| Communities (124 total, 13 thin omitted) | docs/graphify/GRAPH_REPORT.md | 103 |
-| LLMService.swift | ios/Selfward/Services/LLMService.swift | 99 |
-| PINService.swift | ios/Selfward/Services/PINService.swift | 99 |
-| NarrativeService.swift | ios/Selfward/Services/NarrativeService.swift | 98 |
-| InsightService.swift | ios/Selfward/Services/InsightService.swift | 97 |
-| NarrativeExportService.swift | ios/Selfward/Services/NarrativeExportService.swift | 96 |
+| DashboardView.swift | ios/Selfward/Views/DashboardView.swift | 117 |
+| ChatService.swift | ios/Selfward/Services/ChatService.swift | 116 |
+| LocalModelService.swift | ios/Selfward/Services/LocalModelService.swift | 112 |
+| Communities (124 total, 8 thin omitted) | docs/graphify/GRAPH_REPORT.md | 108 |
+| LLMService.swift | ios/Selfward/Services/LLMService.swift | 107 |
+| PINService.swift | ios/Selfward/Services/PINService.swift | 107 |
+| NarrativeService.swift | ios/Selfward/Services/NarrativeService.swift | 106 |
+| InsightService.swift | ios/Selfward/Services/InsightService.swift | 105 |
+| SafetyService.swift | ios/Selfward/Services/SafetyService.swift | 105 |
+| NarrativeExportService.swift | ios/Selfward/Services/NarrativeExportService.swift | 104 |
