@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-09-12
+
+- feat: SPM backup core (BackupKit) + automatic encrypted backups to Files (e8ab99f)
+- chore(graphify): refresh knowledge graph artifacts [skip ci] (c8a12a4)
+- chore(gitnexus): refresh architecture findings [skip ci] (200fe04)
+- chore(graphify): refresh knowledge graph artifacts [skip ci] (31f9b28)
+
+
 ## 2026-09-06
 
 - Exclude audio/video models from OpenRouter picker (57a5af6)
