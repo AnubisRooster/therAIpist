@@ -76,6 +76,17 @@ struct AppRootView: View {
 
     @State private var isUnlocked = false
 
+    // First-launch automatic-restore offer. If a prior install left encrypted
+    // auto-backups in a folder the user picked, offer to restore them before
+    // onboarding instead of silently starting over as a brand-new user.
+    @State private var hasCheckedForAutomaticRestore = false
+    @State private var restoreOfferFolder = ""
+    @State private var showRestoreOffer = false
+    @State private var isRestoring = false
+    @State private var restoreWasRestored = false
+    @State private var restoreNotice = ""
+    @State private var showRestoreNotice = false
+
     var body: some View {
         Group {
             if !onboardingComplete {
@@ -116,6 +127,66 @@ struct AppRootView: View {
                     try? await AutoBackupService.shared.backupNow(context: modelContext)
                 }
             }
+        }
+        // On a fresh install (no onboarding flag), look for auto-backups from a
+        // previous install and offer to restore them before onboarding.
+        .task {
+            await offerAutomaticRestoreIfAppropriate()
+        }
+        .alert("Found your previous sessions", isPresented: $showRestoreOffer) {
+            Button("Restore") { restoreAutomaticBackup() }
+            Button("Skip", role: .cancel) {}
+        } message: {
+            Text("A previous install kept encrypted backups in “\(restoreOfferFolder)”. Restore them now? Anything already on this device is kept.")
+        }
+        .alert("Automatic restore", isPresented: $showRestoreNotice) {
+            Button("OK", role: .cancel) {
+                if restoreWasRestored {
+                    onboardingComplete = true
+                }
+            }
+        } message: {
+            Text(restoreNotice)
+        }
+    }
+
+    /// Offered exactly once per install, and only while onboarding hasn't been
+    /// completed. Detecting requires the Keychain-persisted folder bookmark
+    /// from the previous install; when anything is missing it falls through
+    /// silently so a genuinely new user isn't bothered.
+    @MainActor
+    private func offerAutomaticRestoreIfAppropriate() async {
+        guard !onboardingComplete, !hasCheckedForAutomaticRestore, !isRestoring else { return }
+        hasCheckedForAutomaticRestore = true
+        guard let offer = AutoBackupService.shared.newestAvailableBackup() else { return }
+        restoreOfferFolder = offer.folderName
+        showRestoreOffer = true
+    }
+
+    /// Merges the newest auto-backup into the store. On success the user is a
+    /// returning one, so we skip onboarding; on failure we surface the error and
+    /// let them continue as a new user (they can retry from Settings later).
+    @MainActor
+    private func restoreAutomaticBackup() {
+        guard !isRestoring else { return }
+        isRestoring = true
+        showRestoreOffer = false
+        Task {
+            do {
+                let inserted = try await AutoBackupService.shared.recoverLatest(context: modelContext)
+                try? StoreProtection.applyToDefaultStore()
+                if inserted.sessions == 0 && inserted.moods == 0 {
+                    restoreNotice = "Your latest backup was already on this device — nothing new was added."
+                } else {
+                    restoreNotice = "Restored \(inserted.sessions) session\(inserted.sessions == 1 ? "" : "s") and \(inserted.moods) mood entr\(inserted.moods == 1 ? "y" : "ies"). Your chats are back."
+                }
+                restoreWasRestored = true
+            } catch {
+                restoreNotice = "Couldn't restore the backup: \(error.localizedDescription). You can retry later from Settings → Automatic backup."
+                restoreWasRestored = false
+            }
+            isRestoring = false
+            showRestoreNotice = true
         }
     }
 }

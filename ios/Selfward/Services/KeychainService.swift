@@ -11,11 +11,33 @@ protocol APIKeyProvider {
     var keyHint: String { get }
 }
 
+/// The minimal Keychain storage surface `AutoBackupService` depends on. It is a
+/// protocol so tests can inject an in-memory stand-in instead of reading/writing
+/// the simulator's real Keychain.
+protocol KeychainStoring {
+    /// Returns the raw Data stored under `account`, or `nil` if unset.
+    func keychainData(account: String) -> Data?
+    /// Stores raw Data under `account` (pass `nil` to clear). Returns success.
+    @discardableResult
+    func setKeychainData(_ value: Data?, account: String) -> Bool
+    /// The automatic-backup passphrase (Keychain, survives a reinstall).
+    func autoBackupPassphrase() -> String?
+    @discardableResult
+    func setAutoBackupPassphrase(_ value: String) -> Bool
+}
+
 /// Wraps the Security framework Keychain API to store per-provider API keys.
 /// Keys are stored under the generic-password class with the app's bundle ID
 /// as the service and the provider's `keychainKey` as the account.
-final class KeychainService: @unchecked Sendable {
+final class KeychainService: KeychainStoring, @unchecked Sendable {
     static let shared = KeychainService()
+
+    // MARK: - Automatic-backup account names
+
+    /// Keychain account for the JSON-encoded `AutoBackupConfig` blob.
+    static let autoBackupConfigAccount = "autobackup.config"
+    /// Keychain account for the security-scoped bookmark of the backup folder.
+    static let autoBackupBookmarkAccount = "autobackup.folderbookmark"
 
     private let service: String = Bundle.main.bundleIdentifier ?? "com.theraipist.app"
 
@@ -137,5 +159,66 @@ final class KeychainService: @unchecked Sendable {
               !string.isEmpty
         else { return nil }
         return string
+    }
+
+    // MARK: - Raw account storage (KeychainStoring)
+
+    /// Returns the raw Data stored under `account`, or `nil` if unset.
+    func keychainData(account: String) -> Data? {
+        let query: [CFString: Any] = [
+            kSecClass:            kSecClassGenericPassword,
+            kSecAttrService:      service,
+            kSecAttrAccount:      account,
+            kSecReturnData:       true,
+            kSecMatchLimit:       kSecMatchLimitOne,
+        ]
+        var result: AnyObject?
+        let status = SecItemCopyMatching(query as CFDictionary, &result)
+        guard status == errSecSuccess else { return nil }
+        return result as? Data
+    }
+
+    /// Stores raw Data under `account`. Passing `nil` (or empty Data) clears the
+    /// item. Data stays on this device only and is available while unlocked,
+    /// matching the API-key behavior above.
+    @discardableResult
+    func setKeychainData(_ value: Data?, account: String) -> Bool {
+        let query: [CFString: Any] = [
+            kSecClass:            kSecClassGenericPassword,
+            kSecAttrService:      service,
+            kSecAttrAccount:      account,
+        ]
+        let deleteStatus = SecItemDelete(query as CFDictionary)
+        guard deleteStatus == errSecSuccess || deleteStatus == errSecItemNotFound else { return false }
+
+        guard let value, !value.isEmpty else { return true } // Intentional clear.
+
+        var addAttrs = query
+        addAttrs[kSecValueData] = value
+        addAttrs[kSecAttrAccessible] = kSecAttrAccessibleWhenUnlockedThisDeviceOnly
+        let addStatus = SecItemAdd(addAttrs as CFDictionary, nil)
+        return addStatus == errSecSuccess
+    }
+
+    // MARK: - Automatic backup config (survives a reinstall)
+
+    /// The JSON-encoded `AutoBackupConfig` blob, or `nil` if never stored.
+    func autoBackupConfigData() -> Data? {
+        keychainData(account: Self.autoBackupConfigAccount)
+    }
+
+    @discardableResult
+    func setAutoBackupConfigData(_ value: Data?) -> Bool {
+        setKeychainData(value, account: Self.autoBackupConfigAccount)
+    }
+
+    /// The security-scoped bookmark of the folder the user picked in Files.
+    func autoBackupBookmarkData() -> Data? {
+        keychainData(account: Self.autoBackupBookmarkAccount)
+    }
+
+    @discardableResult
+    func setAutoBackupBookmarkData(_ value: Data?) -> Bool {
+        setKeychainData(value, account: Self.autoBackupBookmarkAccount)
     }
 }

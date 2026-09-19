@@ -53,13 +53,21 @@ struct SettingsView: View {
     @State private var restoreErrorMessage = ""
     @State private var showRestoreError = false
 
-    // Automatic-backup UI state
-    @AppStorage("autoBackup.enabled")      private var autoBackupEnabled   = false
+    // Automatic-backup UI state. The toggle reads/writes through the service —
+    // not `@AppStorage` — because the setting is persisted in the Keychain so it
+    // survives an app uninstall and a reinstall can offer recovery.
     @State private var showFolderPicker = false
     @State private var autoBackupMessage = ""
     @State private var showAutoBackupMessage = false
     @State private var autoBackupErrorMessage = ""
     @State private var showAutoBackupError = false
+
+    private var autoBackupEnabled: Binding<Bool> {
+        Binding(
+            get: { AutoBackupService.shared.isEnabled },
+            set: { AutoBackupService.shared.isEnabled = $0 }
+        )
+    }
 
     var body: some View {
         Form {
@@ -133,8 +141,8 @@ struct SettingsView: View {
             }
 
             Section("Automatic backup") {
-                Toggle("Keep automatic backups", isOn: $autoBackupEnabled)
-                if autoBackupEnabled {
+                Toggle("Keep automatic backups", isOn: autoBackupEnabled)
+                if AutoBackupService.shared.isEnabled {
                     Button("Choose backup folder…") {
                         showFolderPicker = true
                     }
