@@ -32,6 +32,17 @@ final class ConversationCompactor {
     /// Reserved space (as a fraction of the budget) for the rolling summary.
     nonisolated static let summaryBudgetFraction = 0.25
 
+    /// Minimum size (estimated tokens) a block of not-yet-summarized turns
+    /// must reach before we spend a model call summarizing it. Without this
+    /// floor, once a long local conversation crosses the compaction
+    /// threshold, every single subsequent turn pays for a second full model
+    /// generation just to fold in one new exchange — on-device that means
+    /// running the (possibly large) chat model twice per message, which is
+    /// what made long local conversations slow. Below this floor, pending
+    /// turns simply ride along verbatim in the budget-trimmed recent window
+    /// until enough accumulate to summarize in one batch.
+    nonisolated static let minSummarizationBlockTokens = 600
+
     private let defaults: UserDefaults
 
     init(defaults: UserDefaults = .standard) {
@@ -157,6 +168,17 @@ final class ConversationCompactor {
             // Nothing new to fold in — reuse the cached summary untouched.
             store(coveredCount: summarizedCount, summary: existing.summary, sessionID: sessionID)
             return (existing.summary, recent)
+        }
+
+        // Not enough new material yet to justify another model call: fold the
+        // pending block into the verbatim window instead (still budget-
+        // trimmed) and keep accumulating. `coveredCount` is deliberately left
+        // untouched so this same block — plus whatever comes next — is what
+        // eventually gets summarized once it crosses the threshold.
+        if Self.estimatedTokens(newBlock) < Self.minSummarizationBlockTokens {
+            guard let existing, !existing.summary.isEmpty else { return nil }
+            let combined = Self.retainedHistory(newBlock + recent, budget: recentBudget, minimumKeep: 2)
+            return (existing.summary, combined)
         }
 
         var parts: [String] = []
