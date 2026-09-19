@@ -1,5 +1,8 @@
 import XCTest
 @testable import Selfward
+#if canImport(FoundationModels)
+import FoundationModels
+#endif
 
 // MARK: - Retry classification
 
@@ -61,3 +64,37 @@ final class LLMRetryClassificationTests: XCTestCase {
         XCTAssertFalse(LLMErrorTriage.isRateLimitLike(LLMError.emptyResponse))
     }
 }
+
+#if canImport(FoundationModels)
+
+// MARK: - Apple Foundation generation error mapping
+
+@available(iOS 26, *)
+final class AppleFoundationErrorMappingTests: XCTestCase {
+
+    private func context(_ description: String) -> LanguageModelSession.GenerationError.Context {
+        LanguageModelSession.GenerationError.Context(debugDescription: description)
+    }
+
+    func testClassifiesContextOverflowAsContextLengthExceeded() {
+        let error = LanguageModelSession.GenerationError.exceededContextWindowSize(
+            context("Content contains 4090 tokens, which exceeds the maximum allowed context size of 4096.")
+        )
+        guard case .contextLengthExceeded = AppleFoundationEngine.classify(error) else {
+            return XCTFail("Expected .contextLengthExceeded")
+        }
+    }
+
+    func testClassifiesRateLimitAsRateLimited() {
+        let error = LanguageModelSession.GenerationError.rateLimited(context("rate limited"))
+        guard case .rateLimited = AppleFoundationEngine.classify(error) else {
+            return XCTFail("Expected .rateLimited")
+        }
+    }
+
+    func testLeavesOtherErrorsUnmapped() {
+        let error = LanguageModelSession.GenerationError.guardrailViolation(context("blocked"))
+        XCTAssertNil(AppleFoundationEngine.classify(error))
+    }
+}
+#endif

@@ -14,6 +14,14 @@ func appleFoundationModelAvailable() -> Bool {
     return false
 }
 
+/// `LanguageModelSession`'s hard total-input cap (tokens). Observed in the
+/// field as `GenerationError.exceededContextWindowSize` once a session's
+/// content (system instructions + replayed history + current prompt) exceeds
+/// the limit — Apple's on-device model does not scale its window by RAM the
+/// way llama.cpp does. Kept top-level (outside the iOS-26 availability gate)
+/// so the compaction token budget can be sized from it on any iOS version.
+let appleFoundationMaxInputTokens = 4096
+
 // MARK: - Engine (iOS 26+, FoundationModels SDK)
 
 #if canImport(FoundationModels)
@@ -87,8 +95,32 @@ enum AppleFoundationEngine {
             ? lastUserContent
             : contextLines.joined(separator: "\n") + "\n\nUser: " + lastUserContent
 
-        let response = try await session.respond(to: Prompt(fullPrompt))
+        let response: LanguageModelSession.Response<String>
+        do {
+            response = try await session.respond(to: Prompt(fullPrompt))
+        } catch let error as LanguageModelSession.GenerationError {
+            throw Self.classify(error) ?? error
+        }
         return response.content
+    }
+
+    // MARK: - Error mapping
+
+    /// Maps a FoundationModels generation error onto the domain `LLMError`
+    /// when it has a diagnosable, recoverable equivalent. History that
+    /// outpaced the session's context window becomes `.contextLengthExceeded`
+    /// (so ChatService can surface guidance instead of a canned reply), and
+    /// `rateLimited` becomes the retryable rate-limit error. Anything else is
+    /// re-thrown unchanged.
+    static func classify(_ error: LanguageModelSession.GenerationError) -> LLMError? {
+        switch error {
+        case .exceededContextWindowSize:
+            return .contextLengthExceeded
+        case .rateLimited:
+            return .rateLimited(retryAfter: nil)
+        default:
+            return nil
+        }
     }
 }
 
@@ -114,7 +146,8 @@ enum AppleFoundationError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .unavailable(let reason):
-            return "Apple Intelligence is not available on this device (\(reason)). Switch to a cloud model or download a GGUF model in Settings → Models."
+            return "Apple Intelligence is not available on this device (\(reason)). Switch to a cloud model " +
+                "or download a GGUF model in Settings → Models."
         }
     }
 }

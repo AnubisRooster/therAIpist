@@ -78,6 +78,17 @@ extension ChatService {
     /// their advertised `context_length` (falling back to a sane default);
     /// on-device models use the RAM-scaled context window.
     func historyTokenBudget(provider: String, model: String) -> Int {
+        // Apple Foundation Models hard-cap a session's total input at 4096
+        // tokens (GenerationError.exceededContextWindowSize), regardless of how
+        // much RAM the device has — so size its budget from that cap rather
+        // than llama.cpp's RAM-scaled window.
+        if provider == "local", model == "apple-foundation" {
+            return ConversationCompactor.historyTokenBudget(
+                provider: provider,
+                knownContextLength: nil,
+                localContextWindow: appleFoundationMaxInputTokens
+            )
+        }
         let knownContextLength = ModelService.cachedContextLength(for: model)
         return ConversationCompactor.historyTokenBudget(
             provider: provider,

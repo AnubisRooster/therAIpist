@@ -248,6 +248,21 @@ final class ChatServiceCompactionTests: XCTestCase {
         return session
     }
 
+    // MARK: - Apple Foundation budget cap
+
+    func testAppleFoundationBudgetIsCappedAtHardContextWindow() {
+        let chat = ChatService(llm: MockLLM(response: "hi"))
+        let budget = chat.historyTokenBudget(provider: "local", model: "apple-foundation")
+        XCTAssertEqual(budget, ConversationCompactor.historyTokenBudget(
+            provider: "local",
+            knownContextLength: nil,
+            localContextWindow: appleFoundationMaxInputTokens
+        ))
+        XCTAssertEqual(budget, Int(Double(appleFoundationMaxInputTokens) * 0.6))
+        XCTAssertLessThan(budget, appleFoundationMaxInputTokens,
+                          "History alone must leave headroom under the 4096-token hard cap")
+    }
+
     private func seedPriorTurns(session: SessionModel, count: Int, charsPerMessage: Int = 60) {
         let now = Date()
         for index in 0..<count {
