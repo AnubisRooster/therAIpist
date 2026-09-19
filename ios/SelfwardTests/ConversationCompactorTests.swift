@@ -145,7 +145,11 @@ final class ConversationCompactorTests: XCTestCase {
         XCTAssertEqual(summarizerCalls, 1, "Cached summary reused — no new summarization call")
     }
 
-    func testCompactSummarizesNewTurnsWhenTheyAccumulate() async throws {
+    func testCompactDoesNotResummarizeForASingleSmallNewTurn() async throws {
+        // A long local conversation must not pay for a second full model
+        // generation on every subsequent turn once it first crosses the
+        // compaction threshold — only one new (small) exchange shouldn't be
+        // enough to trigger another summarizer call.
         let compactor = makeCompactor()
         let sessionID = UUID().uuidString
         var summarizerCalls = 0
@@ -166,12 +170,51 @@ final class ConversationCompactorTests: XCTestCase {
             sessionID: sessionID,
             budget: 500,
             minimumRecentTurns: 4,
+            summarizer: { _ in summarizerCalls += 1; return "SHOULD-NOT-RUN" }
+        )
+
+        let (summary, recent) = try XCTUnwrap(result)
+        XCTAssertEqual(summary, "SUMMARY-1", "Cached summary is reused — the new turn is too small to batch yet")
+        XCTAssertEqual(summarizerCalls, 1, "A single small new exchange must not trigger another model call")
+        XCTAssertTrue(recent.contains { $0.1.contains("new turn") },
+                      "The pending new turn still rides along verbatim until it's batched")
+    }
+
+    func testCompactSummarizesOnceEnoughNewTurnsAccumulate() async throws {
+        // Once enough new material piles up (past minSummarizationBlockTokens),
+        // it should be folded into the summary in a single batched call rather
+        // than one call per turn.
+        let compactor = makeCompactor()
+        let sessionID = UUID().uuidString
+        var summarizerCalls = 0
+        let history = filledConversation(turnCount: 20, charsPerMessage: 200)
+
+        _ = try await compactor.compact(
+            messages: history,
+            sessionID: sessionID,
+            budget: 500,
+            minimumRecentTurns: 4,
+            summarizer: { _ in summarizerCalls += 1; return "SUMMARY-1" }
+        )
+
+        // ~50 tokens/message x 20 new messages comfortably clears the 600-token
+        // batching floor in one go.
+        let newTurns = (0..<20).map { index -> (String, String) in
+            let role = index % 2 == 0 ? "user" : "assistant"
+            return (role, "batched turn \(index) \(String(repeating: "z", count: 200))")
+        }
+        let extended = history + newTurns
+        let result = try await compactor.compact(
+            messages: extended,
+            sessionID: sessionID,
+            budget: 500,
+            minimumRecentTurns: 4,
             summarizer: { _ in summarizerCalls += 1; return "SUMMARY-2" }
         )
 
         let (summary, _) = try XCTUnwrap(result)
         XCTAssertEqual(summary, "SUMMARY-2")
-        XCTAssertEqual(summarizerCalls, 2, "New uncovered turns trigger one fresh summarization")
+        XCTAssertEqual(summarizerCalls, 2, "Enough accumulated new turns trigger exactly one fresh summarization")
     }
 
     func testCompactPropagatesSummarizerFailure() async throws {
