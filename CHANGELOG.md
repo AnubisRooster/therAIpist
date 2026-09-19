@@ -2,6 +2,13 @@
 
 ## 2026-09-19
 
+- fix: batch rolling-summary compaction instead of running it every turn (#8) (35d844e)
+- chore(gitnexus): refresh architecture findings [skip ci] (8293d54)
+- chore(graphify): refresh knowledge graph artifacts [skip ci] (2a25b8b)
+
+
+## 2026-09-19
+
 - Fix TTS cadence: chain utterances, add adjustable sentence pause (01172bc)
 - Cap Apple Foundation history budget at 4096 and surface its context-overflow error (932cd5a)
 - Add token-aware conversation compaction and rate-limit recovery (98313fa)
