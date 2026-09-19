@@ -697,6 +697,7 @@ struct VoiceSettingsView: View {
     @AppStorage("tts_provider")          private var ttsProvider  = "ondevice"
     @AppStorage("tts_rate")              private var ttsRate: Double  = 0.5
     @AppStorage("tts_pitch")             private var ttsPitch: Double = 1.0
+    @AppStorage("tts_sentence_pause")    private var ttsSentencePause: Double = 0.0
     @AppStorage("tts_voice_id")          private var ttsVoiceID   = ""
     @AppStorage("tts_openai_voice")      private var openAIVoice  = OpenAITTSEngine.defaultVoice
     @AppStorage("tts_openai_model")      private var openAIModel  = OpenAITTSEngine.defaultModel
@@ -774,12 +775,17 @@ struct VoiceSettingsView: View {
         VStack(alignment: .leading, spacing: 4) {
             Text("Speed: \(String(format: "%.2f", ttsRate))")
                 .font(.caption).foregroundColor(.secondary)
-            Slider(value: $ttsRate, in: 0.2...0.7, step: 0.025)
+            Slider(value: $ttsRate, in: 0.2...0.8, step: 0.05)
         }
         VStack(alignment: .leading, spacing: 4) {
             Text("Pitch: \(String(format: "%.1f", ttsPitch))")
                 .font(.caption).foregroundColor(.secondary)
             Slider(value: $ttsPitch, in: 0.75...1.25, step: 0.05)
+        }
+        VStack(alignment: .leading, spacing: 4) {
+            Text("Pause between sentences: \(String(format: "%.2f", ttsSentencePause))s")
+                .font(.caption).foregroundColor(.secondary)
+            Slider(value: $ttsSentencePause, in: 0...0.5, step: 0.05)
         }
     }
 

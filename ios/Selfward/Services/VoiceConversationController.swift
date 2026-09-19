@@ -530,12 +530,14 @@ final class VoiceConversationController: NSObject, ObservableObject {
     private func speakThenResume(_ text: String) {
         phase = .speaking
         let (rate, pitch, voiceID) = resolvedVoiceSettings()
+        let sentencePause = UserDefaults.standard.double(forKey: "tts_sentence_pause")
 
         speech.speak(
             text,
             rate: rate,
             pitch: pitch,
             voiceID: voiceID,
+            sentencePause: sentencePause,
             onFinish: { [weak self] in self?.resumeListeningAfterSpeaking() },
             onError: { [weak self] message in
                 Task { @MainActor in self?.errorMessage = message }

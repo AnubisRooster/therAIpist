@@ -32,6 +32,7 @@
 		7A2C4D5E6F708192A3B4C5D600 /* AutoBackupServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A2C4D5E6F708192A3B4C5D601 /* AutoBackupServiceTests.swift */; };
 		7A2C4D5E6F708192A3B4C5D6A0 /* ConversationCompactorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A2C4D5E6F708192A3B4C5D6A1 /* ConversationCompactorTests.swift */; };
 		7A2C4D5E6F708192A3B4C5D6A2 /* LLMErrorTriageTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A2C4D5E6F708192A3B4C5D6A3 /* LLMErrorTriageTests.swift */; };
+		9F8E7D6C5B4A3A2B1C0D9E8E /* SpeechServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F8E7D6C5B4A3A2B1C0D9E8F /* SpeechServiceTests.swift */; };
 		0A1B2C3D4E5F60718293A4BD0 /* ChatService+Support.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A1B2C3D4E5F60718293A4BD1 /* ChatService+Support.swift */; };
 		4BB92C4B89EA7FA37F983496 /* VoiceConversationController.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7EF57872E42353E8E306853 /* VoiceConversationController.swift */; };
 		4D3E9591534F521D7C217B91 /* ModelService.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF4BE5016360D07B4A1B03F2 /* ModelService.swift */; };
@@ -127,6 +128,7 @@
 		7A2C4D5E6F708192A3B4C5D601 /* AutoBackupServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AutoBackupServiceTests.swift; sourceTree = "<group>"; };
 		7A2C4D5E6F708192A3B4C5D6A1 /* ConversationCompactorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationCompactorTests.swift; sourceTree = "<group>"; };
 		7A2C4D5E6F708192A3B4C5D6A3 /* LLMErrorTriageTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMErrorTriageTests.swift; sourceTree = "<group>"; };
+		9F8E7D6C5B4A3A2B1C0D9E8F /* SpeechServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechServiceTests.swift; sourceTree = "<group>"; };
 		C0FFEE22A2B3C4D5E6F78901 /* ModelServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelServiceTests.swift; sourceTree = "<group>"; };
 		4C64D67E561F4F9420F42B19 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		4E35383169E391C4C71A1F9E /* GraphVisualizationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraphVisualizationView.swift; sourceTree = "<group>"; };
@@ -286,9 +288,10 @@
 				08B8E4472E85F942522C5576 /* PINLockoutTests.swift */,
 				0581D2258450F18F3E17AFE3 /* SafetyServiceTests.swift */,
 				7A2C4D5E6F708192A3B4C5D601 /* AutoBackupServiceTests.swift */,
-				7A2C4D5E6F708192A3B4C5D6A1 /* ConversationCompactorTests.swift */,
-				7A2C4D5E6F708192A3B4C5D6A3 /* LLMErrorTriageTests.swift */,
-				4C2E3E137BA2B43146C53624 /* SessionModelTests.swift */,
+7A2C4D5E6F708192A3B4C5D6A1 /* ConversationCompactorTests.swift */,
+			7A2C4D5E6F708192A3B4C5D6A3 /* LLMErrorTriageTests.swift */,
+			9F8E7D6C5B4A3A2B1C0D9E8F /* SpeechServiceTests.swift */,
+			4C2E3E137BA2B43146C53624 /* SessionModelTests.swift */,
 				C0FFEE22A2B3C4D5E6F78901 /* ModelServiceTests.swift */,
 				E951EA2F4BCFC99DFE32A394 /* TestSupport.swift */,
 				8BB146387FA63BE78299C6DF /* VoiceTranscriptTests.swift */,
@@ -488,8 +491,9 @@
 				4B808F4BB84AABD9F9FCB12A /* SessionModelTests.swift in Sources */,
 				7A2C4D5E6F708192A3B4C5D600 /* AutoBackupServiceTests.swift in Sources */,
 				7A2C4D5E6F708192A3B4C5D6A0 /* ConversationCompactorTests.swift in Sources */,
-				7A2C4D5E6F708192A3B4C5D6A2 /* LLMErrorTriageTests.swift in Sources */,
-				C0FFEE11A2B3C4D5E6F78901 /* ModelServiceTests.swift in Sources */,
+7A2C4D5E6F708192A3B4C5D6A2 /* LLMErrorTriageTests.swift in Sources */,
+			9F8E7D6C5B4A3A2B1C0D9E8E /* SpeechServiceTests.swift in Sources */,
+			C0FFEE11A2B3C4D5E6F78901 /* ModelServiceTests.swift in Sources */,
 				3CFF2CAF166070E6F50AF6DF /* TestSupport.swift in Sources */,
 				D26AC46605A40B00DE88E5A1 /* VoiceTranscriptTests.swift in Sources */,
 			);

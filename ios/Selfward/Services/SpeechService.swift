@@ -10,10 +10,15 @@ final class SpeechService: NSObject, ObservableObject {
 
     private let synthesizer = AVSpeechSynthesizer()
 
-    /// Called once when the current utterance finishes naturally. Cleared when a
-    /// new utterance starts or when speech is cancelled, so it never fires for an
+    /// Called once when the current spoken reply finishes naturally. Cleared when a
+    /// new reply starts or when speech is cancelled, so it never fires for an
     /// interrupted utterance.
     private var onFinish: (() -> Void)?
+
+    /// Utterances queued but not yet finished (or cancelled). The queue lets a
+    /// reply's sentences flow on one `AVSpeechSynthesizer` without the stop/
+    /// restart gap that made each sentence boundary sound like a long pause.
+    private var enqueuedUtterances = 0
 
     override private init() {
         super.init()
@@ -27,8 +32,27 @@ final class SpeechService: NSObject, ObservableObject {
                rate: Float = 0.5,
                pitch: Float = 1.0,
                voiceID: String = "",
-               onFinish: (() -> Void)? = nil) {
-        guard !text.isEmpty else { onFinish?(); return }
+               sentencePause: TimeInterval = 0,
+               onFinish: (() -> Void)? = nil,
+               onError: ((String) -> Void)? = nil) {
+        speakSentences([text], rate: rate, pitch: pitch, voiceID: voiceID,
+                       sentencePause: sentencePause, onFinish: onFinish, onError: onError)
+    }
+
+    /// Speaks a reply's sentences as one chained queue on `synthesizer`.
+    /// Each sentence becomes its own utterance (so the whole reply is
+    /// interruptible as a unit) but they enqueue back-to-back — no
+    /// `stopSpeaking` between them — and carry `sentencePause` as the only
+    /// extra delay after each sentence boundary. Natural sentence intonation
+    /// comes from the synthesizer itself, not an artificial stop/start gap.
+    func speakSentences(_ texts: [String],
+                        rate: Float = 0.5,
+                        pitch: Float = 1.0,
+                        voiceID: String = "",
+                        sentencePause: TimeInterval = 0,
+                        onFinish: (() -> Void)? = nil,
+                        onError: ((String) -> Void)? = nil) {
+        guard !texts.isEmpty else { onFinish?(); return }
 
         // Clear any pending callback BEFORE interrupting, so the resulting
         // didCancel doesn't fire a stale completion.
@@ -38,23 +62,29 @@ final class SpeechService: NSObject, ObservableObject {
         // Activate the audio session each time in case it was deactivated.
         configureAudioSession()
 
-        let cleaned = stripMarkdown(text)
-        let utterance = AVSpeechUtterance(string: cleaned)
-        utterance.rate            = rate
-        utterance.pitchMultiplier = pitch
-        utterance.preUtteranceDelay = 0.05
+        let voice = voiceID.isEmpty
+            ? Self.bestAvailableVoice()                       // No explicit choice
+            : AVSpeechSynthesisVoice(identifier: voiceID) ?? Self.bestAvailableVoice()
 
-        if voiceID.isEmpty {
-            // No explicit choice: use the best-quality English voice installed.
-            utterance.voice = Self.bestAvailableVoice()
-        } else {
-            utterance.voice = AVSpeechSynthesisVoice(identifier: voiceID)
-                           ?? Self.bestAvailableVoice()
+        var spoken = 0
+        for text in texts {
+            let cleaned = Self.stripMarkdown(text)
+            guard !cleaned.isEmpty else { continue }
+
+            let utterance = AVSpeechUtterance(string: cleaned)
+            utterance.rate = rate
+            utterance.pitchMultiplier = pitch
+            utterance.preUtteranceDelay = 0
+            utterance.postUtteranceDelay = sentencePause
+            utterance.voice = voice
+            synthesizer.speak(utterance)
+            spoken += 1
         }
+        guard spoken > 0 else { onFinish?(); return }
 
+        enqueuedUtterances = spoken
         self.onFinish = onFinish
         isSpeaking = true
-        synthesizer.speak(utterance)
     }
 
     /// The display name of the currently stored voice. Falls back to the best
@@ -86,6 +116,7 @@ final class SpeechService: NSObject, ObservableObject {
     func stop() {
         // A manual stop is an interruption, not a natural finish — drop the callback.
         onFinish = nil
+        enqueuedUtterances = 0
         synthesizer.stopSpeaking(at: .word)
         isSpeaking = false
     }
@@ -108,7 +139,7 @@ final class SpeechService: NSObject, ObservableObject {
     // MARK: - Markdown stripping
 
     /// Strip common markdown tokens so the synthesizer reads clean prose.
-    private func stripMarkdown(_ text: String) -> String {
+    nonisolated static func stripMarkdown(_ text: String) -> String {
         var s = text
         // Bold / italic
         s = s.replacingOccurrences(of: #"\*\*(.+?)\*\*"#, with: "$1", options: .regularExpression)
@@ -116,9 +147,11 @@ final class SpeechService: NSObject, ObservableObject {
         s = s.replacingOccurrences(of: #"_(.+?)_"#,       with: "$1", options: .regularExpression)
         // Headers
         s = s.replacingOccurrences(of: #"(?m)^#+\s+"#, with: "", options: .regularExpression)
-        // Bullet lists → natural pause
+        // Bullet markers
         s = s.replacingOccurrences(of: #"(?m)^\s*[-•*]\s+"#, with: "", options: .regularExpression)
-        s = s.replacingOccurrences(of: "\n",  with: ". ")
+        // Line breaks → short pause only; a "." here would make the synthesizer
+        // treat every newline as a full sentence boundary and pause too long.
+        s = s.replacingOccurrences(of: "\n",  with: ", ")
         // Collapse repeated punctuation
         s = s.replacingOccurrences(of: #"\.\s*\."#, with: ".", options: .regularExpression)
         return s.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -131,6 +164,9 @@ extension SpeechService: AVSpeechSynthesizerDelegate {
     nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer,
                                        didFinish utterance: AVSpeechUtterance) {
         Task { @MainActor in
+            self.enqueuedUtterances -= 1
+            guard self.enqueuedUtterances <= 0 else { return }
+            self.enqueuedUtterances = 0
             self.isSpeaking = false
             let cb = self.onFinish
             self.onFinish = nil
@@ -139,6 +175,10 @@ extension SpeechService: AVSpeechSynthesizerDelegate {
     }
     nonisolated func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer,
                                        didCancel utterance: AVSpeechUtterance) {
-        Task { @MainActor in self.isSpeaking = false }
+        Task { @MainActor in
+            self.enqueuedUtterances = 0
+            self.isSpeaking = false
+            self.onFinish = nil
+        }
     }
 }

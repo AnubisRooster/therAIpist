@@ -34,17 +34,6 @@ final class TTSCoordinator: ObservableObject {
 
     private var provider: String { UserDefaults.standard.string(forKey: "tts_provider") ?? "ondevice" }
 
-    /// Bumped by `stop()` and by `speakPrefetched`'s own start, so a stale
-    /// queue-playback loop (or a stale in-flight continuation from
-    /// `playOne`) can tell it's been superseded and stop advancing instead of
-    /// playing a sentence nobody asked for anymore.
-    private var speechGeneration = 0
-    /// The continuation `playOne` is currently waiting on, so `stop()` can
-    /// resume it directly — the engines' own `stop()` clears their playback
-    /// callbacks without invoking them, which would otherwise leave this
-    /// continuation (and the queue loop awaiting it) suspended forever.
-    private var activeSentenceContinuation: CheckedContinuation<Void, Never>?
-
     private init() {
         // SpeechService.isSpeaking is @Published, but callers observe
         // TTSCoordinator instead now — mirror its changes so the mute-button
@@ -56,35 +45,25 @@ final class TTSCoordinator: ObservableObject {
                rate: Float = 0.5,
                pitch: Float = 1.0,
                voiceID: String = "",
+               sentencePause: TimeInterval = 0,
                onFinish: (() -> Void)? = nil,
                onError: ((String) -> Void)? = nil) {
-        interruptPendingQueue()
         switch provider {
         case "openai":
             speakOpenAI(text, rate: rate, onFinish: onFinish, onError: onError)
         case "elevenlabs":
             speakElevenLabs(text, onFinish: onFinish, onError: onError)
         default:
-            onDevice.speak(text, rate: rate, pitch: pitch, voiceID: voiceID, onFinish: onFinish)
+            onDevice.speak(text, rate: rate, pitch: pitch, voiceID: voiceID,
+                           sentencePause: sentencePause, onFinish: onFinish, onError: onError)
         }
     }
 
     func stop() {
-        interruptPendingQueue()
         onDevice.stop()
         elevenLabs.stop()
         openAI.stop()
         isSpeakingCloud = false
-    }
-
-    /// Resumes (without playing anything) any `playOne` continuation left
-    /// over from a `speakPrefetched` queue, and bumps `speechGeneration` so
-    /// that queue's driving loop stops advancing. Called before starting any
-    /// new utterance so an old queue can never keep running underneath it.
-    private func interruptPendingQueue() {
-        speechGeneration += 1
-        activeSentenceContinuation?.resume()
-        activeSentenceContinuation = nil
     }
 
     private func speakOpenAI(_ text: String, rate: Float, onFinish: (() -> Void)?, onError: ((String) -> Void)?) {
@@ -147,11 +126,17 @@ final class TTSCoordinator: ObservableObject {
         Task { PrefetchedSentence.text(text) }
     }
 
-    /// Plays a full reply's sentences in order, using whichever clips
-    /// `prefetchSentence` already finished synthesizing and simply waiting on
-    /// whichever haven't. Call this only once the caller has confirmed the
-    /// reply cleared any safety check — nothing plays until this is called,
-    /// no matter how early prefetching started.
+    /// Plays a full reply's sentences, using whichever clips
+    /// `prefetchSentence` already finished synthesizing. Call this only once
+    /// the caller has confirmed the reply cleared any safety check — nothing
+    /// plays until this is called, no matter how early prefetching started.
+    ///
+    /// The reply is handed to the engine as one unit: on-device, the sentences
+    /// chain onto a single `AVSpeechSynthesizer` queue (no stop/start tear at
+    /// every period, user-tunable pause between sentences); cloud engines get
+    /// one synthesis request for the whole reply instead of a network
+    /// round-trip per sentence — both remove the audible gaps that made
+    /// spoken replies feel slow.
     func speakPrefetched(_ tasks: [Task<PrefetchedSentence, Never>],
                         rate: Float = 0.5,
                         pitch: Float = 1.0,
@@ -159,48 +144,32 @@ final class TTSCoordinator: ObservableObject {
                         onFinish: (() -> Void)? = nil,
                         onError: ((String) -> Void)? = nil) {
         guard !tasks.isEmpty else { onFinish?(); return }
-        interruptPendingQueue()
-        let generation = speechGeneration
-        isSpeakingCloud = (provider != "ondevice")
 
         Task { [weak self] in
             guard let self else { return }
+            var texts: [String] = []
             for task in tasks {
-                guard self.speechGeneration == generation else { return }
-                let sentence = await task.value
-                guard self.speechGeneration == generation else { return }
-                await self.playOne(sentence, rate: rate, pitch: pitch, voiceID: voiceID, onError: onError)
+                if case .text(let text) = await task.value, !text.isEmpty {
+                    texts.append(text)
+                }
             }
-            guard self.speechGeneration == generation else { return }
-            self.isSpeakingCloud = false
-            onFinish?()
-        }
-    }
-
-    /// Speaks a single queued sentence's text through the active engine and
-    /// suspends until it finishes (or errors, or is interrupted by `stop()`),
-    /// so `speakPrefetched`'s loop naturally plays the queue back-to-back.
-    private func playOne(_ sentence: PrefetchedSentence, rate: Float, pitch: Float, voiceID: String,
-                         onError: ((String) -> Void)?) async {
-        let text: String
-        switch sentence {
-        case .text(let t): text = t
-        }
-
-        await withCheckedContinuation { continuation in
-            activeSentenceContinuation = continuation
-            let finish: () -> Void = { [weak self] in
-                guard let self, self.activeSentenceContinuation != nil else { return }
-                self.activeSentenceContinuation = nil
-                continuation.resume()
+            guard !texts.isEmpty else {
+                self.isSpeakingCloud = false
+                onFinish?()
+                return
             }
-            switch provider {
+            switch self.provider {
             case "openai":
-                speakOpenAI(text, rate: rate, onFinish: finish, onError: { onError?($0) })
+                self.speakOpenAI(texts.joined(separator: " "),
+                                 rate: rate, onFinish: onFinish, onError: onError)
             case "elevenlabs":
-                speakElevenLabs(text, onFinish: finish, onError: { onError?($0) })
+                self.speakElevenLabs(texts.joined(separator: " "),
+                                     onFinish: onFinish, onError: onError)
             default:
-                onDevice.speak(text, rate: rate, pitch: pitch, voiceID: voiceID, onFinish: finish)
+                self.onDevice.speakSentences(
+                    texts, rate: rate, pitch: pitch, voiceID: voiceID,
+                    sentencePause: UserDefaults.standard.double(forKey: "tts_sentence_pause"),
+                    onFinish: onFinish)
             }
         }
     }
