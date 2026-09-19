@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-09-19
+
+- Fix TTS cadence: chain utterances, add adjustable sentence pause (01172bc)
+- Cap Apple Foundation history budget at 4096 and surface its context-overflow error (932cd5a)
+- Add token-aware conversation compaction and rate-limit recovery (98313fa)
+- Fix silent data loss on reinstall: persist auto-backup config in Keychain + first-run restore offer (6e8d665)
+- chore(graphify): refresh knowledge graph artifacts [skip ci] (2a28228)
+- chore(gitnexus): refresh architecture findings [skip ci] (1f1f209)
+- chore(graphify): refresh knowledge graph artifacts [skip ci] (8eb8ffd)
+
+
 ## 2026-09-12
 
 - feat: SPM backup core (BackupKit) + automatic encrypted backups to Files (e8ab99f)
