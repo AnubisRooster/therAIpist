@@ -19,6 +19,7 @@ final class LocalLLMEngine: ObservableObject {
     @Published private(set) var loadError: String?
 
     private var llm: LLM?
+    private var loadedModelURL: URL?
 
     /// Tracks an in-flight load so concurrent callers serialize instead of
     /// racing (which could leave two half-loaded models or unload one mid-use).
@@ -46,8 +47,8 @@ final class LocalLLMEngine: ObservableObject {
         loadingTask = nil
     }
 
-    private func performLoad(id: String, url: URL) async {
-        guard loadedModelID != id else { return }
+    private func performLoad(id: String, url: URL, force: Bool = false) async {
+        guard force || loadedModelID != id else { return }
         isLoading = true
         loadError = nil
         unload()
@@ -75,6 +76,7 @@ final class LocalLLMEngine: ObservableObject {
             loaded.postprocess = { _ in }  // suppress default stdout print
             llm = loaded
             loadedModelID = id
+            loadedModelURL = url
 
             // LLM.swift registers the stop sequence via an unstructured `Task` inside
             // its init.  Wait long enough for that task to complete before the first
@@ -104,8 +106,22 @@ final class LocalLLMEngine: ObservableObject {
     func unload() {
         llm = nil
         loadedModelID = nil
+        loadedModelURL = nil
         loadError = nil
         isGenerating = false
+    }
+
+    /// Forces a full reload of `id`, even if it's already the loaded model.
+    /// Serializes with `loadModel` through the same `loadingTask` so the two
+    /// never race and leave the engine in a half-loaded state.
+    private func forceReload(id: String, url: URL) async {
+        if let loadingTask {
+            await loadingTask.value
+        }
+        let task = Task { await self.performLoad(id: id, url: url, force: true) }
+        loadingTask = task
+        await task.value
+        loadingTask = nil
     }
 
     /// Cancels in-progress generation. Safe to call from the Stop button.
@@ -128,8 +144,24 @@ final class LocalLLMEngine: ObservableObject {
     /// caller should show a "still thinking…" message rather than queuing another
     /// inference request.
     func generate(modelID: String, messages: [LLMMessage]) async throws -> String {
-        guard let llm else { throw LocalLLMError.notLoaded }
+        guard loadedModelID == modelID, let url = loadedModelURL else { throw LocalLLMError.notLoaded }
         guard !isGenerating else { throw LocalLLMError.busy }
+
+        // Force a fresh model load before every single generation call.
+        // LLM.swift's llama.cpp integration never clears the model's KV
+        // cache between calls on the same loaded instance, so a second call
+        // — whether the next conversational turn, or the rolling-summary
+        // compactor's own extra call within one turn — submits a fresh,
+        // position-0 prompt against a cache still holding the PREVIOUS
+        // call's end position. llama.cpp rejects that as an inconsistent
+        // sequence and decoding fails outright, which silently hung
+        // conversations after the first message with no error surfaced.
+        // Reloading guarantees a clean context every time; it costs a
+        // model reload's worth of latency per message, which is the price
+        // of correctness until this is fixed upstream in LLM.swift (or the
+        // engine moves off it).
+        await forceReload(id: modelID, url: url)
+        guard let llm else { throw LocalLLMError.notLoaded }
 
         isGenerating = true
         defer { isGenerating = false }
