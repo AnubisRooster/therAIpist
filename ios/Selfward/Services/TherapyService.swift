@@ -68,7 +68,9 @@ class TherapyService {
         return "Client context (from intake):\n" + lines.joined(separator: "\n")
     }
 
-    func buildMessages(persona: Persona, modality: String, customPrompt: String, messageHistory: [(String, String)], userMessage: String, memoryContext: String) -> [LLMMessage] {
+    func buildMessages(persona: Persona, modality: String, customPrompt: String,
+                       messageHistory: [(String, String)], userMessage: String,
+                       memoryContext: String, priorSummary: String = "") -> [LLMMessage] {
         var messages: [LLMMessage] = []
 
         let systemPrompt = getSystemPrompt(persona: persona, modality: modality, customPrompt: customPrompt)
@@ -78,7 +80,17 @@ class TherapyService {
             messages.append(LLMMessage(role: "system", content: "Relevant context from previous sessions:\n\(memoryContext)"))
         }
 
-        for (role, content) in messageHistory.suffix(20) {
+        if !priorSummary.isEmpty {
+            let recap = "Ongoing conversation recap (earlier turns, condensed — treat as verbatim history):\n" +
+                priorSummary
+            messages.append(LLMMessage(role: "system", content: recap))
+        }
+
+        // History is already token-budgeted by the caller (ConversationCompactor /
+        // retainedHistory) so it stays inside the model's context window; no
+        // hard "last N" cap here that could silently drop turns the budget said
+        // were fine to include.
+        for (role, content) in messageHistory {
             messages.append(LLMMessage(role: role, content: content))
         }
         messages.append(LLMMessage(role: "user", content: userMessage))

@@ -1,12 +1,13 @@
 import Foundation
 import SwiftData
-
+// swiftlint:disable cyclomatic_complexity function_body_length
+// processMessage branches across many safety paths and error surfaces.
 /// All SwiftData reads/writes here run on the main actor because the
 /// `ModelContext` passed in is the app's main context, which is NOT safe to use
 /// off the main thread. The expensive work (network / on-device inference) is
 /// performed behind `await` calls that suspend without blocking the UI.
 @MainActor
-final class ChatService {
+final class ChatService { // swiftlint:disable:this type_body_length
     static let shared = ChatService()
 
     private let safety = SafetyService.shared
@@ -16,6 +17,7 @@ final class ChatService {
     private let graphService = GraphService.shared
     private let globalMemoryService = GlobalMemoryService.shared
     private let orchestrator = AgentOrchestrator()
+    private let summaryCompactor: ConversationCompactor
 
     /// Allows tests to inject a mock LLM. Production uses LLMService.shared.
     /// `localModelFileExists` is injectable so the "no model downloaded" path is
@@ -23,14 +25,11 @@ final class ChatService {
     private let localModelFileExists: (String) -> Bool
 
     init(llm: LLMSending = LLMService.shared,
-         localModelFileExists: @escaping (String) -> Bool = ChatService.defaultLocalModelExists) {
+         localModelFileExists: @escaping (String) -> Bool = ChatService.defaultLocalModelExists,
+         summaryCompactor: ConversationCompactor = .shared) {
         self.llm = llm
         self.localModelFileExists = localModelFileExists
-    }
-
-    static func defaultLocalModelExists(_ model: String) -> Bool {
-        let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        return FileManager.default.fileExists(atPath: docs.appendingPathComponent("models/\(model).gguf").path)
+        self.summaryCompactor = summaryCompactor
     }
 
     struct ChatResult {
@@ -78,7 +77,9 @@ final class ChatService {
             // Persist the exchange so the crisis resources are visible in the
             // conversation (not just flashed as a caption).
             context.insert(MessageModel(session: session, role: "user", content: userMessage))
-            context.insert(MessageModel(session: session, role: "assistant", content: CrisisResources.localizedResourceMessage()))
+            context.insert(MessageModel(session: session,
+                                    role: "assistant",
+                                    content: CrisisResources.localizedResourceMessage()))
 
             return ChatResult(
                 response: CrisisResources.localizedResourceMessage(),
@@ -116,10 +117,8 @@ final class ChatService {
         // buildMessages). Sort chronologically — SwiftData relationships are
         // unordered, so suffix() on the raw set could send turns out of order.
         let provider = session.resolvedProvider
-        let historyLimit = provider == "local" ? LocalLLMEngine.historyLimit() : 10
-        let recentMessages = session.messages
+        let history = session.messages
             .sorted { $0.createdAt < $1.createdAt }
-            .suffix(historyLimit)
             .map { ($0.role, $0.content) }
 
         let userMsg = MessageModel(session: session, role: "user", content: userMessage)
@@ -134,15 +133,6 @@ final class ChatService {
             memoryContext += crossSessionContext
         }
 
-        let llmMessages = therapy.buildMessages(
-            persona: persona,
-            modality: session.modality,
-            customPrompt: session.systemPrompt,
-            messageHistory: recentMessages,
-            userMessage: userMessage,
-            memoryContext: memoryContext
-        )
-
         let model = session.resolvedModel
 
         // Pre-warm the local engine if this session uses a GGUF model.
@@ -150,7 +140,8 @@ final class ChatService {
         if provider == "local" && model != "apple-foundation" {
             guard localModelFileExists(model) else {
                 return configError(
-                    "No on-device model is downloaded yet. Open Settings → Models to download one, or switch this session to a cloud model using the model chip at the top.",
+                    "No on-device model is downloaded yet. Open Settings → Models to download one, or switch " +
+                    "this session to a cloud model using the model chip at the top.",
                     session: session, context: context
                 )
             }
@@ -158,6 +149,48 @@ final class ChatService {
             let filePath = docs.appendingPathComponent("models/\(model).gguf")
             await LocalLLMEngine.shared.loadModel(id: model, url: filePath)
         }
+
+        // Fit the history to the model's context window instead of a hard
+        // "last N messages" trim:
+        //   - Cloud providers get a large token budget based on the model's
+        //     advertised context_length (falling back to a sane default).
+        //   - On-device models re-evaluate the whole prompt every turn, so
+        //     their history is folded into a rolling summary of the older
+        //     turns plus the most recent turns kept verbatim.
+        let budget = historyTokenBudget(provider: provider, model: model)
+        var priorSummary: String?
+        var recentMessages: [(String, String)]
+        if provider == "local" {
+            let minimumRecentTurns = LocalLLMEngine.historyLimit()
+            if let compacted = try? await summaryCompactor.compact(
+                messages: history,
+                sessionID: session.id,
+                budget: budget,
+                minimumRecentTurns: minimumRecentTurns,
+                summarizer: { block in
+                    try await Self.summarizeBlock(block, using: self.llm, provider: provider, model: model)
+                }
+            ) {
+                priorSummary = compacted.summary
+                recentMessages = compacted.recent
+            } else {
+                // Summarizer unavailable (or failed): degrade to plain truncation
+                // within the same budget rather than a blanket "last N" cut.
+                recentMessages = ConversationCompactor.retainedHistory(history, budget: budget, minimumKeep: 3)
+            }
+        } else {
+            recentMessages = ConversationCompactor.retainedHistory(history, budget: budget, minimumKeep: 3)
+        }
+
+        let llmMessages = therapy.buildMessages(
+            persona: persona,
+            modality: session.modality,
+            customPrompt: session.systemPrompt,
+            messageHistory: recentMessages,
+            userMessage: userMessage,
+            memoryContext: memoryContext,
+            priorSummary: priorSummary ?? ""
+        )
 
         let assistantResponse: String
         let tokenCount: Int
@@ -187,28 +220,54 @@ final class ChatService {
             )
         } catch LocalLLMError.timeout {
             return ChatResult(
-                response: "That response timed out — the prompt may have been too long for this model. Try the 1B model for faster replies, or switch to OpenRouter for this session.",
+                response: "That response timed out — the prompt may have been too long for this model. " +
+                "Try the 1B model for faster replies, or switch to OpenRouter for this session.",
                 isCrisis: false,
                 tokenCount: 0,
                 agentResponse: nil
             )
         } catch LLMError.noAPIKey {
             return configError(
-                "No API key is set for this provider, so cloud replies aren't available. Add your key in Settings → Keys & Providers, or switch this session to an on-device model using the model chip at the top.",
+                "No API key is set for this provider, so cloud replies aren't available. Add your key in " +
+                "Settings → Keys & Providers, or switch this session to an on-device model using the " +
+                "model chip at the top.",
                 session: session, context: context
             )
         } catch LocalLLMError.notLoaded, LLMError.localModelNotDownloaded {
             return configError(
-                "The on-device model couldn't be loaded. Try re-downloading it in Settings → Models, or switch to a cloud model for this session.",
+                "The on-device model couldn't be loaded. Try re-downloading it in " +
+                "Settings → Models, or switch to a cloud model for this session.",
                 session: session, context: context
             )
         } catch LLMError.unsupportedProvider(let name) {
             return configError(
-                "This session's provider (\"\(name)\") isn't recognized. Switch providers in Settings → Keys & Providers, or pick a different model for this session using the model chip at the top.",
+                "This session's provider (\"\(name)\") isn't recognized. Switch providers in Settings → " +
+                "Keys & Providers, or pick a different model for this session using the model chip at the top.",
                 session: session, context: context
             )
         } catch LLMError.emptyResponse {
-            assistantResponse = "I didn't quite catch a full response there — could you say that again, or try again in a moment?"
+            assistantResponse = "I didn't quite catch a full response there — could you say that again, " +
+                "or try again in a moment."
+            tokenCount = 0
+        } catch LLMError.rateLimited(let retryAfter) {
+            // Should be rare (LLMService retries transients automatically), but
+            // if the retries are exhausted or the provider sheds mid-stream,
+            // surface it instead of pretending everything is fine.
+            print("⚠️ ChatService: provider rate-limited (retryAfter: \(retryAfter ?? 0))")
+            assistantResponse = "The provider is temporarily overloaded. Please try again in a moment."
+            tokenCount = 0
+        } catch LLMError.contextLengthExceeded {
+            print("⚠️ ChatService: conversation exceeded the model's context window")
+            assistantResponse = "This conversation has grown too long for the current model's context window. " +
+                "Start a new session, or switch to a model with a larger context."
+            tokenCount = 0
+        } catch LLMError.apiError(let message) {
+            // Real API failure (auth, malformed request, upstream 5xx) — expose a
+            // terse, sanitized reason rather than the old "I'm here to listen"
+            // swallow that hid every backend problem behind a canned reply.
+            print("⚠️ ChatService: provider API error: \(message)")
+            let shortReason = message.count > 160 ? String(message.prefix(160)) + "…" : message
+            assistantResponse = "I couldn't reach the provider just now. \(shortReason)"
             tokenCount = 0
         } catch {
             // Anything not matched above (decode failures, unexpected HTTP
@@ -223,7 +282,9 @@ final class ChatService {
 
         let boundaryCheck = safety.checkBoundaryViolation(assistantResponse, persona: persona.kind)
         let finalResponse = boundaryCheck.isViolation
-            ? "I want to be honest with you — that's beyond what I can safely help with, and I'm not able to give medical or diagnostic advice. But I'm right here with you. Want to tell me more about what's going on?"
+            ? "I want to be honest with you — that's beyond what I can safely help with, and I'm not able to " +
+            "give medical or diagnostic advice. But I'm right here with you. Want to tell me more " +
+            "about what's going on?"
             : assistantResponse
 
         if boundaryCheck.isViolation {
@@ -236,7 +297,10 @@ final class ChatService {
             context.insert(event)
         }
 
-        let assistantMsg = MessageModel(session: session, role: "assistant", content: finalResponse, tokenCount: tokenCount)
+        let assistantMsg = MessageModel(session: session,
+                                role: "assistant",
+                                content: finalResponse,
+                                tokenCount: tokenCount)
         context.insert(assistantMsg)
 
         // Snapshot counts before extraction so we can badge the assistant message.
@@ -290,7 +354,10 @@ final class ChatService {
 
         // Stamp the assistant message with how much was captured this turn.
         assistantMsg.capturedNodeCount   = session.graphNodes.filter { !nodeIDsBefore.contains($0.id) }.count
-        assistantMsg.capturedEdgeCount   = session.graphNodes.flatMap(\.outgoingEdges).filter { !edgeIDsBefore.contains($0.id) }.count
+        assistantMsg.capturedEdgeCount = session.graphNodes
+            .flatMap(\.outgoingEdges)
+            .filter { !edgeIDsBefore.contains($0.id) }
+            .count
         assistantMsg.capturedMemoryCount = session.memories.filter { !memoryIDsBefore.contains($0.id) }.count
         assistantMsg.capturedGlobalMemory = promoted != nil
 
@@ -315,7 +382,9 @@ final class ChatService {
             modality: session.modality,
             recentMemories: memories.map(\.content),
             graphContext: session.graphNodes.map { "\($0.label) (\($0.type))" },
-            safetyEvents: session.safetyEvents.map { SafetyEventSummary(level: $0.level, eventType: $0.eventType, message: $0.message) }
+            safetyEvents: session.safetyEvents.map {
+                SafetyEventSummary(level: $0.level, eventType: $0.eventType, message: $0.message)
+            }
         )
         let agentResult = await orchestrator.route(context: agentCtx)
 
@@ -327,65 +396,5 @@ final class ChatService {
             wasReplacedForSafety: boundaryCheck.isViolation
         )
     }
-
-    /// Splits `text` at the first sentence-ending punctuation (`.`, `!`,
-    /// `?`) or newline, returning that leading sentence (trimmed) and
-    /// everything after it — `nil` if `text` has no complete sentence yet.
-    /// Skips stray boundary-only fragments (e.g. leading whitespace before a
-    /// stray period) by recursing into the remainder. Pure/static so it's
-    /// unit-testable without any network or LLM involved.
-    static func splitFirstSentence(from text: String) -> (sentence: String, rest: String)? {
-        guard let boundary = text.firstIndex(where: { ".!?\n".contains($0) }) else { return nil }
-        let end = text.index(after: boundary)
-        let sentence = String(text[text.startIndex..<end]).trimmingCharacters(in: .whitespacesAndNewlines)
-        let rest = String(text[end...])
-        // A fragment with no letters/digits (e.g. a stray leading "." with
-        // only whitespace before it) isn't a real sentence — skip it rather
-        // than firing onSentence with punctuation alone.
-        guard sentence.rangeOfCharacter(from: .alphanumerics) != nil else { return splitFirstSentence(from: rest) }
-        return (sentence, rest)
-    }
-
-    /// Consumes a streamed reply, firing `onSentence` for each complete
-    /// sentence as it arrives (merging runs of very short sentences — e.g.
-    /// "Ok." — into the next one, so a one- or two-word utterance never
-    /// becomes its own separate TTS call), then flushing whatever's left
-    /// once the stream ends. Returns the full accumulated reply.
-    private static func streamAndSplitSentences(_ stream: AsyncThrowingStream<String, Error>,
-                                                onSentence: ((String) -> Void)?,
-                                                minChunkLength: Int = 20) async throws -> String {
-        var full = ""
-        var buffer = ""
-        var pendingBatch = ""
-
-        for try await delta in stream {
-            full += delta
-            guard onSentence != nil else { continue }
-            buffer += delta
-            while let (sentence, rest) = splitFirstSentence(from: buffer) {
-                buffer = rest
-                pendingBatch = pendingBatch.isEmpty ? sentence : pendingBatch + " " + sentence
-                if pendingBatch.count >= minChunkLength {
-                    onSentence?(pendingBatch)
-                    pendingBatch = ""
-                }
-            }
-        }
-
-        if onSentence != nil {
-            let trailing = ((pendingBatch.isEmpty ? "" : pendingBatch + " ") + buffer)
-                .trimmingCharacters(in: .whitespacesAndNewlines)
-            if !trailing.isEmpty { onSentence?(trailing) }
-        }
-
-        return full
-    }
-
-    /// Inserts a guidance message as an assistant bubble so configuration
-    /// problems (no API key, no downloaded model) are visible in the chat
-    /// rather than silently swallowed.
-    private func configError(_ message: String, session: SessionModel, context: ModelContext) -> ChatResult {
-        context.insert(MessageModel(session: session, role: "assistant", content: message))
-        return ChatResult(response: message, isCrisis: false, tokenCount: 0, agentResponse: nil)
-    }
 }
+// swiftlint:enable cyclomatic_complexity function_body_length

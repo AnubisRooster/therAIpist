@@ -84,6 +84,17 @@ final class ModelService: ObservableObject {
     private let timestampKey = "or_models_timestamp_v1"
     private let maxAge: TimeInterval = 86_400  // 24 h
 
+    /// Reads the cached OpenRouter catalogue without instantiating a
+    /// `ModelService`, returning the advertised context window for `modelID`
+    /// (nil when the model isn't in the cache — e.g. a local GGUF id, a
+    /// non-OpenRouter cloud id, or an empty cache on first launch).
+    nonisolated static func cachedContextLength(for modelID: String,
+                                                defaults: UserDefaults = .standard) -> Int? {
+        guard let data = defaults.data(forKey: "or_models_cache_v1"),
+              let decoded = try? JSONDecoder().decode(ModelsResponse.self, from: data) else { return nil }
+        return decoded.data.first { $0.id == modelID }?.contextLength
+    }
+
     init() { loadCache() }
 
     // MARK: Sorted views

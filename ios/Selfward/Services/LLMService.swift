@@ -160,7 +160,7 @@ actor LLMService: LLMSending {
                        userMessage: String) async throws -> String {
         let messages = [
             LLMMessage(role: "system", content: "\(systemPrompt)\n\nRespond with valid JSON only, no markdown."),
-            LLMMessage(role: "user", content: userMessage),
+            LLMMessage(role: "user", content: userMessage)
         ]
         let raw = try await sendMessage(provider: provider, model: model, messages: messages)
         return stripCodeFences(raw)
@@ -180,8 +180,8 @@ actor LLMService: LLMSending {
         let url = URL(string: "\(baseURL)/chat/completions")!
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
-        request.setValue("application/json",   forHTTPHeaderField: "Content-Type")
-        request.setValue("Bearer \(apiKey)",   forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         if provider == .openrouter {
             request.setValue("Selfward-iOS", forHTTPHeaderField: "HTTP-Referer")
         }
@@ -189,17 +189,21 @@ actor LLMService: LLMSending {
         let body = OpenRouterRequest(model: model, messages: messages, stream: false)
         request.httpBody = try JSONEncoder().encode(body)
 
-        let (data, response) = try await URLSession.shared.data(for: request)
-        let httpStatus = (response as? HTTPURLResponse)?.statusCode
-        guard httpStatus == 200 else {
-            throw LLMError.apiError(Self.sanitizedErrorBody(data, status: httpStatus, apiKey: apiKey))
-        }
+        return try await LLMErrorTriage.retryTransient {
+            let (data, response) = try await URLSession.shared.data(for: request)
+            let httpStatus = (response as? HTTPURLResponse)?.statusCode
+            let retryAfter = (response as? HTTPURLResponse)?.value(forHTTPHeaderField: "Retry-After")
+            guard httpStatus == 200 else {
+                throw LLMErrorTriage.classifyHTTPFailure(status: httpStatus, retryAfter: retryAfter,
+                        data: data, apiKey: apiKey)
+            }
 
-        let result = try JSONDecoder().decode(OpenRouterResponse.self, from: data)
-        guard let content = result.choices.first?.message.content, !content.isEmpty else {
-            throw LLMError.emptyResponse
+            let result = try JSONDecoder().decode(OpenRouterResponse.self, from: data)
+            guard let content = result.choices.first?.message.content, !content.isEmpty else {
+                throw LLMError.emptyResponse
+            }
+            return content
         }
-        return content
     }
 
     // MARK: - Anthropic
@@ -214,24 +218,28 @@ actor LLMService: LLMSending {
         let url = URL(string: "\(baseURL)/messages")!
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
-        request.setValue("application/json",        forHTTPHeaderField: "Content-Type")
-        request.setValue(apiKey,                    forHTTPHeaderField: "x-api-key")
-        request.setValue("2023-06-01",              forHTTPHeaderField: "anthropic-version")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue(apiKey, forHTTPHeaderField: "x-api-key")
+        request.setValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
 
         let body = try buildAnthropicRequest(model: model, messages: messages)
         request.httpBody = body
 
-        let (data, response) = try await URLSession.shared.data(for: request)
-        let httpStatus = (response as? HTTPURLResponse)?.statusCode
-        guard httpStatus == 200 else {
-            throw LLMError.apiError(Self.sanitizedErrorBody(data, status: httpStatus, apiKey: apiKey))
-        }
+        return try await LLMErrorTriage.retryTransient {
+            let (data, response) = try await URLSession.shared.data(for: request)
+            let httpStatus = (response as? HTTPURLResponse)?.statusCode
+            let retryAfter = (response as? HTTPURLResponse)?.value(forHTTPHeaderField: "Retry-After")
+            guard httpStatus == 200 else {
+                throw LLMErrorTriage.classifyHTTPFailure(status: httpStatus, retryAfter: retryAfter,
+                        data: data, apiKey: apiKey)
+            }
 
-        let result = try JSONDecoder().decode(AnthropicResponse.self, from: data)
-        guard let content = result.content.first?.text, !content.isEmpty else {
-            throw LLMError.emptyResponse
+            let result = try JSONDecoder().decode(AnthropicResponse.self, from: data)
+            guard let content = result.content.first?.text, !content.isEmpty else {
+                throw LLMError.emptyResponse
+            }
+            return content
         }
-        return content
     }
 
     private func buildAnthropicRequest(model: String, messages: [LLMMessage]) throws -> Data {
@@ -249,30 +257,17 @@ actor LLMService: LLMSending {
 
     // MARK: - Helpers
 
-    /// Builds a user-facing error message from a failed response, with the
-    /// literal API key redacted. Some providers echo a form of the submitted
-    /// key back into auth-failure bodies, and this text is displayed
-    /// directly in the UI — it must never carry the secret verbatim.
-    private static func sanitizedErrorBody(_ data: Data, status: Int?, apiKey: String) -> String {
-        var body = String(data: data, encoding: .utf8) ?? "Unknown error"
-        if !apiKey.isEmpty {
-            body = body.replacingOccurrences(of: apiKey, with: "[redacted]")
-        }
-        let statusText = status.map(String.init) ?? "unknown"
-        return "HTTP \(statusText): \(body)"
-    }
-
     private func stripCodeFences(_ text: String) -> String {
-        var t = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        if t.hasPrefix("```") {
-            if let firstNewline = t.firstIndex(of: "\n") {
-                t = String(t[t.index(after: firstNewline)...])
+        var trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.hasPrefix("```") {
+            if let firstNewline = trimmed.firstIndex(of: "\n") {
+                trimmed = String(trimmed[trimmed.index(after: firstNewline)...])
             }
-            if let range = t.range(of: "```", options: .backwards) {
-                t = String(t[..<range.lowerBound])
+            if let range = trimmed.range(of: "```", options: .backwards) {
+                trimmed = String(trimmed[..<range.lowerBound])
             }
         }
-        return t.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }
 
@@ -309,12 +304,33 @@ extension LLMService: LLMStreaming {
 
                     let resolvedModel = model.isEmpty ? await self.defaultModel : model
                     let kitMessages = messages.map { BYOKLLMKit.LLMMessage(role: $0.role, content: $0.content) }
-                    let kitStream = BYOKLLMKit.LLMService.shared.streamMessage(provider: provider, model: resolvedModel,
-                                                                               messages: kitMessages)
-                    for try await delta in kitStream {
-                        continuation.yield(delta)
+
+                    // Retry once when the upstream sheds the request with a
+                    // rate-limit / overload response *before yielding a single
+                    // delta*. If the provider already started streaming, the
+                    // attempt is mid-flight and must not be replayed.
+                    var yielded = false
+                    for attempt in 1...2 {
+                        yielded = false
+                        do {
+                            let kitStream = BYOKLLMKit.LLMService.shared.streamMessage(provider: provider,
+                                                     model: resolvedModel,
+                                                     messages: kitMessages)
+                            for try await delta in kitStream {
+                                yielded = true
+                                continuation.yield(delta)
+                            }
+                            continuation.finish()
+                            return
+                        } catch {
+                            if !yielded, attempt == 1, LLMErrorTriage.isRateLimitLike(error) {
+                                try? await Task.sleep(nanoseconds: 2_000_000_000)
+                                continue
+                            }
+                            throw error
+                        }
                     }
-                    continuation.finish()
+                    throw LLMError.apiError("Streaming failed after retry.")
                 } catch let kitError as BYOKLLMKit.LLMError {
                     continuation.finish(throwing: Self.mapKitError(kitError))
                 } catch {
@@ -329,8 +345,8 @@ extension LLMService: LLMStreaming {
         switch error {
         case .noAPIKey: return .noAPIKey
         case .apiError(let msg): return .apiError(msg)
-        case .unsupportedProvider(let p): return .unsupportedProvider(p)
-        case .streamingNotSupported(let p): return .unsupportedProvider(p)
+        case .unsupportedProvider(let provider): return .unsupportedProvider(provider)
+        case .streamingNotSupported(let provider): return .unsupportedProvider(provider)
         }
     }
 }
@@ -344,6 +360,8 @@ enum LLMError: LocalizedError {
     case localModelNotDownloaded
     case localModelLoadFailed
     case unsupportedProvider(String)
+    case rateLimited(retryAfter: Double?)
+    case contextLengthExceeded
 
     var errorDescription: String? {
         switch self {
@@ -357,8 +375,16 @@ enum LLMError: LocalizedError {
             return "No local model downloaded. Visit Settings → Models to download one."
         case .localModelLoadFailed:
             return "Failed to load the local model. Try deleting and re-downloading it."
-        case .unsupportedProvider(let p):
-            return "Unsupported provider: \(p)."
+        case .unsupportedProvider(let provider):
+            return "Unsupported provider: \(provider)."
+        case .rateLimited(let retryAfter):
+            if let retryAfter, retryAfter > 0 {
+                return "The provider is temporarily rate-limited. Retry in \(Int(retryAfter.rounded()))s."
+            }
+            return "The provider is temporarily rate-limited. Please retry in a moment."
+        case .contextLengthExceeded:
+            return "This conversation is too long for the selected model's context window. " +
+                "Start a new session or choose a model with a larger context."
         }
     }
 }

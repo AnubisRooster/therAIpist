@@ -30,6 +30,9 @@
 		4A360AD45D3ED34E5FF26112 /* TTSCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B7F3038A1D059869CE8DDC8 /* TTSCoordinator.swift */; };
 		4B808F4BB84AABD9F9FCB12A /* SessionModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C2E3E137BA2B43146C53624 /* SessionModelTests.swift */; };
 		7A2C4D5E6F708192A3B4C5D600 /* AutoBackupServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A2C4D5E6F708192A3B4C5D601 /* AutoBackupServiceTests.swift */; };
+		7A2C4D5E6F708192A3B4C5D6A0 /* ConversationCompactorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A2C4D5E6F708192A3B4C5D6A1 /* ConversationCompactorTests.swift */; };
+		7A2C4D5E6F708192A3B4C5D6A2 /* LLMErrorTriageTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A2C4D5E6F708192A3B4C5D6A3 /* LLMErrorTriageTests.swift */; };
+		0A1B2C3D4E5F60718293A4BD0 /* ChatService+Support.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A1B2C3D4E5F60718293A4BD1 /* ChatService+Support.swift */; };
 		4BB92C4B89EA7FA37F983496 /* VoiceConversationController.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7EF57872E42353E8E306853 /* VoiceConversationController.swift */; };
 		4D3E9591534F521D7C217B91 /* ModelService.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF4BE5016360D07B4A1B03F2 /* ModelService.swift */; };
 		C0FFEE11A2B3C4D5E6F78901 /* ModelServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0FFEE22A2B3C4D5E6F78901 /* ModelServiceTests.swift */; };
@@ -50,6 +53,7 @@
 		D0F2E4C6A8B0F2D4E6A8C0E2F4 /* AutoBackupService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A97C4D1F3B5E7A9C0B2D4E6F /* AutoBackupService.swift */; };
 		866FF2077F990F1222B47397 /* SafetyService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6EE6DE3CA5C6934F88E1DAA0 /* SafetyService.swift */; };
 		9B7F15BE23099C999028E58A /* LLMService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9CFA9D1088AE93C9537A8E18 /* LLMService.swift */; };
+		0A1B2C3D4E5F60718293A4BC8 /* LLMErrorTriage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A1B2C3D4E5F60718293A4BC9 /* LLMErrorTriage.swift */; };
 		A25C7207CC752BE3D01E8016 /* KeychainService.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCAAE3FD3A43DD1765F04D8D /* KeychainService.swift */; };
 		A48118D83FC4EFF6787004D0 /* VoicePickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E057F3968E5E274D49B43123 /* VoicePickerView.swift */; };
 		A7DA57BF863B7FC77D4AB7A1 /* EmbeddingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B733E490095AF7D47DA8D2A1 /* EmbeddingService.swift */; };
@@ -67,6 +71,7 @@
 		A1F2C3D4E5F60718293A4B5C /* ActiveImaginationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2C3D4E5F60718293A4B5C6D /* ActiveImaginationTests.swift */; };
 		CBBAD1C8359D4DD23E6B77CE /* NarrativeExportService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B50540229A3EFBF9E0546922 /* NarrativeExportService.swift */; };
 		CC39E622F47F9FD0B026F98C /* ChatService.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC490536A296899A16D06A8D /* ChatService.swift */; };
+		0A1B2C3D4E5F60718293A4BC6 /* ConversationCompactor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A1B2C3D4E5F60718293A4BC7 /* ConversationCompactor.swift */; };
 		CEBD283D4A35FD7D470727BD /* MarkdownText.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27F4A18440F4CDD3C6339EB8 /* MarkdownText.swift */; };
 		D1554F68EB248BD21DD67147 /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD46995D96416AD999A05710 /* OnboardingView.swift */; };
 		D26AC46605A40B00DE88E5A1 /* VoiceTranscriptTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8BB146387FA63BE78299C6DF /* VoiceTranscriptTests.swift */; };
@@ -120,6 +125,8 @@
 		488F642BC70DD8497D21A5E6 /* FeatureRoadmapTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeatureRoadmapTests.swift; sourceTree = "<group>"; };
 		4C2E3E137BA2B43146C53624 /* SessionModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionModelTests.swift; sourceTree = "<group>"; };
 		7A2C4D5E6F708192A3B4C5D601 /* AutoBackupServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AutoBackupServiceTests.swift; sourceTree = "<group>"; };
+		7A2C4D5E6F708192A3B4C5D6A1 /* ConversationCompactorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationCompactorTests.swift; sourceTree = "<group>"; };
+		7A2C4D5E6F708192A3B4C5D6A3 /* LLMErrorTriageTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMErrorTriageTests.swift; sourceTree = "<group>"; };
 		C0FFEE22A2B3C4D5E6F78901 /* ModelServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelServiceTests.swift; sourceTree = "<group>"; };
 		4C64D67E561F4F9420F42B19 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		4E35383169E391C4C71A1F9E /* GraphVisualizationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraphVisualizationView.swift; sourceTree = "<group>"; };
@@ -144,6 +151,7 @@
 		944F52374F3D256D87070F74 /* NoteService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NoteService.swift; sourceTree = "<group>"; };
 		94C608044722DDB5FB714EA0 /* InsightCaptureServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsightCaptureServiceTests.swift; sourceTree = "<group>"; };
 		9CFA9D1088AE93C9537A8E18 /* LLMService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMService.swift; sourceTree = "<group>"; };
+		0A1B2C3D4E5F60718293A4BC9 /* LLMErrorTriage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMErrorTriage.swift; sourceTree = "<group>"; };
 		9EA4DA407B6AE1E32CF90DF3 /* GraphService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraphService.swift; sourceTree = "<group>"; };
 		B50540229A3EFBF9E0546922 /* NarrativeExportService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NarrativeExportService.swift; sourceTree = "<group>"; };
 		B5DA18D2A56B91B1073AD29A /* NarrativeService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NarrativeService.swift; sourceTree = "<group>"; };
@@ -171,6 +179,8 @@
 		F4F11D0EDFFD12098624E8C7 /* DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardView.swift; sourceTree = "<group>"; };
 		F96D8E321E56CF9301833CE5 /* ChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatView.swift; sourceTree = "<group>"; };
 		FC490536A296899A16D06A8D /* ChatService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatService.swift; sourceTree = "<group>"; };
+		0A1B2C3D4E5F60718293A4BC7 /* ConversationCompactor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConversationCompactor.swift; sourceTree = "<group>"; };
+		0A1B2C3D4E5F60718293A4BD1 /* ChatService+Support.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ChatService+Support.swift"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -195,6 +205,8 @@
 				A97C4D1F3B5E7A9C0B2D4E6F /* AutoBackupService.swift */,
 				C9C782A14A01E91D0A9918FA /* BadgeBackfillService.swift */,
 				FC490536A296899A16D06A8D /* ChatService.swift */,
+				0A1B2C3D4E5F60718293A4BC7 /* ConversationCompactor.swift */,
+				0A1B2C3D4E5F60718293A4BD1 /* ChatService+Support.swift */,
 				C29C49EE4665A79130532A66 /* DashboardService.swift */,
 				7C573E0E8397509037BC2ABE /* DreamService.swift */,
 				B733E490095AF7D47DA8D2A1 /* EmbeddingService.swift */,
@@ -205,6 +217,7 @@
 				333E9AD680E34FD91F20E3F2 /* InsightService.swift */,
 				DCAAE3FD3A43DD1765F04D8D /* KeychainService.swift */,
 				9CFA9D1088AE93C9537A8E18 /* LLMService.swift */,
+				0A1B2C3D4E5F60718293A4BC9 /* LLMErrorTriage.swift */,
 				77E5C71511EAC047F0992745 /* LocalLLMEngine.swift */,
 				46312DB4CB2BDC8F00EF4D5E /* LocalModelService.swift */,
 				D108D2FB690D2B875B45F2AA /* MemoryService.swift */,
@@ -273,6 +286,8 @@
 				08B8E4472E85F942522C5576 /* PINLockoutTests.swift */,
 				0581D2258450F18F3E17AFE3 /* SafetyServiceTests.swift */,
 				7A2C4D5E6F708192A3B4C5D601 /* AutoBackupServiceTests.swift */,
+				7A2C4D5E6F708192A3B4C5D6A1 /* ConversationCompactorTests.swift */,
+				7A2C4D5E6F708192A3B4C5D6A3 /* LLMErrorTriageTests.swift */,
 				4C2E3E137BA2B43146C53624 /* SessionModelTests.swift */,
 				C0FFEE22A2B3C4D5E6F78901 /* ModelServiceTests.swift */,
 				E951EA2F4BCFC99DFE32A394 /* TestSupport.swift */,
@@ -472,6 +487,8 @@
 				6EBB88189639752E07ABB10E /* SafetyServiceTests.swift in Sources */,
 				4B808F4BB84AABD9F9FCB12A /* SessionModelTests.swift in Sources */,
 				7A2C4D5E6F708192A3B4C5D600 /* AutoBackupServiceTests.swift in Sources */,
+				7A2C4D5E6F708192A3B4C5D6A0 /* ConversationCompactorTests.swift in Sources */,
+				7A2C4D5E6F708192A3B4C5D6A2 /* LLMErrorTriageTests.swift in Sources */,
 				C0FFEE11A2B3C4D5E6F78901 /* ModelServiceTests.swift in Sources */,
 				3CFF2CAF166070E6F50AF6DF /* TestSupport.swift in Sources */,
 				D26AC46605A40B00DE88E5A1 /* VoiceTranscriptTests.swift in Sources */,
@@ -487,6 +504,8 @@
 				D0F2E4C6A8B0F2D4E6A8C0E2F4 /* AutoBackupService.swift in Sources */,
 				086B9765C623CFDCBD0F9055 /* BadgeBackfillService.swift in Sources */,
 				CC39E622F47F9FD0B026F98C /* ChatService.swift in Sources */,
+				0A1B2C3D4E5F60718293A4BC6 /* ConversationCompactor.swift in Sources */,
+				0A1B2C3D4E5F60718293A4BD0 /* ChatService+Support.swift in Sources */,
 				BDE709FD95C3BB5817D82CBD /* ChatView.swift in Sources */,
 				33EB551FD5B44836D9A06802 /* Components.swift in Sources */,
 				24B0F0FFD87C0813FA3AE81E /* ContentView.swift in Sources */,
@@ -503,6 +522,7 @@
 				62C67B9F41C9822B1FD5F9A1 /* InsightsView.swift in Sources */,
 				A25C7207CC752BE3D01E8016 /* KeychainService.swift in Sources */,
 				9B7F15BE23099C999028E58A /* LLMService.swift in Sources */,
+				0A1B2C3D4E5F60718293A4BC8 /* LLMErrorTriage.swift in Sources */,
 				BC69E1F596CF6A15F4704DC9 /* LocalLLMEngine.swift in Sources */,
 				B9EBB746E36FA295A10E4DA1 /* LocalModelService.swift in Sources */,
 				CEBD283D4A35FD7D470727BD /* MarkdownText.swift in Sources */,
