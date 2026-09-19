@@ -43,6 +43,15 @@ final class ConversationCompactor {
     /// until enough accumulate to summarize in one batch.
     nonisolated static let minSummarizationBlockTokens = 600
 
+    /// Hard ceiling (estimated tokens) the rolling summary is allowed to
+    /// reach, enforced in code rather than trusted to the summarizer's
+    /// prompt instruction alone — an LLM asked to stay "under 150 words"
+    /// won't always obey exactly, and the summary is re-condensed (old
+    /// summary + new material) every time it regenerates, so a small
+    /// overshoot could compound across many cycles in a long-running
+    /// conversation. ~150 words plus headroom.
+    nonisolated static let maxSummaryTokens = 220
+
     private let defaults: UserDefaults
 
     init(defaults: UserDefaults = .standard) {
@@ -83,6 +92,38 @@ final class ConversationCompactor {
             return max(budget, 512)
         }
         return min(budget, maxHistoryTokens)
+    }
+
+    /// Local-only history budget that accounts for the actual cost of
+    /// everything else sharing the same prompt — the system prompt, recalled
+    /// memories, and the current message — instead of assuming a fixed
+    /// fraction of the window is always enough room. Also reserves space for
+    /// the rolling summary (capped by `maxSummaryTokens`) whether or not one
+    /// exists yet, and a floor for the model's own reply.
+    ///
+    /// Cloud keeps the simpler `historyTokenBudget` above: its windows are
+    /// large enough that this same fixed overhead is a rounding error by
+    /// comparison, and it never uses a rolling summary.
+    nonisolated static func localHistoryBudget(maxWindow: Int,
+                                               systemPrompt: String,
+                                               memoryContext: String,
+                                               userMessage: String) -> Int {
+        let overhead = estimatedTokens(systemPrompt) + estimatedTokens(memoryContext)
+            + estimatedTokens(userMessage) + maxSummaryTokens
+        let replyReserve = max(maxWindow / 8, 128)
+        return max(maxWindow - overhead - replyReserve, 256)
+    }
+
+    /// Truncates `text` to approximately `maxTokens` (using the same char/4
+    /// estimate used throughout this file), cutting at the nearest preceding
+    /// word boundary so it doesn't end mid-word.
+    nonisolated static func capped(_ text: String, toApproxTokens maxTokens: Int) -> String {
+        let maxChars = maxTokens * 4
+        guard text.count > maxChars else { return text }
+        let cutoff = text.index(text.startIndex, offsetBy: maxChars)
+        let prefix = String(text[..<cutoff])
+        guard let lastSpace = prefix.range(of: " ", options: .backwards) else { return prefix }
+        return String(prefix[..<lastSpace.lowerBound])
     }
 
     // MARK: - Retention
@@ -186,7 +227,8 @@ final class ConversationCompactor {
             parts.append("Earlier summary:\n\(existing.summary)")
         }
         parts.append(Self.formatBlock(newBlock))
-        let newSummary = try await summarizer(parts.joined(separator: "\n\n"))
+        let rawSummary = try await summarizer(parts.joined(separator: "\n\n"))
+        let newSummary = Self.capped(rawSummary, toApproxTokens: Self.maxSummaryTokens)
 
         store(coveredCount: summarizedCount, summary: newSummary, sessionID: sessionID)
         return (newSummary, recent)
