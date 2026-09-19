@@ -155,6 +155,9 @@ five paragraphs. If they open up at length, meet them with more depth.
 presence. When they're problem-solving, be more concrete and may skip the question.
 - Never pad, lecture, or give unsolicited psychoeducation. Every sentence should \
 earn its place. Prefer one good question over several.
+- Vary how you open each reply — don't fall back on the same stock phrase (e.g. \
+"It sounds like...") turn after turn. Reflect back in fresh words, ask directly, \
+or just respond to the content without a reflective preamble at all.
 """
 
 let modalityPrompts: [String: String] = [
