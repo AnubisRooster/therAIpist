@@ -63,6 +63,7 @@
   <div id="info"></div>
   <div id="empty">No map yet.<br>Keep talking — your patterns and the links between them will appear here.</div>
   <div id="legend">
+    <span class="legend-item"><span class="legend-dot" style="background:#888888"></span>You</span>
     <span class="legend-item"><span class="legend-dot" style="background:#D0021B"></span>Emotion</span>
     <span class="legend-item"><span class="legend-dot" style="background:#4A90D9"></span>Person</span>
     <span class="legend-item"><span class="legend-dot" style="background:#7ED321"></span>Belief</span>
@@ -79,8 +80,13 @@
       "emotion": "#D0021B",
       "belief":  "#7ED321",
       "theme":   "#9B59B6",
+      "you":     "#888888",
       "default": "#999999"
     };
+
+    // The synthetic center node's id -- not a real pattern, never sent to
+    // the native nodeTap handler.
+    var YOU_ID = "__you__";
 
     // Plain-language phrasing for relationship types, mirroring
     // GraphService.getEdgeTypeLabel on the Swift side.
@@ -141,6 +147,52 @@
         };
       });
 
+      // Rank nodes by how central they are (own strength plus total edge
+      // weight touching them), then anchor the top few to a synthetic "you"
+      // node placed at the center -- gives a novice an intuitive "this
+      // radiates from me" reading instead of an arbitrary physics-simulated
+      // blob. Purely a rendering device: "you" and its spokes are never
+      // sent to the native layer and carry no real data.
+      var nodeScore = {};
+      cyEdges.forEach(function(e) {
+        nodeScore[e.data.source] = (nodeScore[e.data.source] || 0) + e.data.weight;
+        nodeScore[e.data.target] = (nodeScore[e.data.target] || 0) + e.data.weight;
+      });
+      cyNodes.forEach(function(n) {
+        nodeScore[n.data.id] = (nodeScore[n.data.id] || 0) + n.data.strength;
+      });
+      var ranked = cyNodes.slice().sort(function(a, b) {
+        return (nodeScore[b.data.id] || 0) - (nodeScore[a.data.id] || 0);
+      });
+      var anchorTargets = ranked.slice(0, Math.min(6, ranked.length));
+
+      cyNodes.push({
+        data: { id: YOU_ID, label: "You", type: "you", strength: 0, sessions: 0 }
+      });
+      anchorTargets.forEach(function(n) {
+        cyEdges.push({
+          data: { id: "you-" + n.data.id, source: YOU_ID, target: n.data.id, type: "ANCHOR", weight: 1 }
+        });
+      });
+
+      // Bucket nodeScore into a small number of discrete tiers rather than
+      // using the raw (near-unique) score directly. Concentric gives every
+      // distinct value its own ring -- with continuous scores that puts one
+      // node per ring, which collapses the whole "radial" layout onto a
+      // single line instead of actually fanning nodes out around each ring.
+      var maxScore = 0;
+      cyNodes.forEach(function(n) {
+        if (n.data.id !== YOU_ID) { maxScore = Math.max(maxScore, nodeScore[n.data.id] || 0); }
+      });
+      function tierFor(id) {
+        if (id === YOU_ID) { return 3; }
+        if (maxScore <= 0) { return 0; }
+        var ratio = (nodeScore[id] || 0) / maxScore;
+        if (ratio > 0.66) { return 2; }
+        if (ratio > 0.33) { return 1; }
+        return 0;
+      }
+
       if (cy) { cy.destroy(); }
 
       cy = cytoscape({
@@ -175,6 +227,17 @@
             }
           },
           {
+            // The synthetic center anchor: fixed size, never grows/shrinks
+            // with strength, and not selectable (it isn't a real pattern).
+            selector: 'node[type = "you"]',
+            style: {
+              "width": 46,
+              "height": 46,
+              "font-weight": "bold",
+              "text-background-opacity": 0.7
+            }
+          },
+          {
             selector: "edge",
             style: {
               "line-color": "#555",
@@ -193,19 +256,35 @@
             }
           },
           {
+            // Spokes from the "you" anchor to its top patterns: thin,
+            // dashed, unlabeled -- visually distinct from real relationships
+            // between two patterns, which stay solid, colored, and labeled.
+            selector: 'edge[type = "ANCHOR"]',
+            style: {
+              "target-arrow-shape": "none",
+              "line-style": "dashed",
+              "width": 1,
+              "opacity": 0.35,
+              "label": ""
+            }
+          },
+          {
             selector: "edge:selected",
             style: { "opacity": 1, "line-color": "#ffffff", "target-arrow-color": "#ffffff" }
           }
         ],
         layout: {
-          name: "cose",
+          // Ranks nodes by nodeScore (computed above) into concentric
+          // rings, so the strongest, most-connected patterns settle near
+          // the "you" anchor at the center and weaker ones fall toward the
+          // edge -- a stable, readable arrangement instead of "cose"'s
+          // physics simulation, which resettles differently on every open
+          // and gives a novice no way to tell what's actually significant.
+          name: "concentric",
           animate: false,
-          nodeRepulsion: 800000,
-          idealEdgeLength: 120,
-          edgeElasticity: 0.1,
-          gravity: 0.25,
-          numIter: 2000,
-          coolingFactor: 0.95
+          minNodeSpacing: 40,
+          concentric: function(node) { return tierFor(node.data("id")); },
+          levelWidth: function() { return 1; }
         },
         userZoomingEnabled: true,
         userPanningEnabled: true,
@@ -217,6 +296,7 @@
 
       cy.on("tap", "node", function(evt) {
         var d = evt.target.data();
+        if (d.id === YOU_ID) { return; }
         infoEl.style.display = "none";
         // Hand off to the native layer, which presents a full list of the
         // patterns connected to this one in a table.
@@ -228,6 +308,7 @@
       cy.on("tap", "edge", function(evt) {
         var edge = evt.target;
         var d = edge.data();
+        if (d.type === "ANCHOR") { return; }
         var srcLabel = cy.getElementById(d.source).data("label") || d.source;
         var tgtLabel = cy.getElementById(d.target).data("label") || d.target;
         var times = Math.max(1, Math.round(parseFloat(d.weight)));

@@ -119,13 +119,20 @@ struct GraphVisualizationSheet: View {
                     }
                 }
                 .overlay(alignment: .top) {
-                    // Pattern/link count + one-line explainer. Placed at the top so
-                    // it never overlaps the colour legend pinned to the bottom of
-                    // the web view.
+                    // Strongest pattern (plain-language sentence) + pattern/link
+                    // count, so a novice gets the gist before ever tapping
+                    // anything. Placed at the top so it never overlaps the
+                    // colour legend pinned to the bottom of the web view.
                     let nodeCount = graph.nodes.count
                     let edgeCount = graph.edges.count
                     if nodeCount > 0 {
                         VStack(spacing: 4) {
+                            if let sentence = Self.topPatternSentence(graph: graph) {
+                                Text(sentence)
+                                    .font(.caption.weight(.medium))
+                                    .multilineTextAlignment(.center)
+                                    .padding(.bottom, 2)
+                            }
                             HStack(spacing: 8) {
                                 Label("\(nodeCount) patterns", systemImage: "circle.hexagongrid")
                                 Label("\(edgeCount) links", systemImage: "arrow.triangle.branch")
@@ -139,6 +146,7 @@ struct GraphVisualizationSheet: View {
                         .padding(.vertical, 6)
                         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
                         .padding(.top, 8)
+                        .padding(.horizontal, 20)
                     }
                 }
         }
@@ -162,6 +170,17 @@ struct GraphVisualizationSheet: View {
         }
         shareItems = items
         showShare = true
+    }
+
+    /// A plain-language sentence for the single most-reinforced connection,
+    /// so a novice gets the gist of their strongest pattern without needing
+    /// to read or interact with the graph at all.
+    static func topPatternSentence(graph: AggregatedGraph) -> String? {
+        guard let top = graph.edges.max(by: { $0.weight < $1.weight }) else { return nil }
+        guard let source = graph.nodes.first(where: { $0.id == top.sourceID }),
+              let target = graph.nodes.first(where: { $0.id == top.targetID }) else { return nil }
+        let phrase = GraphService.shared.getEdgeTypeLabel(top.type)
+        return "\(source.label) \(phrase) \(target.label)."
     }
 }
 
