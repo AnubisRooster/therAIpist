@@ -351,7 +351,10 @@ final class ChatService { // swiftlint:disable:this type_body_length
             context: context
         )
         memoryService.consolidateRecentMessages(session: session, context: context)
-        graphService.extractEntitiesFromMessage(session: session, message: userMessage, context: context)
+        let recentUserMessages = history.filter { $0.0 == "user" }.map(\.1)
+            .suffix(GraphService.recentContextWindow)
+        graphService.extractEntitiesFromMessage(session: session, message: userMessage,
+                                                recentMessages: Array(recentUserMessages), context: context)
 
         let promoted = globalMemoryService.promoteIfValuable(
             userMessage: userMessage,
