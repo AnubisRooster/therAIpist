@@ -94,9 +94,18 @@ class GraphService {
             "nobody cares", "i am broken", "i will never",
         ]
 
+        let eventWords = [
+            "interview", "argument", "breakup", "break up", "diagnosis",
+            "funeral", "wedding", "layoff", "laid off", "fight", "accident",
+            "surgery", "divorce", "deadline", "exam", "presentation",
+            "promotion", "fired", "quit", "moved", "moving", "miscarriage",
+            "hospital", "birthday", "anniversary", "graduation", "relapse",
+        ]
+
         var emotions: [NodeSpec] = []
         var persons:  [NodeSpec] = []
         var beliefs:  [NodeSpec] = []
+        var events:   [NodeSpec] = []
 
         for word in emotionWords where lower.contains(word) {
             emotions.append(NodeSpec(type: "emotion", label: word.capitalized,
@@ -119,10 +128,16 @@ class GraphService {
             }
         }
 
+        for word in eventWords where lower.contains(word) {
+            events.append(NodeSpec(type: "event", label: word.capitalized,
+                                   properties: ["source": "message"]))
+        }
+
         // De-duplicate within a single message (same label twice → once)
         emotions = dedupe(emotions)
         persons  = dedupe(persons)
         beliefs  = dedupe(beliefs)
+        events   = dedupe(events)
 
         var edges: [EdgeSpec] = []
 
@@ -130,6 +145,13 @@ class GraphService {
         for person in persons {
             for emotion in emotions {
                 edges.append(EdgeSpec(sourceLabel: person.label,
+                                      targetLabel: emotion.label, type: "TRIGGERS"))
+            }
+        }
+        // event → TRIGGERS → emotion
+        for event in events {
+            for emotion in emotions {
+                edges.append(EdgeSpec(sourceLabel: event.label,
                                       targetLabel: emotion.label, type: "TRIGGERS"))
             }
         }
@@ -158,7 +180,7 @@ class GraphService {
             }
         }
 
-        return Extraction(nodes: emotions + persons + beliefs, edges: edges)
+        return Extraction(nodes: emotions + persons + beliefs + events, edges: edges)
     }
 
     private func dedupe(_ specs: [NodeSpec]) -> [NodeSpec] {
@@ -173,11 +195,27 @@ class GraphService {
 
     // MARK: - Live extraction (mutates the graph)
 
-    /// Extracts entities from a single message and wires edges between
-    /// co-occurring nodes. Returns the nodes created / reinforced.
+    /// How many of the most recent prior user messages are treated as "still
+    /// in play" when wiring edges for the current one. Without this, edges
+    /// only ever formed between entities mentioned in the exact same
+    /// message -- but a person raised two turns ago and a feeling named just
+    /// now are exactly the kind of connection a therapy conversation should
+    /// surface, and they almost never land in one message together.
+    static let recentContextWindow = 6
+
+    /// Extracts entities from a single message, wires edges between
+    /// co-occurring nodes in that message, and -- when `recentMessages` is
+    /// given -- also wires edges between this message's new entities and
+    /// entities from those recent prior messages, so a feeling mentioned now
+    /// can still connect back to a person or event raised a few turns
+    /// earlier. Returns the nodes created / reinforced for `message` itself;
+    /// entities from `recentMessages` are looked up (they were already
+    /// created when they were the "current" message in their own turn), not
+    /// re-created or re-reinforced here.
     @discardableResult
     func extractEntitiesFromMessage(session: SessionModel,
                                     message: String,
+                                    recentMessages: [String] = [],
                                     context: ModelContext) -> [GraphNodeModel] {
         let extraction = analyzeMessage(message)
 
@@ -194,7 +232,47 @@ class GraphService {
                     targetLabel: edge.targetLabel, type: edge.type, context: context)
         }
 
+        if !recentMessages.isEmpty {
+            let recentNodes = recentMessages.suffix(Self.recentContextWindow)
+                .flatMap { analyzeMessage($0).nodes }
+            for edge in Self.crossWindowEdges(current: extraction.nodes, recent: recentNodes) {
+                guard let source = findNode(session: session, label: edge.sourceLabel) else { continue }
+                addEdge(session: session, source: source,
+                        targetLabel: edge.targetLabel, type: edge.type, context: context)
+            }
+        }
+
         return created
+    }
+
+    /// Edges between `current`'s entities and `recent`'s, in both directions,
+    /// using the same relationship rules `analyzeMessage` applies within a
+    /// single message. Pure so it's independently testable.
+    static func crossWindowEdges(current: [NodeSpec], recent: [NodeSpec]) -> [EdgeSpec] {
+        func of(_ specs: [NodeSpec], _ type: String) -> [NodeSpec] { specs.filter { $0.type == type } }
+
+        var edges: [EdgeSpec] = []
+        func link(_ sources: [NodeSpec], _ targets: [NodeSpec], _ type: String) {
+            for source in sources {
+                for target in targets {
+                    edges.append(EdgeSpec(sourceLabel: source.label, targetLabel: target.label, type: type))
+                }
+            }
+        }
+
+        // person/event → TRIGGERS → emotion, checked in both time directions.
+        link(of(recent, "person"), of(current, "emotion"), "TRIGGERS")
+        link(of(current, "person"), of(recent, "emotion"), "TRIGGERS")
+        link(of(recent, "event"), of(current, "emotion"), "TRIGGERS")
+        link(of(current, "event"), of(recent, "emotion"), "TRIGGERS")
+        // emotion → CAUSES → belief
+        link(of(recent, "emotion"), of(current, "belief"), "CAUSES")
+        link(of(current, "emotion"), of(recent, "belief"), "CAUSES")
+        // belief → ASSOCIATED_WITH → emotion
+        link(of(recent, "belief"), of(current, "emotion"), "ASSOCIATED_WITH")
+        link(of(current, "belief"), of(recent, "emotion"), "ASSOCIATED_WITH")
+
+        return edges
     }
 
     // MARK: - Graph analysis
