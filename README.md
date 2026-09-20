@@ -30,13 +30,18 @@ Now with a **Narrative page** that writes your life story from your sessions, **
   </tr>
   <tr>
     <td align="center"><strong>Dashboard — Your Patterns</strong><br/><img src="docs/screenshots/dashboard.png" width="220"/></td>
-    <td align="center"><strong>Inner Map (knowledge graph)</strong><br/><img src="docs/screenshots/inner-map.png" width="220"/></td>
+    <td align="center"><strong>Inner Map — radial pattern view</strong><br/><img src="docs/screenshots/inner-map.png" width="220"/></td>
     <td align="center"><strong>Pattern connections sheet</strong><br/><img src="docs/screenshots/node-connections.png" width="220"/></td>
   </tr>
   <tr>
     <td align="center"><strong>Session insights</strong><br/><img src="docs/screenshots/insights.png" width="220"/></td>
     <td align="center"><strong>Persona settings</strong><br/><img src="docs/screenshots/settings-personas.png" width="220"/></td>
     <td align="center"><strong>On-device model setup</strong><br/><img src="docs/screenshots/onboarding-models.png" width="220"/></td>
+  </tr>
+  <tr>
+    <td align="center"><strong>Welcome — onboarding start</strong><br/><img src="docs/screenshots/onboarding-welcome.png" width="220"/></td>
+    <td align="center"><strong>Settings — AI &amp; Models</strong><br/><img src="docs/screenshots/settings-models.png" width="220"/></td>
+    <td align="center"><strong>Model picker — On-Device &amp; Free</strong><br/><img src="docs/screenshots/model-picker.png" width="220"/></td>
   </tr>
 </table>
 
@@ -109,7 +114,7 @@ Now with a **Narrative page** that writes your life story from your sessions, **
 - **Auto dream capture** — when you describe a dream in chat (cues: "I had a dream", "I dreamt", "nightmare", etc.), the app automatically creates a `DreamModel` with extracted feelings and Jungian symbols; a `moon.zzz` badge appears on the assistant reply
 - **Auto session summary note** — after the second user message in a session, a heuristic "Session Summary" reflection note is upserted (never duplicated), listing top emotions, people, themes, and beliefs from the current graph
 - **Dashboard** — aggregated stats across all sessions; tap any stat (nodes, edges, memories, notes, dreams, global memories) to drill into the full list
-- **Inner Map** — tap "Inner Map" on the Dashboard to open an offline Cytoscape.js visualisation of your entire cross-session knowledge graph; nodes are sized by strength and colour-coded by type; tap any node to open a native connections sheet listing every linked pattern with plain-language relationship sentences and co-occurrence counts
+- **Inner Map** — tap "Inner Map" on the Dashboard to open an offline Cytoscape.js visualisation of your entire cross-session knowledge graph, radially arranged around a synthetic "You" node with a plain-language summary of your strongest pattern up top; nodes are sized by strength and colour-coded by type; tap any node to open a native connections sheet listing every linked pattern with plain-language relationship sentences and co-occurrence counts
 
 ### Safety
 - **Crisis detection** — every user message is checked with keyword matching that errs toward caution; crisis resources are surfaced automatically and persisted into the conversation
@@ -249,10 +254,11 @@ View the graph any time via **Graph** in the chat toolbar.
 
 ### Inner Map (Dashboard)
 
-The **Inner Map** on the Dashboard visualises your *entire* knowledge graph merged across all sessions:
+The **Inner Map** on the Dashboard visualises your *entire* knowledge graph merged across all sessions, laid out radially around a synthetic **"You"** node at the center:
 
-- Nodes are sized by cumulative strength and coloured by type (blue = person, red = emotion, green = belief, orange = event, purple = theme)
-- Edges carry plain-language relationship labels (e.g. "brings up", "leads to", "goes with")
+- A plain-language summary sentence for your single strongest pattern (e.g. "Presentation brings up Anxious.") sits above the graph, plus a pattern/link count — so the gist is clear before you ever tap anything
+- Your most central patterns settle onto rings closest to "You"; weaker, less-connected ones fall toward the outer edge, instead of an arbitrary physics-simulated layout that resettles differently every time you open it
+- Nodes are sized by cumulative strength and coloured by type (blue = person, red = emotion, green = belief, orange = event, purple = theme); dashed spokes connect "You" to your top patterns and carry no data of their own
 - **Tap any node** to open a native connections sheet — a table of every linked pattern with the relationship sentence and how many times the two appeared together, sorted by strength
 - Tap an edge for a tooltip showing the relationship in plain language; pinch to zoom, drag to pan
 
