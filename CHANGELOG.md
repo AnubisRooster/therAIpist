@@ -2,6 +2,13 @@
 
 ## 2026-09-20
 
+- docs: refresh README screenshots from Simulator, describe new Inner Map layout (#14) (22dbfa6)
+- chore(gitnexus): refresh architecture findings [skip ci] (24d58f3)
+- chore(graphify): refresh knowledge graph artifacts [skip ci] (772567d)
+
+
+## 2026-09-20
+
 - feat: connect entities across messages, add event extraction to Inner Map (#12) (c12096a)
 - chore(graphify): refresh knowledge graph artifacts [skip ci] (2866a0b)
 
