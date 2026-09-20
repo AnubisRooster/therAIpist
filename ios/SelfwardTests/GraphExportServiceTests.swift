@@ -202,6 +202,36 @@ final class GraphExportServiceTests: XCTestCase {
     }
 }
 
+// MARK: - Top pattern sentence (novice-facing summary above the graph)
+
+@MainActor
+final class GraphVisualizationSheetTests: XCTestCase {
+    func testTopPatternSentencePicksHighestWeightEdge() {
+        let mother  = AggregatedNode(id: "person:mother", type: "person",
+                                     label: "Mother", strength: 3, sessionCount: 2)
+        let anxious = AggregatedNode(id: "emotion:anxious", type: "emotion",
+                                     label: "Anxious", strength: 4, sessionCount: 3)
+        let partner = AggregatedNode(id: "person:partner", type: "person",
+                                     label: "Partner", strength: 1, sessionCount: 1)
+        let lonely  = AggregatedNode(id: "emotion:lonely", type: "emotion",
+                                     label: "Lonely", strength: 1, sessionCount: 1)
+        let strong = AggregatedEdge(id: "e1", sourceID: mother.id, targetID: anxious.id,
+                                    type: "TRIGGERS", weight: 5)
+        let weak = AggregatedEdge(id: "e2", sourceID: partner.id, targetID: lonely.id,
+                                  type: "TRIGGERS", weight: 1)
+        let graph = AggregatedGraph(nodes: [mother, anxious, partner, lonely], edges: [weak, strong])
+
+        let sentence = GraphVisualizationSheet.topPatternSentence(graph: graph)
+
+        XCTAssertEqual(sentence, "Mother brings up Anxious.")
+    }
+
+    func testTopPatternSentenceNilWithNoEdges() {
+        let graph = AggregatedGraph(nodes: [], edges: [])
+        XCTAssertNil(GraphVisualizationSheet.topPatternSentence(graph: graph))
+    }
+}
+
 // MARK: - XMLParserRecorder (helper)
 
 private final class XMLParserRecorder: NSObject, XMLParserDelegate {
