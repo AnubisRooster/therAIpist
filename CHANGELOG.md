@@ -2,6 +2,13 @@
 
 ## 2026-09-20
 
+- feat: radial hub-and-spoke layout and top-pattern summary for Inner Map (#13) (5ecf6e3)
+- chore(gitnexus): refresh architecture findings [skip ci] (b8893aa)
+- chore(graphify): refresh knowledge graph artifacts [skip ci] (a996554)
+
+
+## 2026-09-20
+
 - fix: account for real prompt overhead in local history budget, cap summary length, retry once on overflow (#10) (7b6508b)
 - chore(gitnexus): refresh architecture findings [skip ci] (4a9a0ba)
 - chore(graphify): refresh knowledge graph artifacts [skip ci] (0478493)
