@@ -156,8 +156,14 @@ final class ChatService { // swiftlint:disable:this type_body_length
         //     advertised context_length (falling back to a sane default).
         //   - On-device models re-evaluate the whole prompt every turn, so
         //     their history is folded into a rolling summary of the older
-        //     turns plus the most recent turns kept verbatim.
-        let budget = historyTokenBudget(provider: provider, model: model)
+        //     turns plus the most recent turns kept verbatim. Their budget
+        //     also accounts for the real cost of the system prompt, recalled
+        //     memories, and the current message -- not just history -- since
+        //     Apple Foundation's 4096-token cap is hard and doesn't scale.
+        let systemPromptText = therapy.getSystemPrompt(persona: persona, modality: session.modality,
+                                                        customPrompt: session.systemPrompt)
+        let budget = historyTokenBudget(provider: provider, model: model, systemPrompt: systemPromptText,
+                                        memoryContext: memoryContext, userMessage: userMessage)
         var priorSummary: String?
         var recentMessages: [(String, String)]
         if provider == "local" {
@@ -182,22 +188,24 @@ final class ChatService { // swiftlint:disable:this type_body_length
             recentMessages = ConversationCompactor.retainedHistory(history, budget: budget, minimumKeep: 3)
         }
 
-        let llmMessages = therapy.buildMessages(
-            persona: persona,
-            modality: session.modality,
-            customPrompt: session.systemPrompt,
-            messageHistory: recentMessages,
-            userMessage: userMessage,
-            memoryContext: memoryContext,
-            priorSummary: priorSummary ?? ""
-        )
-
-        let assistantResponse: String
-        let tokenCount: Int
-
-        do {
+        // Runs one generation attempt against a specific history/memory/summary
+        // combination. Factored out so the context-overflow retry below can
+        // re-run it with a smaller prompt without duplicating the streaming
+        // vs. single-shot branching.
+        func attemptGenerate(recentMessages: [(String, String)], memoryContext: String,
+                             priorSummary: String) async throws -> (String, Int) {
+            let llmMessages = therapy.buildMessages(
+                persona: persona,
+                modality: session.modality,
+                customPrompt: session.systemPrompt,
+                messageHistory: recentMessages,
+                userMessage: userMessage,
+                memoryContext: memoryContext,
+                priorSummary: priorSummary
+            )
+            let text: String
             if let streaming = llm as? LLMStreaming {
-                assistantResponse = try await Self.streamAndSplitSentences(
+                text = try await Self.streamAndSplitSentences(
                     streaming.streamMessage(provider: provider, model: model, messages: llmMessages),
                     onSentence: onSentence
                 )
@@ -206,11 +214,38 @@ final class ChatService { // swiftlint:disable:this type_body_length
                 // mock) — same single round trip as before. Still reports
                 // the whole reply through `onSentence` once, so callers
                 // don't need to special-case non-streaming providers.
-                let text = try await llm.sendMessage(provider: provider, model: model, messages: llmMessages)
+                text = try await llm.sendMessage(provider: provider, model: model, messages: llmMessages)
                 if !text.isEmpty { onSentence?(text) }
-                assistantResponse = text
             }
-            tokenCount = assistantResponse.count / 4
+            return (text, text.count / 4)
+        }
+
+        let assistantResponse: String
+        let tokenCount: Int
+
+        do {
+            (assistantResponse, tokenCount) = try await attemptGenerate(
+                recentMessages: recentMessages, memoryContext: memoryContext, priorSummary: priorSummary ?? "")
+        } catch LLMError.contextLengthExceeded where provider == "local" {
+            // The budget above already accounts for the real cost of the
+            // system prompt, memories, and this message -- if it still
+            // overflowed, the char/4 token estimate most likely undercounted
+            // this content's real size. Retry once with memory context
+            // dropped and history cut hard before surfacing the error, so an
+            // estimation miss doesn't dead-end the conversation outright.
+            do {
+                let fallbackHistory = ConversationCompactor.retainedHistory(history, budget: budget / 2, minimumKeep: 1)
+                (assistantResponse, tokenCount) = try await attemptGenerate(
+                    recentMessages: fallbackHistory, memoryContext: "", priorSummary: "")
+            } catch {
+                return ChatResult(
+                    response: "This conversation has grown too long for the current model's context window, " +
+                        "even after trimming it back. Start a new session, or switch to a model with a larger context.",
+                    isCrisis: false,
+                    tokenCount: 0,
+                    agentResponse: nil
+                )
+            }
         } catch LocalLLMError.busy {
             return ChatResult(
                 response: "I'm still thinking about your last message — please wait a moment before sending another.",

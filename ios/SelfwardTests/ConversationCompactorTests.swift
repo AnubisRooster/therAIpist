@@ -262,6 +262,40 @@ final class ConversationCompactorTests: XCTestCase {
         )
         XCTAssertEqual(summarizerCalls, 1)
     }
+
+    // MARK: - Summary length is enforced in code, not just via prompt instruction
+
+    func testCompactCapsSummaryLengthRegardlessOfSummarizerOutput() async throws {
+        let compactor = makeCompactor()
+        let history = filledConversation(turnCount: 20, charsPerMessage: 200)
+        let hugeSummary = String(repeating: "word ", count: 2_000)   // way past any reasonable length
+
+        let result = try await compactor.compact(
+            messages: history,
+            sessionID: UUID().uuidString,
+            budget: 500,
+            minimumRecentTurns: 4,
+            summarizer: { _ in hugeSummary }
+        )
+
+        let (summary, _) = try XCTUnwrap(result)
+        XCTAssertLessThanOrEqual(summary.count, ConversationCompactor.maxSummaryTokens * 4,
+                                 "The stored summary must be capped even if the summarizer ignores its " +
+                                 "length instruction, since it's re-condensed on every future cycle")
+    }
+
+    func testCappedTruncatesAtWordBoundary() {
+        let text = "one two three four five six seven eight nine ten"
+        let result = ConversationCompactor.capped(text, toApproxTokens: 5)   // maxChars = 20
+        XCTAssertLessThanOrEqual(result.count, 20)
+        XCTAssertFalse(result.hasSuffix(" "))
+        XCTAssertTrue(text.hasPrefix(result))
+    }
+
+    func testCappedLeavesShortTextUnchanged() {
+        let text = "short text"
+        XCTAssertEqual(ConversationCompactor.capped(text, toApproxTokens: 100), text)
+    }
 }
 
 // MARK: - ChatService integration (budgeted history + compaction + error surfacing)
@@ -296,14 +330,26 @@ final class ChatServiceCompactionTests: XCTestCase {
     func testAppleFoundationBudgetIsCappedAtHardContextWindow() {
         let chat = ChatService(llm: MockLLM(response: "hi"))
         let budget = chat.historyTokenBudget(provider: "local", model: "apple-foundation")
-        XCTAssertEqual(budget, ConversationCompactor.historyTokenBudget(
-            provider: "local",
-            knownContextLength: nil,
-            localContextWindow: appleFoundationMaxInputTokens
+        XCTAssertEqual(budget, ConversationCompactor.localHistoryBudget(
+            maxWindow: appleFoundationMaxInputTokens,
+            systemPrompt: "", memoryContext: "", userMessage: ""
         ))
-        XCTAssertEqual(budget, Int(Double(appleFoundationMaxInputTokens) * 0.6))
         XCTAssertLessThan(budget, appleFoundationMaxInputTokens,
                           "History alone must leave headroom under the 4096-token hard cap")
+    }
+
+    func testAppleFoundationBudgetShrinksWithRealSystemPromptAndMemoryContext() {
+        let chat = ChatService(llm: MockLLM(response: "hi"))
+        let bare = chat.historyTokenBudget(provider: "local", model: "apple-foundation")
+        let withOverhead = chat.historyTokenBudget(
+            provider: "local", model: "apple-foundation",
+            systemPrompt: String(repeating: "s", count: 800),
+            memoryContext: String(repeating: "m", count: 800),
+            userMessage: String(repeating: "u", count: 400)
+        )
+        XCTAssertLessThan(withOverhead, bare,
+                          "A real system prompt and recalled memories must reduce the history budget, " +
+                          "not be silently ignored")
     }
 
     private func seedPriorTurns(session: SessionModel, count: Int, charsPerMessage: Int = 60) {
@@ -345,9 +391,12 @@ final class ChatServiceCompactionTests: XCTestCase {
         let chat = ChatService(llm: mock, localModelFileExists: { _ in true })
         let session = newSession(provider: "local")
 
-        // 40 prior turns at ~150 tokens each comfortably exceed the local
-        // context window's budget even on the largest RAM tier.
-        seedPriorTurns(session: session, count: 40, charsPerMessage: 600)
+        // 40 prior turns at ~300 tokens each comfortably exceed the local
+        // history budget even on the largest RAM tier (8192-token window),
+        // now that the budget also leaves real room for the (small, in this
+        // test) system prompt and memory context rather than a blind 40%
+        // reservation.
+        seedPriorTurns(session: session, count: 40, charsPerMessage: 1200)
         _ = await chat.processMessage(session: session, userMessage: "latest local turn", context: ctx)
 
         // One call for the summary, a second for the real reply.
@@ -358,6 +407,48 @@ final class ChatServiceCompactionTests: XCTestCase {
         }
         XCTAssertTrue(hasRecap, "The rolling summary must be injected as a system message")
         XCTAssertEqual(mock.lastMessages.last?.content, "latest local turn")
+    }
+
+    // MARK: - Local: retry once on context overflow instead of dead-ending
+
+    func testLocalProviderRetriesOnceAfterContextLengthExceeded() async {
+        let mock = MockLLM(response: "recovered reply", error: LLMError.contextLengthExceeded, failFirstCalls: 1)
+        let chat = ChatService(llm: mock, localModelFileExists: { _ in true })
+        let session = newSession(provider: "local")
+        seedPriorTurns(session: session, count: 2)   // short enough that compaction never triggers
+
+        let result = await chat.processMessage(session: session, userMessage: "hello", context: ctx)
+
+        XCTAssertEqual(mock.callCount, 2, "The first attempt overflows and the one retry succeeds")
+        XCTAssertEqual(result.response, "recovered reply")
+    }
+
+    func testLocalProviderSurfacesGuidanceWhenRetryAlsoOverflows() async {
+        // No failFirstCalls override -> MockLLM throws on every call.
+        let mock = MockLLM(response: "unused", error: LLMError.contextLengthExceeded)
+        let chat = ChatService(llm: mock, localModelFileExists: { _ in true })
+        let session = newSession(provider: "local")
+        seedPriorTurns(session: session, count: 2)
+
+        let result = await chat.processMessage(session: session, userMessage: "hello", context: ctx)
+
+        XCTAssertEqual(mock.callCount, 2, "The main attempt and exactly one retry are made, then it gives up")
+        XCTAssertTrue(result.response.lowercased().contains("even after trimming"))
+    }
+
+    // Cloud's existing contextLengthExceeded handling (no retry) must be
+    // untouched -- this mirrors testContextLengthExceededSurfacesGuidance
+    // below but pins the call count so a future change can't silently add a
+    // retry to the cloud path.
+    func testCloudProviderDoesNotRetryOnContextLengthExceeded() async {
+        let mock = MockLLM(error: LLMError.contextLengthExceeded)
+        let chat = ChatService(llm: mock)
+        let session = newSession()   // defaults to "openrouter"
+
+        let result = await chat.processMessage(session: session, userMessage: "hello", context: ctx)
+
+        XCTAssertEqual(mock.callCount, 1, "Cloud must not retry -- only the local path does")
+        XCTAssertTrue(result.response.lowercased().contains("context window"))
     }
 
     func testLocalProviderWithShortConversationDoesNotSummarize() async {

@@ -41,15 +41,21 @@ enum TestSupport {
 final class MockLLM: LLMSending, @unchecked Sendable {
     var response: String
     var error: Error?
+    /// If 0 (default), `error` (when set) is thrown on every call — the
+    /// original behavior every existing test relies on. If positive, only
+    /// the first `failFirstCalls` calls throw `error`; later calls succeed
+    /// with `response` — lets tests exercise a retry-after-failure path.
+    var failFirstCalls: Int
 
     private(set) var callCount = 0
     private(set) var lastProvider: String?
     private(set) var lastModel: String?
     private(set) var lastMessages: [LLMMessage] = []
 
-    init(response: String = "Thanks for sharing that with me.", error: Error? = nil) {
+    init(response: String = "Thanks for sharing that with me.", error: Error? = nil, failFirstCalls: Int = 0) {
         self.response = response
         self.error = error
+        self.failFirstCalls = failFirstCalls
     }
 
     func sendMessage(provider: String, model: String, messages: [LLMMessage]) async throws -> String {
@@ -57,7 +63,9 @@ final class MockLLM: LLMSending, @unchecked Sendable {
         lastProvider = provider
         lastModel = model
         lastMessages = messages
-        if let error { throw error }
+        if let error, failFirstCalls == 0 || callCount <= failFirstCalls {
+            throw error
+        }
         return response
     }
 }
