@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-09-20
+
+- fix: nudge local models away from repeating the same reflective opener (#11) (cb5c836)
+- chore(gitnexus): refresh architecture findings [skip ci] (5538495)
+- chore(graphify): refresh knowledge graph artifacts [skip ci] (c8eedcb)
+
+
 ## 2026-09-19
 
 - fix: batch rolling-summary compaction instead of running it every turn (#8) (35d844e)
