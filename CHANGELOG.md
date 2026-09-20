@@ -2,6 +2,11 @@
 
 ## 2026-09-20
 
+- fix: reload the local model before every generation to prevent hangs (#9) (fc8297f)
+
+
+## 2026-09-20
+
 - fix: nudge local models away from repeating the same reflective opener (#11) (cb5c836)
 - chore(gitnexus): refresh architecture findings [skip ci] (5538495)
 - chore(graphify): refresh knowledge graph artifacts [skip ci] (c8eedcb)
