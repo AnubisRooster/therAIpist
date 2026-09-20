@@ -2,6 +2,12 @@
 
 ## 2026-09-20
 
+- feat: connect entities across messages, add event extraction to Inner Map (#12) (c12096a)
+- chore(graphify): refresh knowledge graph artifacts [skip ci] (2866a0b)
+
+
+## 2026-09-20
+
 - feat: radial hub-and-spoke layout and top-pattern summary for Inner Map (#13) (5ecf6e3)
 - chore(gitnexus): refresh architecture findings [skip ci] (b8893aa)
 - chore(graphify): refresh knowledge graph artifacts [skip ci] (a996554)
