@@ -2,6 +2,12 @@
 
 ## 2026-09-20
 
+- docs: drop stale dark-theme mockups, keep only light-background Simulator screenshots (#15) (165e04e)
+- chore(graphify): refresh knowledge graph artifacts [skip ci] (da094bf)
+
+
+## 2026-09-20
+
 - docs: refresh README screenshots from Simulator, describe new Inner Map layout (#14) (22dbfa6)
 - chore(gitnexus): refresh architecture findings [skip ci] (24d58f3)
 - chore(graphify): refresh knowledge graph artifacts [skip ci] (772567d)
