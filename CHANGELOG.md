@@ -2,6 +2,13 @@
 
 ## 2026-09-25
 
+- tune: sharpen Machiavelli companion toward Robert Greene's 48 Laws of Power (#17) (6f1d89e)
+- chore(gitnexus): refresh architecture findings [skip ci] (6455b3c)
+- chore(graphify): refresh knowledge graph artifacts [skip ci] (a18dfc3)
+
+
+## 2026-09-25
+
 - feat: add Machiavellian & shrewd Companion personality (#16) (fb788f3)
 - chore(graphify): refresh knowledge graph artifacts [skip ci] (dc6805d)
 - chore(graphify): refresh knowledge graph artifacts [skip ci] (b9caee3)
