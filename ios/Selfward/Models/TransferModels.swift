@@ -312,6 +312,28 @@ let modalityDescriptions: [String: String] = [
     "ifs": "Parts work, Self-energy, protectors, exiles, unburdening",
 ]
 
+/// Longer, consumer-facing explanations for the Hints & Tips guide — distinct
+/// from `modalityDescriptions`, which is a one-line tag shown live under the
+/// modality picker in `NewSessionView`. These are 2-3 sentences plus a
+/// "Good for:" pointer, for someone deciding which modality to try.
+let modalityLongDescriptions: [String: String] = [
+    "cbt": "Cognitive Behavioral Therapy focuses on the link between your thoughts, feelings, and actions. Your guide helps you catch unhelpful patterns — like all-or-nothing thinking or catastrophizing — and test them against the evidence. Good for: anxious spirals, procrastination, feeling stuck in a negative loop.",
+    "dbt": "Dialectical Behavior Therapy blends acceptance with change — concrete skills for riding out intense emotions (distress tolerance), staying present (mindfulness), managing mood swings (emotion regulation), and navigating relationships (interpersonal effectiveness). Good for: overwhelming emotions, conflict with others, urges to act impulsively.",
+    "jungian": "Jungian (depth) therapy explores the symbols, dreams, and unconscious patterns — archetypes — that shape how you see yourself and the world. Your guide may ask about recurring dreams or invite you to explore the \"shadow,\" the parts of yourself you tend to disown. Good for: recurring dreams, a sense that something deeper is going on, wanting more self-understanding than day-to-day talk allows.",
+    "adlerian": "Adlerian therapy looks at your sense of belonging, purpose, and how early family dynamics still shape your choices. It's practical and forward-looking — less \"why does this hurt\" and more \"what's the goal underneath this pattern.\" Good for: feeling stuck in family roles, questions of purpose, wanting encouragement alongside insight.",
+    "gestalt": "Gestalt therapy keeps you in the present moment — noticing what you feel right now, in your body, rather than analyzing the past. Your guide may ask you to speak directly (\"I feel...\") instead of about (\"it made me feel...\"). Good for: getting out of your head, reconnecting with your body, practicing directness.",
+    "existential": "Existential therapy sits with the big questions — meaning, mortality, freedom, and choice — rather than treating them as problems to fix. Your guide won't hand you answers; they'll help you sit with the questions honestly. Good for: a sense of meaninglessness, facing a major life transition, big \"why am I here\" moments.",
+    "humanistic": "Humanistic (person-centered) therapy trusts that you already have what you need to grow, given the right conditions — genuine empathy, unconditional positive regard, and no judgment. Your guide reflects back what they hear rather than directing you. Good for: needing to feel truly heard, when you're tired of being told what to do.",
+    "narrative": "Narrative therapy treats the problem, not you, as the problem — \"the anxiety\" rather than \"you are anxious.\" Your guide helps you notice moments when the problem didn't win and reshape the story you tell about yourself. Good for: feeling defined by a diagnosis or label, wanting to rewrite a stuck narrative.",
+    "act": "Acceptance and Commitment Therapy teaches you to make room for difficult thoughts and feelings instead of fighting them, while still moving toward what matters to you. Expect less \"get rid of the anxiety\" and more \"act on your values even with the anxiety along for the ride.\" Good for: avoidance, being stuck fighting your own thoughts, losing touch with what matters.",
+    "psychodynamic": "Psychodynamic therapy looks at how unconscious patterns and past relationships — especially early ones — show up in your present-day struggles. Your guide may notice repeating patterns and gently ask where they started. Good for: repeating relationship patterns, wanting to understand \"why do I keep doing this.\"",
+    "ifs": "Internal Family Systems treats your mind as made up of different \"parts\" — protectors, firefighters, exiles — each with a positive intent, even the ones that cause you pain. Your guide helps you approach these parts with curiosity from a calm, compassionate \"Self.\" Good for: internal conflict (\"part of me wants X, part of me wants Y\"), self-criticism, big emotional reactions that feel bigger than the moment.",
+    "somatic": "Somatic therapy works through the body, not just the mind — noticing tension, breath, and physical sensation as a doorway into what you're carrying. Your guide may pause and ask you to notice where in your body you feel something. Good for: feeling disconnected from your body, chronic tension, when talking alone isn't reaching the issue.",
+    "active_imagination": "Active Imagination (a Jungian technique) invites you to engage dream images, recurring figures, or moods directly — almost like a dialogue — rather than just interpreting them intellectually. Good for: vivid or recurring dreams, a persistent inner \"voice\" or figure, wanting a more creative, less analytical approach.",
+    "free_form": "Open, unstructured conversation — no specific framework, just a space to think out loud. Good for: when you're not sure what you need, or just want to talk without a method attached.",
+    "integrated": "Blends techniques from multiple modalities, drawing on whichever approach fits what you bring to the conversation. Good for: when a single modality feels too narrow, or you want your guide to adapt as your needs shift.",
+]
+
 let allModalities: [String] = [
     "free_form", "integrated", "cbt", "dbt", "act",
     "psychodynamic", "humanistic", "existential", "gestalt",
