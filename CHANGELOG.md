@@ -2,6 +2,13 @@
 
 ## 2026-09-25
 
+- fix: companion prompt template no longer overrides non-warm personalities (#18) (de4aa5f)
+- chore(gitnexus): refresh architecture findings [skip ci] (c23e590)
+- chore(graphify): refresh knowledge graph artifacts [skip ci] (cf99067)
+
+
+## 2026-09-25
+
 - tune: sharpen Machiavelli companion toward Robert Greene's 48 Laws of Power (#17) (6f1d89e)
 - chore(gitnexus): refresh architecture findings [skip ci] (6455b3c)
 - chore(graphify): refresh knowledge graph artifacts [skip ci] (a18dfc3)
