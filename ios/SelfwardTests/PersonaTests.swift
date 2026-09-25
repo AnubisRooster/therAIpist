@@ -86,7 +86,9 @@ final class PersonaTests: XCTestCase {
         let d = TestSupport.ephemeralDefaults()
         d.set(CompanionPersonality.machiavelli.rawValue, forKey: "companion_personality")
         let traits = PersonaService.companionTraits(defaults: d)
-        XCTAssertTrue(traits.contains("Machiavellian and shrewd"))
+        XCTAssertTrue(traits.contains("48 Laws of Power"))
+        XCTAssertTrue(traits.contains("thumbscrew"))
+        XCTAssertTrue(traits.contains("never to manipulate or deceive"))
     }
 
     func testResolvedCompanionCarriesTraitsAndTherapistDoesNot() {
