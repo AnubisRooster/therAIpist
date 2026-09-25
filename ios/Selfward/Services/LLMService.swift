@@ -74,6 +74,26 @@ enum LLMProvider: String, CaseIterable, Identifiable {
         case .local:      return ""
         }
     }
+
+    /// One-line "why you'd pick this one" for the Hints & Tips guide.
+    var tipBlurb: String {
+        switch self {
+        case .openrouter:
+            return "One key, many models — including several completely free ones. The easiest way to try cloud AI without committing to one company."
+        case .openai:
+            return "Access to GPT-4o, GPT-4o mini, and other OpenAI models directly. Best if you already have an OpenAI account or want GPT-family models specifically."
+        case .anthropic:
+            return "Access to Claude models directly, known for careful, nuanced responses."
+        case .deepseek:
+            return "Very affordable and strong at reasoning-heavy tasks. Best if cost is your priority."
+        case .groq:
+            return "Not the AI company \"Grok\" — Groq runs open models on hardware built for speed. Best if you want the fastest possible replies."
+        case .together:
+            return "A wide catalog of open-source models (Llama, Mixtral, Qwen, and more) in one place."
+        case .local:
+            return ""
+        }
+    }
 }
 
 extension LLMProvider: APIKeyProvider {}
