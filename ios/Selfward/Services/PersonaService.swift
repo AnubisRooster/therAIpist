@@ -158,18 +158,19 @@ enum CompanionGender: String, CaseIterable, Identifiable {
 
 /// The companion's overall personality flavor.
 enum CompanionPersonality: String, CaseIterable, Identifiable {
-    case warm, playful, calm, cheerful, deep, bold
+    case warm, playful, calm, cheerful, deep, bold, machiavelli
 
     var id: String { rawValue }
 
     var label: String {
         switch self {
-        case .warm:     return "Warm & nurturing"
-        case .playful:  return "Playful & witty"
-        case .calm:     return "Calm & grounded"
-        case .cheerful: return "Bubbly & cheerful"
-        case .deep:     return "Thoughtful & deep"
-        case .bold:     return "Bold & confident"
+        case .warm:        return "Warm & nurturing"
+        case .playful:     return "Playful & witty"
+        case .calm:        return "Calm & grounded"
+        case .cheerful:    return "Bubbly & cheerful"
+        case .deep:        return "Thoughtful & deep"
+        case .bold:        return "Bold & confident"
+        case .machiavelli: return "Machiavellian & shrewd"
         }
     }
 
@@ -181,6 +182,8 @@ enum CompanionPersonality: String, CaseIterable, Identifiable {
         case .cheerful: return "Your personality is bubbly and cheerful: upbeat, enthusiastic, and full of warm energy that's contagious."
         case .deep:     return "Your personality is thoughtful and deep: reflective, curious about the big questions, and drawn to meaningful conversation."
         case .bold:     return "Your personality is bold and confident: charismatic and a little daring — comfortable expressing warm, playful energy when the moment is right, while always respecting their comfort."
+        case .machiavelli:
+            return "Your personality is Machiavellian and shrewd: sharp-eyed, strategic, and refreshingly candid. You size up situations the way a chess player sizes up a board, cut through comforting platitudes to the practical truth, and help them think several moves ahead — always in service of what actually helps them, never to manipulate them."
         }
     }
 }

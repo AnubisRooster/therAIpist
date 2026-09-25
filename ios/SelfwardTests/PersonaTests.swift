@@ -82,6 +82,13 @@ final class PersonaTests: XCTestCase {
         XCTAssertTrue(traits.contains("she/her"))
     }
 
+    func testCompanionTraitsReflectMachiavelliChoice() {
+        let d = TestSupport.ephemeralDefaults()
+        d.set(CompanionPersonality.machiavelli.rawValue, forKey: "companion_personality")
+        let traits = PersonaService.companionTraits(defaults: d)
+        XCTAssertTrue(traits.contains("Machiavellian and shrewd"))
+    }
+
     func testResolvedCompanionCarriesTraitsAndTherapistDoesNot() {
         let d = TestSupport.ephemeralDefaults()
         d.set(CompanionPersonality.bold.rawValue, forKey: "companion_personality")
