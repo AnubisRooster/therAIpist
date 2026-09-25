@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-09-25
+
+- feat: add Machiavellian & shrewd Companion personality (#16) (fb788f3)
+- chore(graphify): refresh knowledge graph artifacts [skip ci] (dc6805d)
+- chore(graphify): refresh knowledge graph artifacts [skip ci] (b9caee3)
+
+
 ## 2026-09-20
 
 - docs: drop stale dark-theme mockups, keep only light-background Simulator screenshots (#15) (165e04e)
