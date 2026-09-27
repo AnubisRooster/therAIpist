@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-09-27
+
+- Fix local model stalls: 30s timeout with KV-cache reset, context pre-flight guard (2b435b4)
+- chore(gitnexus): refresh architecture findings [skip ci] (db91507)
+- chore(graphify): refresh knowledge graph artifacts [skip ci] (917077f)
+
+
 ## 2026-09-25
 
 - fix: companion prompt template no longer overrides non-warm personalities (#18) (de4aa5f)
