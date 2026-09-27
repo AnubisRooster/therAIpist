@@ -207,7 +207,7 @@ final class LocalLLMEngine: ObservableObject {
 
         let prompt = llm.preprocess(lastUserMessage, history)
 
-        // Race inference against a 90-second hard timeout.
+        // Race inference against a 30-second hard timeout.
         // If the prompt overflows the model's context window, llama.cpp may
         // silently stall; this ensures the engine always recovers.
         let response = try await withThrowingTaskGroup(of: String.self) { group in
@@ -215,7 +215,7 @@ final class LocalLLMEngine: ObservableObject {
                 await llm.getCompletion(from: prompt)
             }
             group.addTask {
-                try await Task.sleep(nanoseconds: 90_000_000_000)  // 90 s
+                try await Task.sleep(nanoseconds: 30_000_000_000)  // 30 s
                 return "__TIMEOUT__"
             }
             // First result wins.
@@ -223,6 +223,8 @@ final class LocalLLMEngine: ObservableObject {
             group.cancelAll()
             if first == "__TIMEOUT__" {
                 llm.stop()
+                // Unload to clear any corrupted KV cache state.
+                unload()
                 throw LocalLLMError.timeout
             }
             return first

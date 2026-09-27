@@ -8,6 +8,30 @@ import SwiftData
 @MainActor
 extension ChatService {
 
+    /// Pre-flight guard before sending a prompt to the on-device engine.
+    /// Estimates token count against the model's context window and, when the
+    /// prompt is within 15% of overflowing, returns an early `ChatResult` with
+    /// a clear message instead of letting llama.cpp silently stall. Returns
+    /// `nil` when the prompt is safe to send.
+    static func localContextOverflowResult(
+        provider: String,
+        llmMessages: [LLMMessage],
+        contextWindow: Int
+    ) -> ChatResult? {
+        guard provider == "local" else { return nil }
+        let estimatedTokens = llmMessages.reduce(0) { $0 + $1.content.count / 4 }
+        let safetyMargin = Int(Double(contextWindow) * 0.15)  // keep 15% headroom
+        guard estimatedTokens > contextWindow - safetyMargin else { return nil }
+        return ChatResult(
+            response: "This conversation is too long for the on-device model "
+                + "(\(estimatedTokens)/\(contextWindow) tokens). " +
+                "Start a new session, or switch to a cloud model with a larger context window.",
+            isCrisis: false,
+            tokenCount: 0,
+            agentResponse: nil
+        )
+    }
+
     static func defaultLocalModelExists(_ model: String) -> Bool {
         let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
         return FileManager.default.fileExists(atPath: docs.appendingPathComponent("models/\(model).gguf").path)

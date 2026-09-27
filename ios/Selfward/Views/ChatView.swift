@@ -123,14 +123,17 @@ struct ChatView: View {
                     .foregroundColor(.secondary)
                     .padding(.horizontal)
             } else if localEngine.isGenerating && session.resolvedProvider == "local" {
+                let isSlow = elapsedSeconds > 15
                 HStack(spacing: 10) {
                     ProgressView()
                         .scaleEffect(0.7)
                     Text(elapsedSeconds < 5
                          ? "Thinking…"
-                         : "Thinking… \(elapsedSeconds)s")
+                         : isSlow
+                           ? "Taking longer than usual… \(elapsedSeconds)s"
+                           : "Thinking… \(elapsedSeconds)s")
                         .font(.caption)
-                        .foregroundColor(.secondary)
+                        .foregroundColor(isSlow ? .orange : .secondary)
                     Spacer()
                     Button("Stop") {
                         LocalLLMEngine.shared.stopGeneration()

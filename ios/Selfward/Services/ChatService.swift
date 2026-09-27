@@ -2,6 +2,9 @@ import Foundation
 import SwiftData
 // swiftlint:disable cyclomatic_complexity function_body_length
 // processMessage branches across many safety paths and error surfaces.
+// swiftlint:disable file_length
+// Extended past 400 lines by safety/context budget guards and error surfaces;
+// kept as one cohesive service rather than split for the sake of the counter.
 /// All SwiftData reads/writes here run on the main actor because the
 /// `ModelContext` passed in is the app's main context, which is NOT safe to use
 /// off the main thread. The expensive work (network / on-device inference) is
@@ -44,6 +47,13 @@ final class ChatService { // swiftlint:disable:this type_body_length
         /// this is true — the safety check requires nothing from the
         /// original reply is ever spoken.
         var wasReplacedForSafety = false
+    }
+
+    /// Carried by the pre-flight guard: the prompt is too close to the
+    /// on-device model's context window, so a user-facing `ChatResult` is
+    /// returned instead of risking a silent llama.cpp stall.
+    private struct LocalPromptOverflow: Error {
+        let result: ChatResult
     }
 
     /// - Parameter onSentence: called once per complete sentence as the
@@ -188,7 +198,7 @@ final class ChatService { // swiftlint:disable:this type_body_length
             recentMessages = ConversationCompactor.retainedHistory(history, budget: budget, minimumKeep: 3)
         }
 
-        // Runs one generation attempt against a specific history/memory/summary
+// Runs one generation attempt against a specific history/memory/summary
         // combination. Factored out so the context-overflow retry below can
         // re-run it with a smaller prompt without duplicating the streaming
         // vs. single-shot branching.
@@ -203,6 +213,16 @@ final class ChatService { // swiftlint:disable:this type_body_length
                 memoryContext: memoryContext,
                 priorSummary: priorSummary
             )
+            // Pre-flight check: warn the client before an on-device prompt can
+            // silently overflow the model's context window. Returns an early
+            // ChatResult when we're within 15% of the cap.
+            if let overflow = Self.localContextOverflowResult(
+                provider: provider,
+                llmMessages: llmMessages,
+                contextWindow: LocalLLMEngine.contextWindow()
+            ) {
+                throw LocalPromptOverflow(result: overflow)
+            }
             let text: String
             if let streaming = llm as? LLMStreaming {
                 text = try await Self.streamAndSplitSentences(
@@ -226,6 +246,8 @@ final class ChatService { // swiftlint:disable:this type_body_length
         do {
             (assistantResponse, tokenCount) = try await attemptGenerate(
                 recentMessages: recentMessages, memoryContext: memoryContext, priorSummary: priorSummary ?? "")
+        } catch let LocalPromptOverflow(result) {
+            return result
         } catch LLMError.contextLengthExceeded where provider == "local" {
             // The budget above already accounts for the real cost of the
             // system prompt, memories, and this message -- if it still
@@ -254,9 +276,12 @@ final class ChatService { // swiftlint:disable:this type_body_length
                 agentResponse: nil
             )
         } catch LocalLLMError.timeout {
+            // After timeout we unload the model (clears corrupted KV cache).
+            // Next attempt will reload clean.
             return ChatResult(
-                response: "That response timed out — the prompt may have been too long for this model. " +
-                "Try the 1B model for faster replies, or switch to OpenRouter for this session.",
+                response: "The model didn't respond in time (30s). This can happen if the prompt is too long " +
+                    "or the model's internal state got stuck. The model has been reset — try again, " +
+                    "or start a new session / switch to a smaller model for faster replies.",
                 isCrisis: false,
                 tokenCount: 0,
                 agentResponse: nil
