@@ -1,134 +1,146 @@
-# Graph Report - therAIpist  (2026-10-12)
+# Graph Report - therAIpist  (2026-10-19)
 
 ## Corpus Check
-- Large corpus: 233 files · ~983,067 words. Semantic extraction will be expensive (many Claude tokens). Consider running on a subfolder.
+- Large corpus: 233 files · ~778,243 words. Semantic extraction will be expensive (many Claude tokens). Consider running on a subfolder.
 
 ## Summary
-- 2734 nodes · 6801 edges · 131 communities (90 shown, 41 thin omitted)
-- Extraction: 90% EXTRACTED · 10% INFERRED · 0% AMBIGUOUS · INFERRED: 691 edges (avg confidence: 0.89)
+- 2731 nodes · 6816 edges · 144 communities (98 shown, 46 thin omitted)
+- Extraction: 90% EXTRACTED · 10% INFERRED · 0% AMBIGUOUS · INFERRED: 707 edges (avg confidence: 0.88)
 - Token cost: 0 input · 0 output
 
 ## Community Hubs (Navigation)
 - cytoscape.min.js
-- AutoBackupService
+- LocalModelService
 - PINService
-- OpenRouterModel
-- schemas.py
+- Float
 - BackupRestorePlan
 - AgentContext
-- SpeechService
-- sqlalchemy_ext_asyncio
 - SessionModel
-- chat_service.py
-- Base
+- ChatMessage
+- sqlalchemy_ext_asyncio
 - ConversationCompactorTests
-- LocalModelService
 - OnboardingView.swift
-- GraphService
-- MemoryService
-- dreams.py
 - asyncio
-- graphify_pipeline.py
-- AgentContext
-- ChatService
+- schemas.py
+- dreams.py
+- database.py
 - DashboardView.swift
-- NarrativeView
-- TherapyService
-- LocalLLMEngine
+- GraphService
+- String
+- AutoBackupService
 - Error
-- InsightCaptureServiceTests
+- Session
+- AggregatedGraph
+- insights.py
 - .buildIncremental()
-- VoiceConversationController
-- ModeService
-- notes.py
 - vector_store.py
 - View
-- SafetyService
-- TTSCoordinator
-- SettingsView
-- SelfwardDesktop
-- asyncio
-- InMemoryVectorStore
-- String
 - ChatView
-- SafetyServiceTests
-- SwiftData
-- .makeInMemoryContainer()
-- AppleFoundationEngine
-- AggregatedGraph
-- Codable
-- Theme
-- String
-- VoiceTranscriptTests
-- String
-- GraphNodeModel
-- SpiritualTradition
+- NarrativeView
+- MemoryService
+- SelfwardDesktop
+- graphify_pipeline.py
+- LocalLLMEngine
 - asyncio
-- VoiceService
-- DreamModel
-- String
-- Coordinator
-- test_dreams.py
+- TherapyService
+- .get()
+- ChatService
 - Foundation
+- SettingsView
+- String
+- Codable
+- .makeInMemoryContainer()
+- SafetyServiceTests
+- VoiceConversationController
+- notes.py
+- AppleFoundationEngine
 - NoteModel
+- InsightCaptureServiceTests
+- XCTest
+- api/memory.py
+- VoicePickerView
+- GraphNodeModel
+- KeychainService
+- ChatService
+- XCTestCase
+- VoiceTranscriptTests
+- pytest
+- TTSCoordinator
+- api/voice.py
+- Coordinator
+- MockLLM
+- test_dreams.py
+- asyncio
+- SpeechService
+- Theme
+- GraphService
+- .trendSummary()
 - PersonaKind
 - .ephemeralDefaults()
+- graph_ui.py
+- DreamModel
 - LLMError
-- GraphExportServiceTests
+- ModelService
 - .classifyHTTPFailure()
 - LLMProvider
+- FakeKeychain
 - asyncio
-- .body
-- VoiceStatusBar
+- SafetyService
+- MarkdownText
+- SwiftUI
 - GraphServiceTests
+- TestQdrantVectorStore
 - Persona
+- ModelServiceTests
 - test_notes.py
 - env.py
-- DownloadProgressDelegate
+- sessions.py
+- SessionRow
 - DashboardService
-- .graphML()
 - BackupFolderPicker
 - GlobalMemoryServiceTests
-- GraphUIService
-- MemoryService
-- MoodEntryModel
-- LocalModelService.swift
+- OpenRouterModel
 - .decrypt()
+- String
+- ModelPickerView
 - ActiveImaginationTests
-- agents.py
-- Float
 - CompanionPersonality
 - SpiritualPersonaTests
-- SafetyService
 - test_auth.py
+- .body
+- agents.py
+- CodingKeys
 - EncryptedBackupDocument
-- SessionRow
-- pytest
 - test_graph_ui.py
 - test_safety.py
-- GlobalMemoryService
-- VoiceService
+- chat.py
 - CompanionGender
 - .sizeThatFits()
+- VoiceSettingsView
 - CodingKeys
 - .processMessage()
-- EmbeddingService
-- .schedule()
+- .writePDF()
 - DashboardSheet
 - DashboardView
-- ShareSheet
+- InsightServiceTests
 - test_dashboard.py
 - test_sessions.py
 - QdrantVectorStore
+- VoiceService
 - TTSKeyProvider
-- GlobalMemoryService
-- XCTestCase
+- .schedule()
+- .stripMarkdown()
+- NodeConnectionsSheet
 - test_chat.py
+- GlobalMemoryService
 - cosine_similarity()
-- MarkdownText
-- NewSessionView
+- ShareSheet
 - TestModalityPrompts
+- LocalLLMError
+- VoiceStatusBar
 - GraphExportServiceTests.swift
+- .decode()
+- httpx
 - Phase
 - PackageDescription
 - therapist
@@ -151,396 +163,428 @@
 - `db_session()` --uses--> `Base`  [INFERRED]
   tests/conftest.py → app/models/base.py
 - `db_session()` --uses--> `Base`  [INFERRED]
+  tests/test_insights.py → app/models/base.py
+- `db_session()` --uses--> `Base`  [INFERRED]
+  tests/test_memory.py → app/models/base.py
+- `db_session()` --uses--> `Base`  [INFERRED]
   tests/test_therapy.py → app/models/base.py
-- `TestGraphNodeOperations` --uses--> `GraphNode`  [INFERRED]
-  tests/test_graph.py → app/models/graph.py
-- `TestEpisodicMemory` --uses--> `EpisodicMemory`  [INFERRED]
-  tests/test_memory.py → app/models/memory.py
 
 ## Import Cycles
 - None detected.
 
-## Communities (131 total, 41 thin omitted)
+## Communities (144 total, 46 thin omitted)
 
 ### Community 0 - "cytoscape.min.js"
 Cohesion: 0.05
 Nodes (58): a(), Ao(), b(), Ba(), cs(), d(), dc(), ds() (+50 more)
 
-### Community 1 - "AutoBackupService"
-Cohesion: 0.06
-Nodes (19): AutoBackupConfig, AutoBackupService, .decoder, .encoder, .folderDisplayName, .isEnabled, .lastBackupDate, .passphrase (+11 more)
+### Community 1 - "LocalModelService"
+Cohesion: 0.05
+Nodes (36): DownloadProgressDelegate, HFModel, HFSibling, HuggingFaceModelService, LocalModel, LocalModelKind, appleFoundation, gguf (+28 more)
 
 ### Community 2 - "PINService"
-Cohesion: 0.05
-Nodes (28): KeychainLockoutStore, PINAttemptResult, incorrect, lockedOut, success, PINLockout, .isLockedOut, PINLockoutStore (+20 more)
+Cohesion: 0.06
+Nodes (27): KeychainLockoutStore, PINAttemptResult, incorrect, lockedOut, success, PINLockout, .isLockedOut, PINLockoutStore (+19 more)
 
-### Community 3 - "OpenRouterModel"
-Cohesion: 0.05
-Nodes (25): CodingKeys, architecture, contextLength, id, inputModalities, modality, name, outputModalities (+17 more)
-
-### Community 4 - "schemas.py"
+### Community 3 - "Float"
 Cohesion: 0.07
-Nodes (49): health_check(), _build_summary(), get_adlerian_insights(), get_all_insights(), get_cycles(), get_dbt_recommendations(), get_insight_service(), get_shadow_observations() (+41 more)
+Nodes (22): AdlerianAgent, .name, AgentContext, AgentOrchestrator, .agentNames, AgentResult, CrisisAgent, .name (+14 more)
 
-### Community 5 - "BackupRestorePlan"
+### Community 4 - "BackupRestorePlan"
 Cohesion: 0.09
 Nodes (18): CommonCrypto, CryptoKit, BackupCrypto, BackupPayload, MessageSnapshot, MoodSnapshot, SessionSnapshot, BackupPlanner (+10 more)
 
-### Community 6 - "AgentContext"
+### Community 5 - "AgentContext"
 Cohesion: 0.11
 Nodes (22): AgentContext, AgentResult, TherapyAgent, CrisisAgent, AgentOrchestrator, AdlerianAgent, DBTAgent, IntegrativeAgent (+14 more)
 
-### Community 7 - "SpeechService"
-Cohesion: 0.05
-Nodes (19): AVFoundation, SpeechService, PersonasSettingsView, .body, VoiceSettingsView, .body, .elevenLabsSection, .onDeviceSection (+11 more)
+### Community 6 - "SessionModel"
+Cohesion: 0.08
+Nodes (16): SessionModel, .modelLabel, .resolvedModel, .resolvedProvider, InsightResult, InsightService, DreamsView, .body (+8 more)
+
+### Community 7 - "ChatMessage"
+Cohesion: 0.08
+Nodes (14): Settings, ChatMessage, ChatResult, LLMProvider, get_stt_provider(), OllamaProvider, OpenRouterProvider, STTProvider (+6 more)
 
 ### Community 8 - "sqlalchemy_ext_asyncio"
-Cohesion: 0.08
-Nodes (17): chat(), get_chat_history(), create_session(), delete_session(), get_session(), list_sessions(), update_session(), get_db() (+9 more)
+Cohesion: 0.19
+Nodes (8): Base, GraphEdge, GraphNode, VoiceRecording, AgentService, get_provider(), db_session(), graph_service()
 
-### Community 9 - "SessionModel"
-Cohesion: 0.10
-Nodes (15): SessionModel, .modelLabel, .resolvedModel, .resolvedProvider, InsightResult, InsightService, DreamsView, .body (+7 more)
-
-### Community 10 - "chat_service.py"
-Cohesion: 0.10
-Nodes (12): Settings, ChatMessage, ChatResult, LLMProvider, get_provider(), get_stt_provider(), OllamaProvider, OpenRouterProvider (+4 more)
-
-### Community 11 - "Base"
-Cohesion: 0.17
-Nodes (13): Base, GraphEdge, GraphNode, EpisodicMemory, SemanticMemory, Session, db_session(), graph_service() (+5 more)
-
-### Community 12 - "ConversationCompactorTests"
-Cohesion: 0.12
+### Community 9 - "ConversationCompactorTests"
+Cohesion: 0.11
 Nodes (3): ConversationCompactor, StoredState, ConversationCompactorTests
 
-### Community 13 - "LocalModelService"
-Cohesion: 0.11
-Nodes (19): LocalModel, LocalModelService, .availableModels, .huggingFaceModels, .modelsDirectory, .downloadedLocalModels, .localAvailable, .resolvedLocalModel (+11 more)
-
-### Community 14 - "OnboardingView.swift"
+### Community 10 - "OnboardingView.swift"
 Cohesion: 0.09
 Nodes (31): AboutYouStep, .body, APIKeyStep, .body, BulletRow, BulletRow2, .body, .body (+23 more)
 
-### Community 15 - "GraphService"
-Cohesion: 0.10
-Nodes (14): create_edge(), create_node(), extract(), get_connections(), get_graph_service(), get_node(), get_patterns(), get_session_graph() (+6 more)
-
-### Community 16 - "MemoryService"
-Cohesion: 0.10
-Nodes (17): consolidate(), get_memory_service(), list_episodic(), list_procedural(), list_semantic(), search_memories(), store_procedural(), store_semantic() (+9 more)
-
-### Community 17 - "dreams.py"
-Cohesion: 0.11
-Nodes (16): analyze_dream(), create_dream(), delete_dream(), extract_symbols(), get_dream(), get_dream_service(), json_loads(), list_dreams() (+8 more)
-
-### Community 18 - "asyncio"
+### Community 11 - "asyncio"
 Cohesion: 0.09
 Nodes (6): TestExtraction, TestGraphChatIntegration, TestGraphEdgeOperations, TestGraphNodeOperations, TestSessionGraph, TestThemesAndPatterns
 
-### Community 19 - "graphify_pipeline.py"
-Cohesion: 0.08
-Nodes (11): STTProvider, TranscriptResult, MockSTTProvider, test_delete_recording(), test_delete_recording_not_found(), test_list_recordings(), test_list_recordings_empty(), test_upload_audio() (+3 more)
-
-### Community 20 - "AgentContext"
+### Community 12 - "schemas.py"
 Cohesion: 0.13
-Nodes (16): AdlerianAgent, .name, AgentContext, AgentOrchestrator, .agentNames, AgentResult, CrisisAgent, .name (+8 more)
+Nodes (27): create_edge(), create_node(), extract(), health_check(), get_mode_service(), GlobalDashboardResponse, GraphConnectionResponse, GraphEdgeCreate (+19 more)
 
-### Community 21 - "ChatService"
-Cohesion: 0.16
-Nodes (4): ChatService, ChatServiceE2ETests, ChatServiceCompactionTests, MockLLM
-
-### Community 22 - "DashboardView.swift"
-Cohesion: 0.10
-Nodes (23): Charts, GlobalMemoryModel, .body, FlowTagView, .body, GlobalMemoriesListView, .body, .filtered (+15 more)
-
-### Community 23 - "NarrativeView"
-Cohesion: 0.09
-Nodes (15): NarrativeExportService, NarrativeSettingsSheet, .body, .cloudModelPlaceholder, .usesCloud, NarrativeView, .body, .document (+7 more)
-
-### Community 24 - "TherapyService"
-Cohesion: 0.09
-Nodes (13): get_dashboard_service(), get_global_dashboard(), get_session_dashboard(), get_progress(), get_therapy_service(), suggest_intervention(), InterventionSuggestionResponse, ProgressResponse (+5 more)
-
-### Community 25 - "LocalLLMEngine"
+### Community 13 - "dreams.py"
 Cohesion: 0.12
-Nodes (9): LocalLLMEngine, LocalLLMError, busy, .errorDescription, loadFailed, notLoaded, timeout, LocalLLMEngineTests (+1 more)
+Nodes (16): analyze_dream(), create_dream(), delete_dream(), extract_symbols(), get_dream(), get_dream_service(), json_loads(), list_dreams() (+8 more)
 
-### Community 26 - "Error"
-Cohesion: 0.10
+### Community 14 - "database.py"
+Cohesion: 0.09
+Nodes (15): get_events(), get_safety_service(), get_summary(), get_progress(), get_therapy_service(), suggest_intervention(), get_db(), init_db() (+7 more)
+
+### Community 15 - "DashboardView.swift"
+Cohesion: 0.11
+Nodes (20): Charts, GlobalMemoryModel, GlobalMemoryService, .body, FlowTagView, .body, GlobalMemoriesListView, .body (+12 more)
+
+### Community 16 - "GraphService"
+Cohesion: 0.09
+Nodes (8): get_connections(), get_graph_service(), get_node(), get_patterns(), get_session_graph(), get_themes(), list_nodes(), GraphService
+
+### Community 17 - "String"
+Cohesion: 0.12
+Nodes (6): MemoryModel, MoodEntryModel, NarrativeDocument, SafetyEventModel, VoiceRecordingModel, NarrativeTests
+
+### Community 18 - "AutoBackupService"
+Cohesion: 0.18
+Nodes (8): AutoBackupConfig, AutoBackupService, .decoder, .encoder, .folderDisplayName, .isEnabled, .lastBackupDate, AvailableAutoBackup
+
+### Community 19 - "Error"
+Cohesion: 0.11
 Nodes (6): ChatServiceStreamingTests, MockStreamingLLM, Error, keyDerivationFailed, malformed, sealFailed
 
-### Community 27 - "InsightCaptureServiceTests"
-Cohesion: 0.12
-Nodes (3): DreamCandidate, InsightCaptureService, InsightCaptureServiceTests
+### Community 20 - "Session"
+Cohesion: 0.22
+Nodes (16): get_mode(), set_mode(), Session, ModeService, test_get_mode_default(), test_get_mode_not_found(), test_resolve_provider_auto(), test_resolve_provider_cloud() (+8 more)
 
-### Community 28 - ".buildIncremental()"
+### Community 21 - "AggregatedGraph"
 Cohesion: 0.18
+Nodes (7): AggregatedEdge, AggregatedGraph, AggregatedNode, GraphExportService, GraphVisualizationSheet, .body, GraphVisualizationSheetTests
+
+### Community 22 - "insights.py"
+Cohesion: 0.16
+Nodes (17): _build_summary(), get_adlerian_insights(), get_all_insights(), get_cycles(), get_dbt_recommendations(), get_insight_service(), get_shadow_observations(), refresh_insights() (+9 more)
+
+### Community 23 - ".buildIncremental()"
+Cohesion: 0.19
 Nodes (4): MessageModel, NarrativeService, Source, NarrativeServiceTests
 
-### Community 29 - "VoiceConversationController"
-Cohesion: 0.17
-Nodes (3): VoiceConversationController, .silenceInterval, VoiceUtterance
-
-### Community 30 - "ModeService"
-Cohesion: 0.20
-Nodes (15): get_mode(), get_mode_service(), ModeService, test_get_mode_default(), test_get_mode_not_found(), test_resolve_provider_auto(), test_resolve_provider_cloud(), test_resolve_provider_hybrid() (+7 more)
-
-### Community 31 - "notes.py"
-Cohesion: 0.14
-Nodes (10): create_note(), delete_note(), get_note_service(), list_notes(), update_note(), Note, NoteCreate, NoteResponse (+2 more)
-
-### Community 32 - "vector_store.py"
-Cohesion: 0.12
-Nodes (7): get_vector_store(), reset_vector_store(), SearchResult, VectorStore, cleanup_vector_store(), client(), db_session()
-
-### Community 33 - "View"
+### Community 24 - "vector_store.py"
 Cohesion: 0.13
-Nodes (11): AnimatedEmptyState, .body, BadgePill, .body, GradientHeader, PersonaAvatar, RoundedCorner, TagCapsule (+3 more)
+Nodes (5): get_vector_store(), InMemoryVectorStore, reset_vector_store(), SearchResult, VectorStore
 
-### Community 34 - "SafetyService"
-Cohesion: 0.12
-Nodes (7): get_events(), get_safety_service(), get_summary(), Message, SafetyEvent, _is_negated(), SafetyService
-
-### Community 35 - "TTSCoordinator"
-Cohesion: 0.14
-Nodes (5): PrefetchedSentence, text, TTSCoordinator, .isSpeaking, .provider
-
-### Community 36 - "SettingsView"
+### Community 25 - "View"
 Cohesion: 0.13
-Nodes (11): AboutYouSettingsView, .body, KeysAndProvidersSettingsView, .body, PrivacySettingsView, .body, ProviderKeySection, SettingsView (+3 more)
+Nodes (12): AnimatedEmptyState, .body, BadgePill, .body, GradientHeader, .body, PersonaAvatar, RoundedCorner (+4 more)
 
-### Community 37 - "SelfwardDesktop"
+### Community 26 - "ChatView"
+Cohesion: 0.13
+Nodes (6): ChatView, .body, .hasActiveCrisis, .isBusy, .modelLabel, .persona
+
+### Community 27 - "NarrativeView"
+Cohesion: 0.12
+Nodes (14): NarrativeSettingsSheet, .body, .cloudModelPlaceholder, .usesCloud, NarrativeView, .body, .document, .emptyDescription (+6 more)
+
+### Community 28 - "MemoryService"
+Cohesion: 0.16
+Nodes (6): EpisodicMemory, ProceduralMemory, SemanticMemory, MemoryService, db_session(), memory_service()
+
+### Community 29 - "SelfwardDesktop"
 Cohesion: 0.15
 Nodes (6): SelfwardDesktop, run(), run(), run(), create(), run()
 
-### Community 38 - "asyncio"
+### Community 30 - "graphify_pipeline.py"
+Cohesion: 0.11
+Nodes (8): test_delete_recording(), test_delete_recording_not_found(), test_list_recordings(), test_list_recordings_empty(), test_upload_audio(), test_upload_cleans_up_file(), test_voice_chat(), test_voice_chat_session_not_found()
+
+### Community 31 - "LocalLLMEngine"
+Cohesion: 0.17
+Nodes (3): LocalLLMEngine, LocalLLMEngineTests, LLM
+
+### Community 32 - "asyncio"
 Cohesion: 0.13
 Nodes (5): TestBuildContext, TestCycleDetection, TestGenerateInsights, TestInsightsAPI, TestParseInsights
 
-### Community 39 - "InMemoryVectorStore"
-Cohesion: 0.14
-Nodes (3): InMemoryVectorStore, TestInMemoryVectorStore, TestQdrantVectorStore
+### Community 33 - "TherapyService"
+Cohesion: 0.12
+Nodes (6): get_dashboard_service(), get_global_dashboard(), get_session_dashboard(), Note, DashboardService, TherapyService
 
-### Community 40 - "String"
-Cohesion: 0.22
+### Community 34 - ".get()"
+Cohesion: 0.13
+Nodes (6): APIKeyProvider, .byokProviders, .cloudProvidersWithKeys, .body, .openAISection, ProviderRoutingTests
+
+### Community 35 - "ChatService"
+Cohesion: 0.15
+Nodes (7): Message, SessionCreate, ChatService, db_session(), graph_service(), TestProgress, therapy_service()
+
+### Community 36 - "Foundation"
+Cohesion: 0.17
+Nodes (4): BackupKit, Foundation, SwiftData, UserNotifications
+
+### Community 37 - "SettingsView"
+Cohesion: 0.14
+Nodes (10): AboutYouSettingsView, .body, PrivacySettingsView, .body, SettingsTabView, .body, SettingsView, .autoBackupEnabled (+2 more)
+
+### Community 38 - "String"
+Cohesion: 0.21
 Nodes (5): BYOKLLMKit, LLMMessage, LLMSending, LLMService, LLMStreaming
 
-### Community 41 - "ChatView"
-Cohesion: 0.14
-Nodes (6): ChatView, .body, .hasActiveCrisis, .isBusy, .modelLabel, .persona
+### Community 39 - "Codable"
+Cohesion: 0.24
+Nodes (14): AnthropicContentBlock, AnthropicMessage, AnthropicRequest, AnthropicResponse, AnthropicUsage, CrisisPattern, EmbeddingData, EmbeddingRequest (+6 more)
 
-### Community 42 - "SafetyServiceTests"
-Cohesion: 0.14
+### Community 41 - "SafetyServiceTests"
+Cohesion: 0.12
 Nodes (3): CrisisResources, Resource, SafetyServiceTests
 
-### Community 43 - "SwiftData"
-Cohesion: 0.21
-Nodes (3): Selfward, SwiftData, XCTest
+### Community 42 - "VoiceConversationController"
+Cohesion: 0.20
+Nodes (3): VoiceConversationController, .silenceInterval, VoiceUtterance
 
-### Community 44 - ".makeInMemoryContainer()"
+### Community 43 - "notes.py"
 Cohesion: 0.15
-Nodes (3): InsightServiceTests, MemoryServiceTests, TestSupport
+Nodes (9): create_note(), delete_note(), get_note_service(), list_notes(), update_note(), NoteCreate, NoteResponse, NoteUpdate (+1 more)
 
-### Community 45 - "AppleFoundationEngine"
+### Community 44 - "AppleFoundationEngine"
 Cohesion: 0.14
 Nodes (9): FoundationModels, AppleFoundationEngine, .isAvailable, .statusLabel, AppleFoundationError, .errorDescription, unavailable, appleFoundationModelAvailable() (+1 more)
 
-### Community 46 - "AggregatedGraph"
+### Community 45 - "NoteModel"
 Cohesion: 0.20
-Nodes (10): AggregatedEdge, AggregatedGraph, AggregatedNode, Connection, GraphVisualizationSheet, .body, NodeConnectionsSheet, .body (+2 more)
+Nodes (8): NoteModel, BadgeBackfillService, NoteService, NoteDetailView, .body, NotesListView, .body, .sorted
 
-### Community 47 - "Codable"
-Cohesion: 0.27
-Nodes (14): AnthropicContentBlock, AnthropicMessage, AnthropicRequest, AnthropicResponse, AnthropicUsage, CrisisPattern, EmbeddingData, EmbeddingRequest (+6 more)
+### Community 46 - "InsightCaptureServiceTests"
+Cohesion: 0.18
+Nodes (3): DreamCandidate, InsightCaptureService, InsightCaptureServiceTests
 
-### Community 48 - "Theme"
-Cohesion: 0.14
-Nodes (8): .body, .body, Theme, .narrativeBackground, .narrativeBackgroundDark, .chapterOrnament, .emptyState, .line
+### Community 48 - "api/memory.py"
+Cohesion: 0.18
+Nodes (16): consolidate(), get_memory_service(), list_episodic(), list_procedural(), list_semantic(), search_memories(), store_procedural(), store_semantic() (+8 more)
 
-### Community 49 - "String"
-Cohesion: 0.19
-Nodes (5): HFModel, HFSibling, HuggingFaceModelService, .recommendedID, HuggingFaceCatalogTests
+### Community 49 - "VoicePickerView"
+Cohesion: 0.15
+Nodes (8): VoicePickerView, .body, .defaultVoices, .enhancedVoices, .premiumVoices, VoiceRow, .body, .isSelected
 
-### Community 51 - "String"
-Cohesion: 0.20
-Nodes (4): MemoryModel, NarrativeDocument, SafetyEventModel, VoiceRecordingModel
+### Community 50 - "GraphNodeModel"
+Cohesion: 0.24
+Nodes (11): GraphEdgeModel, GraphNodeModel, EdgesListView, .body, .filtered, NodeDetailView, .body, .properties (+3 more)
 
-### Community 52 - "GraphNodeModel"
-Cohesion: 0.29
-Nodes (5): GraphNodeModel, EdgeSpec, Extraction, GraphService, NodeSpec
+### Community 51 - "KeychainService"
+Cohesion: 0.26
+Nodes (4): .passphrase, KeychainService, KeychainStoring, Security
 
-### Community 53 - "SpiritualTradition"
+### Community 53 - "XCTestCase"
 Cohesion: 0.11
 Nodes (14): SpiritualTradition, buddhist, christian, hindu, .id, interfaith, islamic, jewish (+6 more)
 
-### Community 54 - "asyncio"
-Cohesion: 0.16
-Nodes (4): TestConsolidation, TestEpisodicMemory, TestProceduralMemory, TestSemanticMemory
+### Community 55 - "pytest"
+Cohesion: 0.14
+Nodes (9): cleanup_vector_store(), client(), db_session(), db_session(), graph_service(), insight_service(), test_boundary_response_is_filtered(), test_crisis_resource_message_consistent() (+1 more)
 
-### Community 55 - "VoiceService"
-Cohesion: 0.16
-Nodes (7): delete_recording(), get_voice_service(), list_recordings(), upload_audio(), voice_chat(), VoiceRecording, VoiceService
+### Community 56 - "TTSCoordinator"
+Cohesion: 0.17
+Nodes (5): PrefetchedSentence, text, TTSCoordinator, .isSpeaking, .provider
 
-### Community 56 - "DreamModel"
-Cohesion: 0.20
-Nodes (9): DreamModel, DreamService, DreamDetailView, .body, .feelings, .symbols, DreamsListView, .body (+1 more)
+### Community 57 - "api/voice.py"
+Cohesion: 0.18
+Nodes (8): delete_recording(), get_voice_service(), list_recordings(), upload_audio(), voice_chat(), VoiceChatResponse, VoiceRecordingResponse, VoiceService
 
-### Community 57 - "String"
-Cohesion: 0.24
-Nodes (10): GraphEdgeModel, EdgesListView, .body, .filtered, NodeDetailView, .body, .properties, NodesListView (+2 more)
-
-### Community 59 - "test_dreams.py"
+### Community 60 - "test_dreams.py"
 Cohesion: 0.21
 Nodes (16): test_analyze_dream(), test_analyze_dream_not_found(), test_analyze_dream_provider_error(), test_create_dream(), test_delete_dream(), test_delete_dream_not_found(), test_dream_custom_date(), test_dream_date_default() (+8 more)
 
-### Community 60 - "Foundation"
-Cohesion: 0.15
-Nodes (4): BackupKit, Foundation, BadgeBackfillService, UserNotifications
+### Community 61 - "asyncio"
+Cohesion: 0.16
+Nodes (4): TestConsolidation, TestEpisodicMemory, TestProceduralMemory, TestSemanticMemory
 
-### Community 61 - "NoteModel"
-Cohesion: 0.25
-Nodes (7): NoteModel, NoteService, NoteDetailView, .body, NotesListView, .body, .sorted
+### Community 62 - "SpeechService"
+Cohesion: 0.18
+Nodes (3): SpeechService, PersonasSettingsView, .body
 
-### Community 62 - "PersonaKind"
+### Community 63 - "Theme"
+Cohesion: 0.18
+Nodes (6): .body, Theme, .narrativeBackground, .narrativeBackgroundDark, .chapterOrnament, .line
+
+### Community 64 - "GraphService"
+Cohesion: 0.32
+Nodes (4): EdgeSpec, Extraction, GraphService, NodeSpec
+
+### Community 65 - ".trendSummary()"
+Cohesion: 0.21
+Nodes (5): MoodStore, MoodCheckInCard, .body, .recentDaily, MoodDayAverage
+
+### Community 66 - "PersonaKind"
 Cohesion: 0.12
 Nodes (13): PersonaKind, .avatarAssetName, .blurb, companion, .defaultName, .fallbackLabel, .icon, .id (+5 more)
 
-### Community 64 - "LLMError"
+### Community 68 - "graph_ui.py"
+Cohesion: 0.20
+Nodes (8): get_graph_ui_service(), get_stats(), get_timeline(), get_visualization(), GraphStatsResponse, GraphTimelineResponse, GraphVisualizationResponse, GraphUIService
+
+### Community 69 - "DreamModel"
+Cohesion: 0.23
+Nodes (9): DreamModel, DreamService, DreamDetailView, .body, .feelings, .symbols, DreamsListView, .body (+1 more)
+
+### Community 70 - "LLMError"
 Cohesion: 0.12
 Nodes (14): AutoBackupError, .errorDescription, noAutoBackupsFound, noFolderChosen, LLMError, apiError, contextLengthExceeded, emptyResponse (+6 more)
 
-### Community 67 - "LLMProvider"
+### Community 71 - "ModelService"
+Cohesion: 0.19
+Nodes (5): ModelService, .freeModels, .paidModels, KeysAndProvidersSettingsView, .body
+
+### Community 73 - "LLMProvider"
 Cohesion: 0.12
 Nodes (15): LLMProvider, anthropic, .baseURL, deepseek, .displayName, .exampleModelID, groq, .id (+7 more)
 
-### Community 69 - ".body"
-Cohesion: 0.17
-Nodes (10): AppRootView, .body, RootTabView, .body, SelfwardApp, .body, DashboardTabView, .body (+2 more)
+### Community 76 - "SafetyService"
+Cohesion: 0.21
+Nodes (3): SafetyEvent, _is_negated(), SafetyService
 
-### Community 70 - "VoiceStatusBar"
-Cohesion: 0.14
-Nodes (11): CapturedBadgeRow, CrisisBanner, .body, MessageBubble, .body, .hasBadges, VoiceStatusBar, .body (+3 more)
+### Community 77 - "MarkdownText"
+Cohesion: 0.15
+Nodes (10): MarkdownText, .attributed, .body, CapturedBadgeRow, .body, CrisisBanner, .body, MessageBubble (+2 more)
 
-### Community 72 - "Persona"
+### Community 78 - "SwiftUI"
+Cohesion: 0.16
+Nodes (7): AVFoundation, NewSessionView, .body, .defaultProviderLabel, .personaName, Speech, SwiftUI
+
+### Community 81 - "Persona"
 Cohesion: 0.21
 Nodes (3): Persona, .displayName, TherapyService
 
-### Community 73 - "test_notes.py"
+### Community 83 - "test_notes.py"
 Cohesion: 0.35
 Nodes (11): test_create_journal_entry(), test_create_note_invalid_type(), test_create_session_note(), test_delete_note(), test_delete_note_not_found(), test_list_notes(), test_list_notes_empty_session(), test_note_types_defined() (+3 more)
 
-### Community 74 - "env.py"
+### Community 84 - "env.py"
 Cohesion: 0.17
 Nodes (3): do_run_migrations(), run_migrations_online(), upgrade()
 
-### Community 76 - "DashboardService"
+### Community 85 - "sessions.py"
+Cohesion: 0.28
+Nodes (7): create_session(), delete_session(), get_session(), list_sessions(), update_session(), SessionResponse, SessionUpdate
+
+### Community 86 - "SessionRow"
+Cohesion: 0.21
+Nodes (10): .body, ArchivedSessionsView, .body, ContentView, .body, SessionRow, .body, .personaKind (+2 more)
+
+### Community 87 - "DashboardService"
 Cohesion: 0.33
 Nodes (3): DashboardService, GlobalDashboard, SessionDashboard
 
-### Community 80 - "GraphUIService"
-Cohesion: 0.24
-Nodes (5): get_graph_ui_service(), get_stats(), get_timeline(), get_visualization(), GraphUIService
+### Community 90 - "OpenRouterModel"
+Cohesion: 0.26
+Nodes (7): ModelPricing, ModelsResponse, OpenRouterArchitecture, OpenRouterModel, .isFree, .isTextFirst, .shortName
 
-### Community 83 - "LocalModelService.swift"
-Cohesion: 0.17
-Nodes (11): LocalModelKind, appleFoundation, gguf, LocalModelTemplate, chatML, gemma, llama3, phi3 (+3 more)
-
-### Community 86 - "agents.py"
+### Community 93 - "ModelPickerView"
 Cohesion: 0.27
-Nodes (6): get_agent_service(), list_agents(), route_message(), AgentResponse, AgentRouteResponse, AgentService
+Nodes (4): ModelPickerView, .body, .freeSorted, .paidSorted
 
-### Community 89 - "CompanionPersonality"
+### Community 96 - "CompanionPersonality"
 Cohesion: 0.18
 Nodes (11): CompanionPersonality, bold, calm, cheerful, deep, .id, .label, machiavelli (+3 more)
 
-### Community 92 - "test_auth.py"
+### Community 98 - "test_auth.py"
 Cohesion: 0.33
 Nodes (6): api_key(), test_auth_disabled_allows_request(), test_bearer_key_accepted(), test_missing_key_is_rejected(), test_wrong_key_rejected(), test_x_api_key_accepted()
 
-### Community 94 - "SessionRow"
+### Community 99 - ".body"
 Cohesion: 0.29
-Nodes (7): ArchivedSessionsView, .body, ContentView, .body, SessionRow, .body, .personaKind
+Nodes (5): AppRootView, .body, RootTabView, SelfwardApp, .body
 
-### Community 95 - "pytest"
+### Community 100 - "agents.py"
 Cohesion: 0.24
-Nodes (4): test_health_endpoint(), test_boundary_response_is_filtered(), test_crisis_resource_message_consistent(), test_negation_is_not_crisis()
+Nodes (5): get_agent_service(), list_agents(), route_message(), AgentResponse, AgentRouteResponse
 
-### Community 96 - "test_graph_ui.py"
+### Community 101 - "CodingKeys"
+Cohesion: 0.20
+Nodes (9): CodingKeys, architecture, contextLength, id, inputModalities, modality, name, outputModalities (+1 more)
+
+### Community 103 - "test_graph_ui.py"
 Cohesion: 0.36
 Nodes (8): test_stats_degree_distribution(), test_stats_empty(), test_stats_with_data(), test_timeline_empty(), test_timeline_with_data(), test_visualization_colors_and_shapes(), test_visualization_empty(), test_visualization_with_data()
 
-### Community 97 - "test_safety.py"
+### Community 104 - "test_safety.py"
 Cohesion: 0.36
 Nodes (8): test_boundary_detection(), test_crisis_detection_in_chat(), test_crisis_detection_multiple_patterns(), test_normal_chat_still_works_with_safety(), test_normal_message_no_crisis(), test_referral_logged(), test_safety_events_empty(), test_safety_summary()
 
-### Community 100 - "CompanionGender"
+### Community 105 - "chat.py"
+Cohesion: 0.33
+Nodes (5): chat(), get_chat_history(), ChatRequest, ChatResponse, MessageResponse
+
+### Community 106 - "CompanionGender"
 Cohesion: 0.22
 Nodes (8): CompanionGender, feminine, .id, .label, masculine, nonbinary, .promptLine, unspecified
 
-### Community 102 - "CodingKeys"
+### Community 108 - "VoiceSettingsView"
+Cohesion: 0.25
+Nodes (5): ProviderKeySection, VoiceSettingsView, .body, .elevenLabsSection, .onDeviceSection
+
+### Community 109 - "CodingKeys"
 Cohesion: 0.22
 Nodes (9): CodingKeys, completionTokens, inputTokens, maxTokens, messages, model, outputTokens, promptTokens (+1 more)
 
-### Community 104 - "EmbeddingService"
-Cohesion: 0.28
-Nodes (3): EmbeddingService, .isAvailable, NaturalLanguage
-
-### Community 106 - "DashboardSheet"
+### Community 112 - "DashboardSheet"
 Cohesion: 0.22
 Nodes (9): DashboardSheet, dreams, edges, globalMemories, graphMap, .id, memories, nodes (+1 more)
 
-### Community 107 - "DashboardView"
+### Community 113 - "DashboardView"
 Cohesion: 0.25
 Nodes (9): DashboardView, .allDreams, .allEdges, .allMemories, .allNodes, .allNotes, .globalMemories, .recentNotes (+1 more)
 
-### Community 109 - "test_dashboard.py"
+### Community 115 - "test_dashboard.py"
 Cohesion: 0.39
 Nodes (7): test_global_dashboard_empty(), test_global_dashboard_recent_notes(), test_global_dashboard_tracks_graph_data(), test_global_dashboard_with_data(), test_session_dashboard_empty(), test_session_dashboard_summary_fields(), test_session_dashboard_with_data()
 
-### Community 110 - "test_sessions.py"
+### Community 116 - "test_sessions.py"
 Cohesion: 0.50
 Nodes (6): test_create_session(), test_delete_session(), test_get_session(), test_get_session_not_found(), test_list_sessions(), test_update_session()
 
-### Community 112 - "TTSKeyProvider"
+### Community 119 - "TTSKeyProvider"
 Cohesion: 0.25
 Nodes (7): Combine, TTSKeyProvider, .displayName, elevenlabs, .keychainKey, .keyHint, VoiceLoopKit
 
-### Community 115 - "test_chat.py"
+### Community 123 - "NodeConnectionsSheet"
+Cohesion: 0.32
+Nodes (5): Connection, NodeConnectionsSheet, .body, .connections, WebKit
+
+### Community 124 - "test_chat.py"
 Cohesion: 0.54
 Nodes (5): test_chat_consolidates_memories(), test_chat_recalls_memories(), test_chat_session_not_found(), test_chat_with_history(), test_get_chat_history()
 
-### Community 117 - "MarkdownText"
+### Community 129 - "LocalLLMError"
 Cohesion: 0.33
-Nodes (3): MarkdownText, .attributed, .body
+Nodes (6): LocalLLMError, busy, .errorDescription, loadFailed, notLoaded, timeout
 
-### Community 118 - "NewSessionView"
+### Community 130 - "VoiceStatusBar"
 Cohesion: 0.33
-Nodes (4): NewSessionView, .body, .defaultProviderLabel, .personaName
+Nodes (5): VoiceStatusBar, .body, .icon, .label, .tint
 
-### Community 121 - "Phase"
+### Community 134 - "Phase"
 Cohesion: 0.40
 Nodes (5): Phase, idle, listening, speaking, thinking
 
 ## Knowledge Gaps
 - **213 isolated node(s):** `PackageDescription`, `CryptoKit`, `CommonCrypto`, `sealFailed`, `malformed` (+208 more)
-  These have ≤1 connection - possible missing edges. (Counts symbols only; 592 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
-- **41 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+  These have ≤1 connection - possible missing edges. (Counts symbols only; 589 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
+- **46 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `SessionModel` connect `SessionModel` to `AutoBackupService`, `OpenRouterModel`, `ChatService`, `DashboardView.swift`, `Error`, `InsightCaptureServiceTests`, `.buildIncremental()`, `ChatView`, `.makeInMemoryContainer()`, `AggregatedGraph`, `String`, `GraphNodeModel`, `DreamModel`, `String`, `NoteModel`, `PersonaKind`, `.ephemeralDefaults()`, `GraphExportServiceTests`, `GraphServiceTests`, `DashboardService`, `MemoryService`, `.decrypt()`, `.configError()`, `SessionRow`, `VoiceService`, `.processMessage()`, `DashboardView`, `NewSessionView`?**
-  _High betweenness centrality (0.092) - this node is a cross-community bridge._
+- **Why does `SessionModel` connect `SessionModel` to `Float`, `DashboardView.swift`, `String`, `Error`, `AggregatedGraph`, `.buildIncremental()`, `ChatView`, `.makeInMemoryContainer()`, `NoteModel`, `InsightCaptureServiceTests`, `GraphNodeModel`, `ChatService`, `MockLLM`, `GraphService`, `PersonaKind`, `.ephemeralDefaults()`, `DreamModel`, `FakeKeychain`, `SwiftUI`, `GraphServiceTests`, `SessionRow`, `DashboardService`, `.decrypt()`, `ModelPickerView`, `.configError()`, `.processMessage()`, `DashboardView`, `InsightServiceTests`, `VoiceService`?**
+  _High betweenness centrality (0.100) - this node is a cross-community bridge._
 - **Are the 45 inferred relationships involving `SessionModel` (e.g. with `.buildIncremental()` and `.restore()`) actually correct?**
   _`SessionModel` has 45 INFERRED edges - model-reasoned connections that need verification._
 - **What connects `PackageDescription`, `CryptoKit`, `CommonCrypto` to the rest of the system?**
   _213 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `cytoscape.min.js` be split into smaller, more focused modules?**
   _Cohesion score 0.051462904911180773 - nodes in this community are weakly interconnected._
-- **Why does `Foundation` connect `Foundation` to `PINService`, `OpenRouterModel`, `BackupRestorePlan`, `SpeechService`, `SessionModel`, `AgentContext`, `LocalLLMEngine`, `InsightCaptureServiceTests`, `.buildIncremental()`, `String`, `AppleFoundationEngine`, `AggregatedGraph`, `Codable`, `String`, `GraphNodeModel`, `DreamModel`, `NoteModel`, `PersonaKind`, `Persona`, `DashboardService`, `LocalModelService.swift`, `Float`, `VoiceService`, `EmbeddingService`, `TTSKeyProvider`, `GlobalMemoryService`, `GraphExportServiceTests.swift`?**
-  _High betweenness centrality (0.051) - this node is a cross-community bridge._
+- **Why does `View` connect `View` to `LocalModelService`, `VoiceStatusBar`, `PINService`, `SessionModel`, `OnboardingView.swift`, `DashboardView.swift`, `AggregatedGraph`, `ChatView`, `NarrativeView`, `SettingsView`, `NoteModel`, `VoicePickerView`, `GraphNodeModel`, `SpeechService`, `.trendSummary()`, `DreamModel`, `ModelService`, `MarkdownText`, `SwiftUI`, `SessionRow`, `ModelPickerView`, `.body`, `VoiceSettingsView`, `DashboardView`, `NodeConnectionsSheet`?**
+  _High betweenness centrality (0.044) - this node is a cross-community bridge._
 - **Are the 31 inferred relationships involving `ChatService` (e.g. with `AgentOrchestrator` and `.testAssistantBubbleIsBadgedWithCapturedInsights()`) actually correct?**
   _`ChatService` has 31 INFERRED edges - model-reasoned connections that need verification._
-- **Should `AutoBackupService` be split into smaller, more focused modules?**
-  _Cohesion score 0.05798319327731093 - nodes in this community are weakly interconnected._
+- **Should `LocalModelService` be split into smaller, more focused modules?**
+  _Cohesion score 0.05266106442577031 - nodes in this community are weakly interconnected._
