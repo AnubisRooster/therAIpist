@@ -129,6 +129,12 @@ final class ProviderRoutingTests: XCTestCase {
         }
     }
 
+    func testCloudProvidersHaveNonEmptyTipBlurbs() {
+        for p in LLMProvider.allCases where p != .local {
+            XCTAssertFalse(p.tipBlurb.isEmpty, "\(p.rawValue) should have a tipBlurb")
+        }
+    }
+
     func testAnthropicIsNotOpenAICompatible() {
         XCTAssertFalse(LLMProvider.anthropic.isOpenAICompatible)
     }
@@ -318,6 +324,12 @@ final class SpiritualTraditionTests: XCTestCase {
         }
     }
 
+    func testAllTraditionsHaveNonEmptyTipBlurbs() {
+        for t in SpiritualTradition.allCases {
+            XCTAssertFalse(t.tipBlurb.isEmpty, "\(t.rawValue) should have a tipBlurb")
+        }
+    }
+
     func testInterfaithIsDefault() {
         XCTAssertEqual(SpiritualTradition(rawValue: "interfaith"), .interfaith)
     }
@@ -328,5 +340,15 @@ final class SpiritualTraditionTests: XCTestCase {
 
     func testTraditionsContainNineValues() {
         XCTAssertEqual(SpiritualTradition.allCases.count, 9)
+    }
+}
+
+final class ModalityHintsDataTests: XCTestCase {
+
+    func testEveryModalityHasANonEmptyLongDescription() {
+        for m in allModalities {
+            XCTAssertFalse((modalityLongDescriptions[m] ?? "").isEmpty,
+                          "\(m) should have a modalityLongDescriptions entry")
+        }
     }
 }
