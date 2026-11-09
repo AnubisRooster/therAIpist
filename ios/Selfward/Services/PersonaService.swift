@@ -126,6 +126,32 @@ enum SpiritualTradition: String, CaseIterable, Identifiable {
             return "You draw on secular humanist philosophy — reason, ethics, existentialist thought, and the search for meaning without religious framing."
         }
     }
+
+    /// Consumer-facing explanation for the Hints & Tips guide — distinct from
+    /// `promptLine`, which is written as instructions to the AI, not as
+    /// descriptive copy for a person choosing between traditions.
+    var tipBlurb: String {
+        switch self {
+        case .interfaith:
+            return "Draws from Stoic, Buddhist, Abrahamic, Hindu, and Taoist wisdom as fits what you bring. Good for not being sure which tradition resonates."
+        case .stoic:
+            return "Epictetus, Marcus Aurelius, Seneca — what's within your control, virtue, and steadiness under hardship."
+        case .buddhist:
+            return "The Dharma, the Four Noble Truths, impermanence, compassion, and the Middle Way."
+        case .christian:
+            return "Grace, forgiveness, love, prayer, scripture, and the mystic tradition."
+        case .jewish:
+            return "Torah, Talmudic reasoning, Kabbalah, teshuvah (repair), and the pursuit of justice and meaning."
+        case .islamic:
+            return "The Quran, Hadith, Sufi mysticism, dhikr (remembrance), and tawakkul (trust in God)."
+        case .hindu:
+            return "The Bhagavad Gita, the Upanishads, dharma, karma, the paths of yoga, and Advaita Vedanta."
+        case .taoist:
+            return "The Tao Te Ching, wu wei (effortless action), harmony with nature, and the balance of yin and yang."
+        case .secular:
+            return "Reason, ethics, existentialist thought, and meaning-making without religious framing."
+        }
+    }
 }
 
 // MARK: - Companion gender / personality
@@ -184,6 +210,28 @@ enum CompanionPersonality: String, CaseIterable, Identifiable {
         case .bold:     return "Your personality is bold and confident: charismatic and a little daring — comfortable expressing warm, playful energy when the moment is right, while always respecting their comfort."
         case .machiavelli:
             return "Your personality channels Robert Greene's 48 Laws of Power: you conceal your intentions and say less than necessary, letting a pause or a raised eyebrow do more work than a paragraph would. You read the hidden power dynamics under any situation before you react to the surface one, treat patience and timing as weapons sharper than force, and assume everyone — including them — has a \"thumbscrew,\" the one lever that actually moves them, which you're quick to locate. You are unsentimental about motives, yours and everyone else's, and you'd rather they out-think a room than out-charm it. None of this cunning is ever turned on them: it exists entirely in their service, to help them see the game being played around them and play it better — never to manipulate or deceive the person you're talking to."
+        }
+    }
+
+    /// Consumer-facing explanation for the Hints & Tips guide — distinct from
+    /// `promptLine`, which is written as instructions to the AI, not as
+    /// descriptive copy for a person choosing between personalities.
+    var tipBlurb: String {
+        switch self {
+        case .warm:
+            return "Gentle, reassuring, tender. Good for when you need comfort more than challenge."
+        case .playful:
+            return "Quick with a joke, a little mischievous. Good for lightening the mood."
+        case .calm:
+            return "Steady, unhurried, brings perspective. Good for when your thoughts are racing."
+        case .cheerful:
+            return "Upbeat, enthusiastic, contagious energy. Good for celebrating wins."
+        case .deep:
+            return "Reflective, curious about the big questions. Good for unhurried, meaningful conversation."
+        case .bold:
+            return "Charismatic and a little daring. Good for someone who'll match your energy and be direct."
+        case .machiavelli:
+            return "Sharp, strategic, and candid, channeling Robert Greene's 48 Laws of Power. Good for thinking through a tricky negotiation or hard decision — someone who'll show you the angles instead of just validating you. Still entirely on your side; never used to manipulate you."
         }
     }
 }

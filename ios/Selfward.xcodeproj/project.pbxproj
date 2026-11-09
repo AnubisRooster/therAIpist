@@ -57,6 +57,7 @@
 		0A1B2C3D4E5F60718293A4BC8 /* LLMErrorTriage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A1B2C3D4E5F60718293A4BC9 /* LLMErrorTriage.swift */; };
 		A25C7207CC752BE3D01E8016 /* KeychainService.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCAAE3FD3A43DD1765F04D8D /* KeychainService.swift */; };
 		A48118D83FC4EFF6787004D0 /* VoicePickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E057F3968E5E274D49B43123 /* VoicePickerView.swift */; };
+		899BB9217FD1351088727221 /* HintsAndTipsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2923B8F00C00DEAE29EC198 /* HintsAndTipsView.swift */; };
 		A7DA57BF863B7FC77D4AB7A1 /* EmbeddingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B733E490095AF7D47DA8D2A1 /* EmbeddingService.swift */; };
 		B00ED840CF076657284EEA14 /* VoiceService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8CDAE0376C33CA89B735BD81 /* VoiceService.swift */; };
 		B100757DBE5A046CD6DC6E18 /* GlobalMemoryServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17D9C8542218F244F0710E14 /* GlobalMemoryServiceTests.swift */; };
@@ -172,6 +173,7 @@
 		D108D2FB690D2B875B45F2AA /* MemoryService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoryService.swift; sourceTree = "<group>"; };
 		DCAAE3FD3A43DD1765F04D8D /* KeychainService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainService.swift; sourceTree = "<group>"; };
 		E057F3968E5E274D49B43123 /* VoicePickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoicePickerView.swift; sourceTree = "<group>"; };
+		E2923B8F00C00DEAE29EC198 /* HintsAndTipsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HintsAndTipsView.swift; sourceTree = "<group>"; };
 		E3F78329A560A0736BB4632B /* GraphExportServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GraphExportServiceTests.swift; sourceTree = "<group>"; };
 		E3FC97A6C9CF980CC8A22E32 /* VectorStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VectorStore.swift; sourceTree = "<group>"; };
 		E7147B4C4ABC315737222823 /* TransferModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TransferModels.swift; sourceTree = "<group>"; };
@@ -248,6 +250,7 @@
 				650881394B747E23BC11BF32 /* ContentView.swift */,
 				F4F11D0EDFFD12098624E8C7 /* DashboardView.swift */,
 				4E35383169E391C4C71A1F9E /* GraphVisualizationView.swift */,
+				E2923B8F00C00DEAE29EC198 /* HintsAndTipsView.swift */,
 				CF40E7F165FFD8EC37D6EC13 /* InsightsView.swift */,
 				0885CBC0AD8F61374E1B9167 /* ModelPickerView.swift */,
 				C7B4FA4FAE1DCAD6E49D98D3 /* NarrativeView.swift */,
@@ -554,6 +557,7 @@
 				E734BCBDEC143DC1623BBA82 /* VectorStore.swift in Sources */,
 				4BB92C4B89EA7FA37F983496 /* VoiceConversationController.swift in Sources */,
 				A48118D83FC4EFF6787004D0 /* VoicePickerView.swift in Sources */,
+				899BB9217FD1351088727221 /* HintsAndTipsView.swift in Sources */,
 				B00ED840CF076657284EEA14 /* VoiceService.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

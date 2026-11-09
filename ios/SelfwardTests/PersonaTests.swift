@@ -91,6 +91,12 @@ final class PersonaTests: XCTestCase {
         XCTAssertTrue(traits.contains("never to manipulate or deceive"))
     }
 
+    func testAllCompanionPersonalitiesHaveNonEmptyTipBlurbs() {
+        for p in CompanionPersonality.allCases {
+            XCTAssertFalse(p.tipBlurb.isEmpty, "\(p.rawValue) should have a tipBlurb")
+        }
+    }
+
     func testResolvedCompanionCarriesTraitsAndTherapistDoesNot() {
         let d = TestSupport.ephemeralDefaults()
         d.set(CompanionPersonality.bold.rawValue, forKey: "companion_personality")

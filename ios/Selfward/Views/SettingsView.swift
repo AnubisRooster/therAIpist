@@ -69,8 +69,27 @@ struct SettingsView: View {
         )
     }
 
+    // Factored out of `body`: adding this inline pushed the surrounding
+    // `Form`'s already-large modifier chain over the Swift type-checker's
+    // single-expression complexity limit ("unable to type-check this
+    // expression in reasonable time"). A separate @ViewBuilder property
+    // keeps this addition's inference out of that one giant solve.
+    @ViewBuilder
+    private var hintsAndTipsSection: some View {
+        Section {
+            NavigationLink {
+                HintsAndTipsView()
+                    .environmentObject(localModelService)
+            } label: {
+                Label("Hints & Tips Guide", systemImage: "lightbulb")
+            }
+        }
+    }
+
     var body: some View {
         Form {
+            hintsAndTipsSection
+
             Section("AI & Models") {
                 NavigationLink {
                     KeysAndProvidersSettingsView()
