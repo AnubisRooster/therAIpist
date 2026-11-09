@@ -1,7 +1,7 @@
-# Graph Report - therAIpist  (2026-11-02)
+# Graph Report - therAIpist  (2026-11-09)
 
 ## Corpus Check
-- 221 files · ~344,404 words
+- 221 files · ~347,564 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 10 file(s) not represented in the graph (top: (none) 2, .ini 1, .jsonl 1)
 
